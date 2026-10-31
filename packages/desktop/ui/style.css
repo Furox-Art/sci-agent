@@ -4,7 +4,7 @@
   --line: #262a36;
   --txt: #e6e8ef;
   --dim: #8b90a0;
-  --acc: #6c8cff;
+  --acc: #3ddc97;
   --err: #ff6b6b;
   --ok: #4cc38a;
 }
@@ -74,7 +74,7 @@ main {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.msg.user { align-self: flex-end; background: #243052; }
+.msg.user { align-self: flex-end; background: #1f3b2e; }
 .msg.assistant { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); }
 
 .reasoning {
