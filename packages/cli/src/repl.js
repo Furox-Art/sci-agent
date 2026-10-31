@@ -1,0 +1,107 @@
+import readline from 'node:readline';
+import path from 'node:path';
+import { loadConfig, createProvider, ToolRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+
+const dim = (s) => `\x1b[2m${s}\x1b[0m`;
+const cyan = (s) => `\x1b[36m${s}\x1b[0m`;
+const red = (s) => `\x1b[31m${s}\x1b[0m`;
+const bold = (s) => `\x1b[1m${s}\x1b[0m`;
+const trunc = (s, n = 400) => (String(s).length > n ? `${String(s).slice(0, n)}…` : String(s));
+
+const HELP = [
+  'Komutlar:',
+  '  /help   yardım          /model  model bilgisi',
+  '  /tools  araç listesi    /clear  sohbeti temizle',
+  '  /exit   çıkış',
+].join('\n');
+
+export async function startRepl(argv = []) {
+  const wi = argv.indexOf('--workspace');
+  const workspace = wi !== -1 && argv[wi + 1] ? path.resolve(argv[wi + 1]) : process.cwd();
+  process.chdir(workspace);
+
+  const cfg = loadConfig(workspace);
+  const messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
+
+  const registry = new ToolRegistry({
+    workspaceRoot: cfg.agent.workspaceRoot,
+    autoApprove: cfg.policies.autoApprove,
+    approve: async (name, args) => {
+      const a = await ask(`\n${bold('[Onay]')} ${name} ${trunc(JSON.stringify(args), 200)} (e/h) `);
+      return /^e(vet)?$/i.test(a.trim());
+    },
+  });
+
+  const printEvent = (ev) => {
+    if (ev.type === 'reasoning') console.log(dim(`🧠 ${trunc(ev.text, 600)}`));
+    else if (ev.type === 'text') console.log(ev.text);
+    else if (ev.type === 'tool_call') console.log(cyan(`\n→ ${ev.name} ${trunc(JSON.stringify(ev.args), 300)}`));
+    else if (ev.type === 'tool_result') console.log(ev.ok ? dim(`← ${trunc(ev.output, 500)}`) : red(`← ${trunc(ev.output, 500)}`));
+    else if (ev.type === 'error') console.log(red(`Hata: ${ev.text}`));
+  };
+
+  async function handle(input) {
+    messages.push({ role: 'user', content: input });
+    try {
+      const provider = createProvider(cfg.model);
+      await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent });
+    } catch (e) {
+      console.log(red(`Hata: ${e.message}`));
+    }
+  }
+
+  console.log(bold('SciAgent v0.1 — bilimsel kodlama ajanı'));
+  console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
+  console.log(`Çalışma alanı: ${cfg.agent.workspaceRoot} | Araçlar: ${registry.tools.length}`);
+  console.log(dim(HELP));
+
+  const once = argv.indexOf('--prompt');
+  if (once !== -1 && argv[once + 1]) {
+    await handle(argv[once + 1]);
+    rl.close();
+    return;
+  }
+
+  let busy = false;
+  rl.setPrompt('sci> ');
+  rl.prompt();
+  rl.on('line', async (line) => {
+    const input = line.trim();
+    if (!input) {
+      rl.prompt();
+      return;
+    }
+    if (busy) {
+      console.log(dim('(önceki görev sürüyor; bekleyin)'));
+      return;
+    }
+    busy = true;
+    try {
+      if (input === '/exit') {
+        rl.close();
+        return;
+      }
+      if (input === '/help') console.log(HELP);
+      else if (input === '/model') {
+        console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(atanmış)' : '' }, null, 2));
+      } else if (input === '/tools') {
+        console.log(registry.list().map((t) => `${t.name}${t.needsApproval ? ' (onay ister)' : ''} — ${t.description}`).join('\n'));
+      } else if (input === '/clear') {
+        messages.splice(1);
+        console.log(dim('Sohbet temizlendi.'));
+      } else {
+        await handle(input);
+      }
+    } finally {
+      busy = false;
+      if (input !== '/exit') rl.prompt();
+    }
+  });
+  rl.on('close', () => {
+    console.log(dim('Görüşürüz.'));
+    process.exit(0);
+  });
+}

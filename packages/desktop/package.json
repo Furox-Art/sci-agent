@@ -1,0 +1,16 @@
+{
+  "name": "@sci/desktop",
+  "version": "0.1.0",
+  "description": "SciAgent masaüstü uygulaması (Electron) ve yerel sunucu",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@sci/core": "*"
+  },
+  "devDependencies": {
+    "electron": "^45.2.1"
+  }
+}

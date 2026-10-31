@@ -1,0 +1,8 @@
+{
+  "name": "@sci/cli",
+  "version": "0.1.0",
+  "description": "SciAgent terminal arayüzü",
+  "type": "module",
+  "bin": { "sci-agent": "bin/sci-agent.js" },
+  "dependencies": { "@sci/core": "*" }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "sci-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model-bağımsız bilimsel kodlama ajanı: çekirdek motor + CLI + masaüstü arayüz",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "cli": "node packages/cli/bin/sci-agent.js",
+    "server": "node packages/desktop/server.js",
+    "desktop": "npm run start --workspace packages/desktop"
+  }
+}

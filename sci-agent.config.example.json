@@ -1,0 +1,11 @@
+{
+  "model": {
+    "provider": "openai-compatible",
+    "baseUrl": "http://localhost:11434/v1",
+    "apiKey": "",
+    "name": "bilimsel-model",
+    "temperature": 0.2
+  },
+  "agent": { "maxSteps": 25, "workspaceRoot": "." },
+  "policies": { "autoApprove": ["read_file", "list_dir", "search_files"] }
+}

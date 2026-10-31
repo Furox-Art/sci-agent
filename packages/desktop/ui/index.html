@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SciAgent — Bilimsel Kodlama Ajanı</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">bilimsel kodlama ajanı</span></div>
+    <div class="head-actions">
+      <span id="model-badge" class="badge">yükleniyor…</span>
+      <button id="btn-clear" class="ghost">Temizle</button>
+      <button id="btn-settings" class="ghost">Ayarlar</button>
+    </div>
+  </header>
+
+  <main id="chat"></main>
+  <div id="status" class="status hidden"></div>
+
+  <footer>
+    <textarea id="input" rows="1" placeholder="Görevini yaz… (Enter: gönder, Shift+Enter: yeni satır)"></textarea>
+    <button id="btn-send">Gönder</button>
+  </footer>
+
+  <div id="settings" class="modal hidden">
+    <div class="modal-card">
+      <h2>Model Ayarları</h2>
+      <label>Sağlayıcı
+        <select id="s-provider">
+          <option value="openai-compatible">OpenAI uyumlu API</option>
+          <option value="mock">Mock (test)</option>
+        </select>
+      </label>
+      <label>API adresi (OpenAI uyumlu)
+        <input id="s-baseurl" type="text" placeholder="http://localhost:11434/v1" />
+      </label>
+      <label>Model adı
+        <input id="s-name" type="text" placeholder="bilimsel-model" />
+      </label>
+      <label>API anahtarı (boş bırakılırsa değişmez)
+        <input id="s-key" type="password" placeholder="••••••" />
+      </label>
+      <div class="modal-actions">
+        <button id="s-cancel" class="ghost">Vazgeç</button>
+        <button id="s-save">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
