@@ -192,7 +192,7 @@ export async function startRepl(argv = []) {
     console.log();
   }
 
-  console.log(bold('SciAgent v0.1 — bilimsel kodlama ajanı'));
+  console.log(bold('SciAgent v0.7 — bilimsel kodlama ajanı'));
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
   console.log(`Çalışma alanı: ${cfg.agent.workspaceRoot} | Araçlar: ${registry.tools.length}`);
   console.log(dim(HELP));
