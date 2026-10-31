@@ -479,3 +479,57 @@ textarea:focus { outline: 1px solid var(--blue); }
 }
 .chart-norm input { accent-color: var(--blue); }
 .test-row { display: flex; align-items: center; gap: 8px; }
+
+/* ===== OTURUMLAR (sol menü) ===== */
+.side-sessions { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.ss-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 0 8px 6px;
+}
+.ss-head button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--txt);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  padding: 0;
+  line-height: 1;
+  font-size: 14px;
+}
+.ss-item {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--txt);
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-item:hover { background: var(--panel); }
+.ss-item.active { color: var(--blue); background: rgba(22, 119, 255, 0.12); }
+.ss-item .ss-del { float: right; color: var(--dim); background: none; border: 0; padding: 0 2px; }
+.ss-item .ss-del:hover { color: var(--err); }
+
+/* Onay kartında hatırlama kutusu */
+.approval .remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+.approval .remember input { accent-color: var(--turquoise); }

@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -26,16 +26,60 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     messages: [{ role: 'system', content: buildSystemPrompt(cfg) }],
   };
 
-  // Sohbet geçmişi kalıcılığı (çalışma alanında, git'e girmez)
-  const historyFile = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
-  try {
-    const saved = JSON.parse(readFileSync(historyFile, 'utf8'));
-    if (Array.isArray(saved) && saved.length) state.messages = saved;
-  } catch {}
-  const saveHistory = () => {
+  // Oturum kalıcılığı: her oturum .sci-agent-sessions/<id>.json (CLI ile paylaşımlı, git'e girmez)
+  const sessionsDir = path.join(cfg.agent.workspaceRoot, '.sci-agent-sessions');
+  mkdirSync(sessionsDir, { recursive: true });
+  const legacy = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
+  const readSession = (id) => {
     try {
-      writeFileSync(historyFile, JSON.stringify(state.messages));
+      const d = JSON.parse(readFileSync(path.join(sessionsDir, `${id}.json`), 'utf8'));
+      return Array.isArray(d.messages) ? d : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeSession = (id, title, messages) => {
+    try {
+      writeFileSync(path.join(sessionsDir, `${id}.json`), JSON.stringify({ id, title, updatedAt: new Date().toISOString(), messages }));
     } catch {}
+  };
+  const listSessions = () => {
+    try {
+      return readdirSync(sessionsDir)
+        .filter((f) => f.endsWith('.json'))
+        .map((f) => {
+          try {
+            return JSON.parse(readFileSync(path.join(sessionsDir, f), 'utf8'));
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
+    } catch {
+      return [];
+    }
+  };
+  // Geçiş: eski .sci-agent-history.json → "varsayılan" oturumu
+  if (!listSessions().length && existsSync(legacy)) {
+    try {
+      const msgs = JSON.parse(readFileSync(legacy, 'utf8'));
+      if (Array.isArray(msgs)) writeSession('default', 'varsayılan', msgs);
+    } catch {}
+  }
+  const first = listSessions()[0];
+  if (first?.messages) state.messages = first.messages;
+  state.sessionId = first?.id ?? 'default';
+  state.sessionTitle = first?.title ?? 'varsayılan';
+  if (!first) writeSession(state.sessionId, state.sessionTitle, state.messages);
+  const saveActive = () => writeSession(state.sessionId, state.sessionTitle, state.messages);
+  const setActive = (id) => {
+    const s = readSession(id);
+    if (!s) return false;
+    state.sessionId = s.id;
+    state.sessionTitle = s.title;
+    state.messages = s.messages;
+    return true;
   };
 
   const emit = (ev) => {
@@ -91,6 +135,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
 
       if (url.pathname === '/api/clear' && req.method === 'POST') {
         state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
+        saveActive();
         return json(res, { ok: true });
       }
 
@@ -99,8 +144,56 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         const resolve = state.pending.get(b.id);
         if (!resolve) return json(res, { ok: false, error: 'Bekleyen onay yok' }, 404);
         state.pending.delete(b.id);
+        // "Bu oturumda bu araca izin ver": araç bu çalışmada bir daha onay sormaz.
+        if (b.remember && b.approved && typeof b.tool === 'string' && !registry.autoApprove.includes(b.tool)) {
+          registry.autoApprove.push(b.tool);
+        }
         resolve(Boolean(b.approved));
         emit({ type: 'approval_result', id: b.id, approved: Boolean(b.approved) });
+        return json(res, { ok: true });
+      }
+
+      if (url.pathname === '/api/sessions' && req.method === 'GET') {
+        return json(res, {
+          active: state.sessionId,
+          sessions: listSessions().map(({ id, title, updatedAt }) => ({ id, title, updatedAt })),
+        });
+      }
+
+      if (url.pathname === '/api/sessions' && req.method === 'POST') {
+        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum değiştirilemez' }, 409);
+        const b = await readBody(req).catch(() => ({}));
+        const id = crypto.randomUUID();
+        const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim() : 'yeni oturum';
+        state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
+        state.sessionId = id;
+        state.sessionTitle = title;
+        writeSession(id, title, state.messages);
+        return json(res, { ok: true, id, title });
+      }
+
+      if (url.pathname === '/api/sessions/switch' && req.method === 'POST') {
+        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum değiştirilemez' }, 409);
+        const b = await readBody(req);
+        if (!setActive(String(b.id ?? ''))) return json(res, { error: 'Oturum bulunamadı' }, 404);
+        return json(res, { ok: true, id: state.sessionId, title: state.sessionTitle });
+      }
+
+      if (url.pathname === '/api/sessions/delete' && req.method === 'POST') {
+        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum silinemez' }, 409);
+        const b = await readBody(req);
+        const file = path.join(sessionsDir, `${String(b.id ?? '')}.json`);
+        if (existsSync(file)) unlinkSync(file);
+        if (state.sessionId === b.id) {
+          const rest = listSessions();
+          if (rest.length) setActive(rest[0].id);
+          else {
+            state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
+            state.sessionId = crypto.randomUUID();
+            state.sessionTitle = 'yeni oturum';
+            writeSession(state.sessionId, state.sessionTitle, state.messages);
+          }
+        }
         return json(res, { ok: true });
       }
 
@@ -162,6 +255,10 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
 
         emit({ type: 'start' });
         state.messages.push({ role: 'user', content: message });
+        // İlk mesaj oturum başlığı olur.
+        if (state.sessionTitle === 'yeni oturum' || !state.sessionTitle) {
+          state.sessionTitle = message.slice(0, 40);
+        }
         try {
           const provider = createProvider(cfg.model);
           // eq-layer yönlendirmesi: model çağrısından önce niyet/duygu politikası çıkar;
@@ -182,7 +279,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         } finally {
           state.busy = false;
           state.res = null;
-          saveHistory();
+          saveActive();
           res.end();
         }
         return;

@@ -5,6 +5,7 @@ let lastTool = null;
 const toolBlocks = new Map(); // araç çağrı id'si → <details> (paralel yürütmede doğru eşleme)
 let agentRuns = []; // bu oturumdaki alt-ajan görevleri
 let agentsInfoLoaded = false;
+let lastUserText = '';
 
 // Akıllı kaydırma: kullanıcı yukarı bakıyorsa zorla aşağı çekme
 const nearBottom = () => chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 140;
@@ -81,19 +82,29 @@ function approvalCard({ id, name, args }) {
   row.className = 'row';
   const yes = document.createElement('button');
   yes.textContent = 'Onayla';
+  yes.className = 'turquoise';
   const no = document.createElement('button');
   no.textContent = 'Reddet';
   no.className = 'ghost';
   row.append(yes, no);
-  card.append(p, pre, row);
+  const remember = document.createElement('label');
+  remember.className = 'remember';
+  const rbox = document.createElement('input');
+  rbox.type = 'checkbox';
+  remember.append(rbox, document.createTextNode('Bu oturumda bu araca izin ver'));
+  card.append(p, pre, row, remember);
   chatEl.appendChild(card);
   if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   const decide = async (approved) => {
     yes.disabled = true;
     no.disabled = true;
+    rbox.disabled = true;
     card.classList.add(approved ? 'ok' : 'no');
     try {
-      await api('/api/approve', { method: 'POST', body: JSON.stringify({ id, approved }) });
+      await api('/api/approve', {
+        method: 'POST',
+        body: JSON.stringify({ id, approved, remember: rbox.checked, tool: name }),
+      });
     } catch (e) {
       console.error(e);
     }
@@ -206,7 +217,20 @@ function handleEvent(ev) {
       btn.className = 'turquoise';
       btn.textContent = 'Ayarları Aç';
       btn.onclick = () => $('#settings').classList.remove('hidden');
-      b.append(t, d, hint, btn);
+      const retry = document.createElement('button');
+      retry.className = 'ghost';
+      retry.textContent = 'Yeniden Dene';
+      retry.style.marginLeft = '8px';
+      retry.onclick = () => {
+        const lastUser = [...chatEl.querySelectorAll('.msg.user .txt')].at(-1)?.textContent ?? lastUserText;
+        $('#input').value = lastUser ?? '';
+        send();
+      };
+      const row = document.createElement('div');
+      row.style.marginTop = '10px';
+      row.style.display = 'flex';
+      row.append(btn, retry);
+      b.append(t, d, hint, row);
     } else {
       addText(b, `⚠ ${ev.text}`);
     }
@@ -222,6 +246,7 @@ async function send() {
   const input = $('#input');
   const text = input.value.trim();
   if (!text) return;
+  lastUserText = text;
   $('#empty')?.remove();
   input.value = '';
   busy = true;
@@ -262,6 +287,7 @@ async function send() {
     busy = false;
     $('#btn-send').disabled = false;
     setStatus('');
+    loadSessions();
     input.focus();
   }
 }
@@ -596,6 +622,67 @@ $('#chart-path').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loadChart();
 });
 
+// ===== Oturumlar (sol menü) =====
+function resetChatDom() {
+  chatEl.innerHTML = '';
+  lastTool = null;
+  toolBlocks.clear();
+  resetStream();
+  agentRuns = [];
+}
+
+async function loadSessions() {
+  try {
+    renderSessions(await api('/api/sessions'));
+  } catch {}
+}
+
+function renderSessions(s) {
+  const list = $('#ss-list');
+  list.innerHTML = '';
+  for (const sess of s.sessions) {
+    const item = document.createElement('div');
+    item.className = 'ss-item' + (sess.id === s.active ? ' active' : '');
+    item.title = sess.title;
+    const label = document.createElement('span');
+    label.textContent = sess.title || sess.id;
+    item.appendChild(label);
+    const del = document.createElement('button');
+    del.className = 'ss-del';
+    del.textContent = '×';
+    del.title = 'Oturumu sil';
+    del.onclick = async (e) => {
+      e.stopPropagation();
+      if (busy) return alert('Ajan çalışıyor; oturum silinemez.');
+      await api('/api/sessions/delete', { method: 'POST', body: JSON.stringify({ id: sess.id }) }).catch(() => {});
+      resetChatDom();
+      await restoreHistory();
+      renderEmpty();
+      loadSessions();
+    };
+    item.appendChild(del);
+    item.onclick = async () => {
+      if (busy) return alert('Ajan çalışıyor; oturum değiştirilemez.');
+      if (sess.id === s.active) return;
+      await api('/api/sessions/switch', { method: 'POST', body: JSON.stringify({ id: sess.id }) }).catch(() => {});
+      resetChatDom();
+      await restoreHistory();
+      renderEmpty();
+      loadSessions();
+    };
+    list.appendChild(item);
+  }
+}
+
+$('#ss-new').onclick = async () => {
+  if (busy) return alert('Ajan çalışıyor; yeni oturum açılamaz.');
+  await api('/api/sessions', { method: 'POST', body: JSON.stringify({}) }).catch(() => {});
+  resetChatDom();
+  renderEmpty();
+  loadSessions();
+};
+
+loadSessions();
 renderEmpty();
 loadConfig()
   .then(() => restoreHistory())

@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 import path from 'node:path';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
@@ -25,20 +25,45 @@ export async function startRepl(argv = []) {
   const cfg = loadConfig(workspace);
   const messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
 
-  // Paylaşılan sohbet geçmişi (masaüstü uygulamasıyla aynı dosya)
-  const historyFile = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
+  // Paylaşılan oturum geçmişi (masaüstüyle aynı depo): en güncel oturum dosyası
+  const sessionsDir = path.join(cfg.agent.workspaceRoot, '.sci-agent-sessions');
+  let sessionFile = null;
+  let sessionTitle = 'varsayılan';
   let loadedMsgs = 0;
   try {
-    const saved = JSON.parse(readFileSync(historyFile, 'utf8'));
-    if (Array.isArray(saved) && saved.length) {
+    const sorted = readdirSync(sessionsDir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => {
+        try {
+          const d = JSON.parse(readFileSync(path.join(sessionsDir, f), 'utf8'));
+          return { f, updatedAt: String(d.updatedAt ?? ''), title: String(d.title ?? 'varsayılan'), messages: d.messages };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    if (sorted.length && Array.isArray(sorted[0].messages) && sorted[0].messages.length) {
+      sessionFile = path.join(sessionsDir, sorted[0].f);
+      sessionTitle = sorted[0].title;
       messages.length = 0;
-      messages.push(...saved);
-      loadedMsgs = saved.length;
+      messages.push(...sorted[0].messages);
+      loadedMsgs = sorted[0].messages.length;
     }
   } catch {}
   const saveHistory = () => {
     try {
-      writeFileSync(historyFile, JSON.stringify(messages));
+      if (sessionFile) {
+        writeFileSync(
+          sessionFile,
+          JSON.stringify({ id: path.basename(sessionFile, '.json'), title: sessionTitle, updatedAt: new Date().toISOString(), messages }),
+        );
+      } else {
+        writeFileSync(
+          path.join(sessionsDir, 'default.json'),
+          JSON.stringify({ id: 'default', title: sessionTitle, updatedAt: new Date().toISOString(), messages }),
+        );
+      }
     } catch {}
   };
 

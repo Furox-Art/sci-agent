@@ -4,3 +4,4 @@ node_modules/
 dist/
 sci-agent.config.json
 .sci-agent-history.json
+.sci-agent-sessions/
