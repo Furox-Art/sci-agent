@@ -738,6 +738,10 @@ function renderChart() {
     };
     legend.appendChild(item);
   });
+  const cnt = document.createElement('span');
+  cnt.className = 'lg-count';
+  cnt.textContent = `${all.length} seri`;
+  legend.appendChild(cnt);
 
   if (!names.length) {
     box.innerHTML = '<p class="lead">Tüm seriler gizli — göstermek için lejanta tıkla.</p>';
@@ -827,8 +831,9 @@ function renderSessions(s) {
   for (const sess of s.sessions) {
     const item = document.createElement('div');
     item.className = 'ss-item' + (sess.id === s.active ? ' active' : '');
-    item.title = sess.title;
+    item.title = `${sess.title} — ${sess.count ?? 0} mesaj`;
     const label = document.createElement('span');
+    label.className = 'ss-label';
     label.textContent = sess.title || sess.id;
     item.appendChild(label);
     const del = document.createElement('button');

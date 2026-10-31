@@ -165,7 +165,12 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/sessions' && req.method === 'GET') {
         return json(res, {
           active: state.sessionId,
-          sessions: listSessions().map(({ id, title, updatedAt }) => ({ id, title, updatedAt })),
+          sessions: listSessions().map(({ id, title, updatedAt, messages }) => ({
+            id,
+            title,
+            updatedAt,
+            count: Array.isArray(messages) ? Math.max(0, messages.length - 1) : 0,
+          })),
         });
       }
 

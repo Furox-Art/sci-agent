@@ -324,7 +324,10 @@ export async function startRepl(argv = []) {
           }
         } else {
           console.log(bold('Oturumlar — /sessions <no> (geç) · /sessions del <no> (sil) · /sessions ren <no> <başlık>'));
-          files.forEach((f, i) => console.log(`  ${i + 1}. ${f.title} ${dim(f.date)}${f.path === sessionFile ? cyan(' ← güncel') : ''}`));
+          files.forEach((f, i) => {
+            const count = Array.isArray(f.messages) ? Math.max(0, f.messages.length - 1) : 0;
+            console.log(`  ${i + 1}. ${f.title} ${dim(`${count} mesaj · ${f.date}`)}${f.path === sessionFile ? cyan(' ← güncel') : ''}`);
+          });
         }
       } else if (input === '/save') {
         const lines = ['# SciAgent Sohbeti', '', new Date().toLocaleString('tr-TR'), ''];
