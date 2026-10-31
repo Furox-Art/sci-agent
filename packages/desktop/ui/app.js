@@ -3,6 +3,7 @@ const chatEl = $('#chat');
 let busy = false;
 let lastTool = null;
 const toolBlocks = new Map(); // araç çağrı id'si → <details> (paralel yürütmede doğru eşleme)
+const approvalCards = new Map(); // onay id'si → kart (zaman aşımı bildirimi için)
 let agentRuns = []; // bu oturumdaki alt-ajan görevleri
 let agentsInfoLoaded = false;
 let lastUserText = '';
@@ -104,6 +105,7 @@ function approvalCard({ id, name, args }) {
   remember.append(rbox, document.createTextNode('Bu oturumda bu araca izin ver'));
   card.append(p, pre, row, remember);
   chatEl.appendChild(card);
+  approvalCards.set(id, { card, yes, no });
   if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   const decide = async (approved) => {
     yes.disabled = true;
@@ -208,6 +210,22 @@ function handleEvent(ev) {
   } else if (ev.type === 'approval_request') {
     resetStream();
     approvalCard(ev);
+  } else if (ev.type === 'approval_result') {
+    // Sunucu tarafı sonuç (ör. 5 dk zaman aşımı) — kart hâlâ bekliyorsa kapat.
+    const c = approvalCards.get(ev.id);
+    if (c && !c.yes.disabled) {
+      c.yes.disabled = true;
+      c.no.disabled = true;
+      c.card.classList.add(ev.approved ? 'ok' : 'no');
+      if (ev.timeout) {
+        const note = document.createElement('div');
+        note.className = 'a-state';
+        note.style.color = 'var(--err)';
+        note.textContent = '⏱ 5 dakika içinde onaylanmadı — otomatik reddedildi.';
+        c.card.appendChild(note);
+      }
+    }
+    approvalCards.delete(ev.id);
   } else if (ev.type === 'error') {
     resetStream();
     const b = bubble('assistant');

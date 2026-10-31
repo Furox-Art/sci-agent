@@ -189,6 +189,7 @@ export async function startRepl(argv = []) {
       console.log(red(`Hata: ${e.message}`));
     }
     saveHistory();
+    console.log();
   }
 
   console.log(bold('SciAgent v0.1 — bilimsel kodlama ajanı'));
@@ -227,7 +228,12 @@ export async function startRepl(argv = []) {
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(atanmış)' : '' }, null, 2));
       } else if (input === '/tools') {
-        console.log(registry.list().map((t) => `${t.name}${t.needsApproval ? ' (onay ister)' : ''} — ${t.description}`).join('\n'));
+        console.log(
+          registry
+            .list()
+            .map((t) => `${t.name === 'task' ? cyan(t.name) : t.name}${t.needsApproval ? dim(' (onay ister)') : ''} — ${t.description}`)
+            .join('\n'),
+        );
       } else if (input.startsWith('/sessions')) {
         const arg = input.split(/\s+/)[1];
         const files = listSessionFiles();

@@ -72,7 +72,7 @@ npm run desktop    # Electron penceresi
 npm test           # otomatik testler
 ```
 
-CLI komutları: `/help`, `/model`, `/tools`, `/clear`, `/exit`.
+CLI komutları: `/help`, `/model`, `/tools`, `/sessions [no]`, `/save`, `/test`, `/clear`, `/exit`.
 Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 
 ## Araçlar

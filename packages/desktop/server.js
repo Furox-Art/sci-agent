@@ -101,6 +101,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         setTimeout(() => {
           if (state.pending.has(id)) {
             state.pending.delete(id);
+            emit({ type: 'approval_result', id, approved: false, timeout: true });
             resolve(false);
           }
         }, 5 * 60_000).unref();
