@@ -1,20 +1,27 @@
 import { read_file, write_file, edit_file, list_dir, search_files } from './fs-tools.js';
 import { run_command } from './shell-tool.js';
+import { task } from './task-tool.js';
 
-export const defaultTools = [read_file, write_file, edit_file, list_dir, search_files, run_command];
+export const defaultTools = [read_file, write_file, edit_file, list_dir, search_files, run_command, task];
 
 const MAX_OUTPUT = 16_000;
 
 /**
  * Araç kaydı: şemaları sağlar, onay politikasını uygular, araçları çalıştırır.
  * approve: async (araçAdı, argümanlar) => boolean
+ * invoke'a verilen extraCtx, araç execute bağlamıyla birleştirilir (ör. provider, onEvent).
  */
 export class ToolRegistry {
-  constructor({ tools = defaultTools, workspaceRoot, approve, autoApprove = [] } = {}) {
+  constructor({ tools = defaultTools, workspaceRoot, approve, autoApprove = [], cfg } = {}) {
     this.tools = tools;
     this.workspaceRoot = workspaceRoot;
     this.approve = approve ?? (async () => true);
     this.autoApprove = autoApprove;
+    this.cfg = cfg;
+  }
+
+  get(name) {
+    return this.tools.find((t) => t.name === name) ?? null;
   }
 
   list() {
@@ -33,7 +40,7 @@ export class ToolRegistry {
     return Boolean(declared) && !this.autoApprove.includes(name);
   }
 
-  async invoke(name, args = {}) {
+  async invoke(name, args = {}, extraCtx = {}) {
     const tool = this.tools.find((t) => t.name === name);
     if (!tool) return { ok: false, output: `Bilinmeyen araç: ${name}` };
     if (this._needs(name, tool.needsApproval)) {
@@ -46,7 +53,8 @@ export class ToolRegistry {
       if (!ok) return { ok: false, output: 'Kullanıcı onayı verilmedi; işlem yapılmadı.' };
     }
     try {
-      const output = await tool.execute(args, { workspaceRoot: this.workspaceRoot });
+      const ctx = { workspaceRoot: this.workspaceRoot, cfg: this.cfg, approve: this.approve, ...extraCtx };
+      const output = await tool.execute(args, ctx);
       return { ok: true, output: String(output).slice(0, MAX_OUTPUT) };
     } catch (e) {
       return { ok: false, output: `Hata: ${e.message}` };

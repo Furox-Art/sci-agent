@@ -15,8 +15,10 @@ sci-agent/
 
 - **Model-bağımsız:** Herhangi bir OpenAI uyumlu uç nokta (vLLM, Ollama, HF TGI, LM Studio, bulut API'leri…).
 - **Ajan döngüsü:** Model → araç çağrısı → sonuç → model … (adım sınırıyla).
+- **Paralel alt-ajanlar:** Model aynı adımda birden çok `task` çağrısı verirse alt ajanlar **eşzamanlı** yürütülür; her alt ajan kendi bağlamında çalışır, özetini ana ajana döndürür. Alt ajanlar iç içe `task` başlatamaz.
+- **Eklenti sistemi:** `packages/core/src/plugins.js` içindeki kancayla araç takımları ve sistem istemi eklemeleri yapılandırma değiştirmeden yüklenir (bkz. "Bilimsel model geldiğinde").
 - **Akışlı yanıtlar:** `model.stream` (varsayılan `true`) ile metin ve akıl yürütme deltaları canlı gösterilir; sunucu akışı reddederse bir kez akışsız denenir.
-- **Onay politikası:** `read_file`, `list_dir`, `search_files` otomatik; `write_file`, `edit_file` ve `run_command` varsayılan olarak **onay ister** (politika `sci-agent.config.json` ile değiştirilebilir).
+- **Onay politikası:** `read_file`, `list_dir`, `search_files`, `csv_stats` otomatik; `write_file`, `edit_file`, `run_command`, `python_eval` varsayılan olarak **onay ister** (politika `sci-agent.config.json` ile değiştirilebilir).
 - **Çalışma alanı sanal kutusu:** Araçlar yapılandırılan kökün dışına erişemez.
 
 ## Kurulum
@@ -73,14 +75,27 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 | `write_file` | evet | Dosya yazar/üzerine yazar |
 | `edit_file` | evet | Bul-değiştir ile dosya düzenler (çoklu eşleşme koruması) |
 | `run_command` | evet | Kabuk komutu çalıştırır |
+| `task` | hayır* | Alt ajan başlatır; aynı adımdakiler paralel yürür (*alt ajanın tehlikeli çağrıları yine onay ister) |
+| `python_eval` | evet | Python kodu çalıştırır (bilimsel hesaplama; Python kurulu olmalı) |
+| `csv_stats` | hayır | CSV sütunları için n/ortalama/ss/min/maks |
+
+## Bilimsel model geldiğinde
+
+Özel bilimsel modeliniz hazır olduğunda yapılacaklar kod değişikliği gerektirmez:
+
+1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
+2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
+
+Varsayılan `sci-tools` eklentisi bu kancanın çalışan örneğidir (python_eval, csv_stats + bilimsel davranış istemi).
 
 ## Yol haritası
 
 - [x] Akış (streaming) yanıt desteği
 - [x] Bul-değiştir düzenleme aracı (`edit_file`)
-- [ ] Python/bilimsel hesaplama aracı, web araması, literatür (Zotero) entegrasyonu
+- [x] Paralel alt-ajanlar (`task`) ve eklenti mimarisi (`sci-tools`)
+- [ ] Web araması, literatür (Zotero) entegrasyonu
 - [ ] Çoklu oturum ve proje geçmişi
 
 ## Durum
 
-v0.2 — akışlı yanıtlar ve `edit_file` eklendi; testler ve arayüz doğrulaması yapıldı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.3 — paralel alt-ajanlar ve bilimsel eklenti mimarisi eklendi; 21 test + tarayıcıda görsel doğrulama yapıldı. `python_eval` bu makinede Python kurulmadan sınanamadı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

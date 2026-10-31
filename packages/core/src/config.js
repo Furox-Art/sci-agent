@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG = {
     stream: true,
   },
   agent: { maxSteps: 25, workspaceRoot: '.' },
+  plugins: ['sci-tools'],
   policies: { autoApprove: ['read_file', 'list_dir', 'search_files'] },
 };
 

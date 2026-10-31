@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadConfig, createProvider, ToolRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UI_DIR = path.join(__dirname, 'ui');
@@ -32,9 +32,8 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     } catch {}
   };
 
-  const registry = new ToolRegistry({
-    workspaceRoot: cfg.agent.workspaceRoot,
-    autoApprove: cfg.policies.autoApprove,
+  const registry = createRegistry({
+    cfg,
     approve: (name, args) =>
       new Promise((resolve) => {
         const id = crypto.randomUUID();
@@ -49,6 +48,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         }, 5 * 60_000).unref();
       }),
   });
+
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');

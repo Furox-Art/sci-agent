@@ -2,6 +2,7 @@ const $ = (s) => document.querySelector(s);
 const chatEl = $('#chat');
 let busy = false;
 let lastTool = null;
+const toolBlocks = new Map(); // araç çağrı id'si → <details> (paralel yürütmede doğru eşleme)
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { 'content-type': 'application/json' }, ...opts });
@@ -27,7 +28,7 @@ function addText(target, text) {
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
-function toolBlock(name, args) {
+function toolBlock(id, name, args) {
   const det = document.createElement('details');
   det.className = 'tool';
   det.open = true;
@@ -38,16 +39,27 @@ function toolBlock(name, args) {
   pre.textContent = typeof args === 'string' ? args : JSON.stringify(args, null, 2);
   det.appendChild(pre);
   chatEl.appendChild(det);
+  if (id) toolBlocks.set(id, det);
+  lastTool = det;
   chatEl.scrollTop = chatEl.scrollHeight;
   return det;
 }
 
-function toolResult(ok, output) {
-  if (!lastTool) return;
+function toolResult(id, ok, output) {
+  const det = (id && toolBlocks.get(id)) || lastTool;
+  if (!det) return;
   const pre = document.createElement('pre');
   pre.className = ok ? 'out' : 'err';
   pre.textContent = output;
-  lastTool.appendChild(pre);
+  det.appendChild(pre);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function subNote(text) {
+  const d = document.createElement('div');
+  d.className = 'reasoning';
+  d.textContent = text;
+  chatEl.appendChild(d);
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
@@ -138,9 +150,24 @@ function handleEvent(ev) {
     chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'tool_call') {
     resetStream();
-    lastTool = toolBlock(ev.name, ev.args);
+    toolBlock(ev.id, ev.name, ev.args);
   } else if (ev.type === 'tool_result') {
-    toolResult(ev.ok, ev.output);
+    toolResult(ev.id, ev.ok, ev.output);
+  } else if (ev.type === 'task_start') {
+    subNote(`▶ Alt ajan başladı: ${ev.prompt}`);
+  } else if (ev.type === 'task_end') {
+    subNote(`■ Alt ajan bitti: ${ev.prompt}`);
+  } else if (ev.type === 'sub_event') {
+    const e = ev.ev ?? {};
+    const what =
+      e.type === 'tool_call'
+        ? `araç → ${e.name}`
+        : e.type === 'text'
+          ? e.text
+          : e.type === 'error'
+            ? `hata: ${e.text}`
+            : e.type;
+    subNote(`  ↳ ${ev.prompt} · ${what}`);
   } else if (ev.type === 'approval_request') {
     resetStream();
     approvalCard(ev);
@@ -163,6 +190,7 @@ async function send() {
   setStatus('Ajan çalışıyor…');
   addText(bubble('user'), text);
   lastTool = null;
+  toolBlocks.clear();
   resetStream();
   try {
     const r = await fetch('/api/chat', {

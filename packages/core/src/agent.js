@@ -30,11 +30,18 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     if (res.content && !res.streamed) onEvent({ type: 'text', text: res.content });
     if (!res.toolCalls?.length) return { done: true, steps: step + 1 };
 
-    for (const tc of res.toolCalls) {
+    const runOne = async (tc) => {
       onEvent({ type: 'tool_call', id: tc.id, name: tc.name, args: tc.arguments });
-      const result = await registry.invoke(tc.name, tc.arguments);
+      const result = await registry.invoke(tc.name, tc.arguments, { provider, onEvent, maxSteps });
       onEvent({ type: 'tool_result', id: tc.id, name: tc.name, ok: result.ok, output: result.output });
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result.output });
+    };
+    // Tüm çağrılar paralel-güvenli araçlara aitse aynı adımda eşzamanlı yürüt.
+    const parallel = res.toolCalls.length > 1 && res.toolCalls.every((tc) => registry.get(tc.name)?.parallel);
+    if (parallel) {
+      await Promise.all(res.toolCalls.map(runOne));
+    } else {
+      for (const tc of res.toolCalls) await runOne(tc);
     }
   }
   onEvent({ type: 'error', text: `Adım sınırı aşıldı (${maxSteps}); döngü durduruldu.` });

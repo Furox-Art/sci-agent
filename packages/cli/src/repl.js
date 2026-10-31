@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 import path from 'node:path';
-import { loadConfig, createProvider, ToolRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const cyan = (s) => `\x1b[36m${s}\x1b[0m`;
@@ -26,14 +26,18 @@ export async function startRepl(argv = []) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
 
-  const registry = new ToolRegistry({
-    workspaceRoot: cfg.agent.workspaceRoot,
-    autoApprove: cfg.policies.autoApprove,
-    approve: async (name, args) => {
+  // Onay istemleri sıraya alınır; paralel alt-ajanlar bile soruları üst üste binmeden sorar.
+  let approvalQueue = Promise.resolve();
+  const approveSerial = (name, args) => {
+    const run = approvalQueue.then(async () => {
       const a = await ask(`\n${bold('[Onay]')} ${name} ${trunc(JSON.stringify(args), 200)} (e/h) `);
       return /^e(vet)?$/i.test(a.trim());
-    },
-  });
+    });
+    approvalQueue = run.then(() => {}, () => {});
+    return run;
+  };
+
+  const registry = createRegistry({ cfg, approve: approveSerial });
 
   let pendingNewline = false;
   const flushLine = () => {
@@ -67,6 +71,24 @@ export async function startRepl(argv = []) {
     } else if (ev.type === 'error') {
       flushLine();
       console.log(red(`Hata: ${ev.text}`));
+    } else if (ev.type === 'task_start') {
+      flushLine();
+      console.log(dim(`▶ Alt ajan başladı: ${trunc(ev.prompt, 120)}`));
+    } else if (ev.type === 'task_end') {
+      flushLine();
+      console.log(dim(`■ Alt ajan bitti: ${trunc(ev.prompt, 80)}`));
+    } else if (ev.type === 'sub_event') {
+      flushLine();
+      const e = ev.ev ?? {};
+      const what =
+        e.type === 'tool_call'
+          ? `araç → ${e.name}`
+          : e.type === 'text'
+            ? trunc(e.text, 150)
+            : e.type === 'error'
+              ? `hata: ${trunc(e.text, 100)}`
+              : e.type;
+      console.log(dim(`  ↳ ${trunc(ev.prompt, 40)} · ${what}`));
     }
   };
 
