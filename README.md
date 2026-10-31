@@ -74,8 +74,29 @@ npm run desktop    # Electron penceresi
 npm test           # otomatik testler
 ```
 
-CLI komutları: `/help`, `/model`, `/tools`, `/sessions [no]`, `/save`, `/test`, `/clear`, `/exit`.
-Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
+### CLI
+
+```bash
+npm run cli                                        # etkileşimli terminal
+node packages/cli/bin/sci-agent.js --prompt "görev" # tek seferlik görev
+node packages/cli/bin/sci-agent.js --workspace <dizin>
+```
+
+| Komut | İş |
+|---|---|
+| `/help` | komut listesi |
+| `/model` | model/yapılandırma bilgisi |
+| `/tools` | araç listesi (ajan araçları turkuaz işaretli) |
+| `/sessions` | oturum listesi |
+| `/sessions <no>` | oturuma geç |
+| `/sessions del <no>` | oturumu sil |
+| `/sessions ren <no> <başlık>` | yeniden adlandır |
+| `/save` | sohbeti `sciagent-sohbet.md` olarak kaydet |
+| `/test` | model bağlantısını test et |
+| `/clear` | sohbeti temizle (dosya kaydı da sıfırlanır) |
+| `/exit` | çıkış |
+
+CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`) paylaşır: uygulamada bıraktığın sohbeti terminalde sürdürebilirsin. Akışlı yanıtlar, alt-ajan olayları (`▶ ■ ↳`) ve eq-layer yönlendirmesi terminalde de aktiftir; onay isteyen araçlar terminalde `e/h` sorar.
 
 ## Araçlar
 

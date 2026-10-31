@@ -295,7 +295,10 @@ async function send() {
   $('#empty')?.remove();
   input.value = '';
   busy = true;
-  $('#btn-send').disabled = true;
+  const sendBtn = $('#btn-send');
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Durdur';
+  sendBtn.classList.add('btn-stop');
   setStatus('Ajan çalışıyor…');
   addText(bubble('user'), text);
   lastTool = null;
@@ -330,7 +333,9 @@ async function send() {
     addText(bubble('assistant'), `⚠ Hata: ${e.message}`);
   } finally {
     busy = false;
-    $('#btn-send').disabled = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Gönder';
+    sendBtn.classList.remove('btn-stop');
     setStatus('');
     loadSessions();
     input.focus();
@@ -346,7 +351,16 @@ async function loadConfig() {
   $('#s-key').value = '';
 }
 
-$('#btn-send').onclick = send;
+// Gönder / Durdur: ajan çalışırken düğme durdurma görevi görür
+$('#btn-send').onclick = async () => {
+  if (busy) {
+    try {
+      await api('/api/stop', { method: 'POST' });
+    } catch {}
+    return;
+  }
+  send();
+};
 $('#input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();

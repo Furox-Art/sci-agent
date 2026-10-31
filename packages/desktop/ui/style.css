@@ -562,3 +562,4 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 #btn-hero { padding: 8px 10px; }
 .hero.collapsed { display: none !important; }
 .approval .a-count { color: var(--dim); font-size: 12px; }
+#btn-send.btn-stop { background: var(--err); color: #fff; font-weight: 600; }

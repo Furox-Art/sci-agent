@@ -23,6 +23,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     busy: false,
     res: null,
     pending: new Map(),
+    abort: null,
     messages: [{ role: 'system', content: buildSystemPrompt(cfg) }],
   };
 
@@ -137,6 +138,12 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/clear' && req.method === 'POST') {
         state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
         saveActive();
+        return json(res, { ok: true });
+      }
+
+      if (url.pathname === '/api/stop' && req.method === 'POST') {
+        if (!state.abort) return json(res, { ok: false, error: 'Çalışan görev yok' }, 409);
+        state.abort.abort();
         return json(res, { ok: true });
       }
 
@@ -283,6 +290,8 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         if (state.sessionTitle === 'yeni oturum' || !state.sessionTitle) {
           state.sessionTitle = message.slice(0, 40);
         }
+        const ac = new AbortController();
+        state.abort = ac;
         try {
           const provider = createProvider(cfg.model);
           // eq-layer yönlendirmesi: model çağrısından önce niyet/duygu politikası çıkar;
@@ -295,14 +304,16 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
               emit({ type: 'info', text: `eq-layer yönlendirmesi: ${steer.source}` });
             }
           } catch {}
-          await runAgentLoop({ provider, registry, messages: state.messages, maxSteps: cfg.agent.maxSteps, onEvent: emit, systemExtra });
+          await runAgentLoop({ provider, registry, messages: state.messages, maxSteps: cfg.agent.maxSteps, onEvent: emit, systemExtra, signal: ac.signal });
           emit({ type: 'done' });
         } catch (e) {
-          emit({ type: 'error', text: e.message });
+          const aborted = e?.name === 'AbortError' || /abort/i.test(String(e?.message));
+          emit({ type: 'error', text: aborted ? 'Görev kullanıcı tarafından durduruldu.' : e.message });
           emit({ type: 'done' });
         } finally {
           state.busy = false;
           state.res = null;
+          state.abort = null;
           saveActive();
           res.end();
         }
