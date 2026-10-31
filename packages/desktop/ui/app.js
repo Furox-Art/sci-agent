@@ -643,6 +643,8 @@ function safeParse(raw) {
 
 // ===== Grafikler görünümü =====
 const CHART_COLORS = ['#1677FF', '#00D5C8', '#66F0FF', '#F5FAFF', '#8FA3BD'];
+let chartData = null;
+let chartHidden = new Set(); // lejanttan gizlenen seriler
 
 async function loadChart() {
   const p = $('#chart-path').value.trim();
@@ -650,8 +652,9 @@ async function loadChart() {
   const box = $('#chart-box');
   box.innerHTML = '<p class="lead">yükleniyor…</p>';
   try {
-    const data = await api('/api/csv?path=' + encodeURIComponent(p));
-    renderChart(data);
+    chartData = await api('/api/csv?path=' + encodeURIComponent(p));
+    chartHidden = new Set();
+    renderChart();
   } catch (e) {
     box.innerHTML = '';
     const d = document.createElement('p');
@@ -661,21 +664,40 @@ async function loadChart() {
   }
 }
 
-function renderChart(data) {
-  const names = Object.keys(data.numeric ?? {});
+function renderChart() {
+  const data = chartData;
+  if (!data) return;
   const box = $('#chart-box');
   const legend = $('#chart-legend');
+  const all = Object.keys(data.numeric ?? {});
+  const names = all.filter((k) => !chartHidden.has(k));
+
+  // Lejant: tıklanınca seri göster/gizle
+  legend.innerHTML = '';
+  all.forEach((k, si) => {
+    const item = document.createElement('span');
+    const sw = document.createElement('i');
+    sw.style.background = CHART_COLORS[si % CHART_COLORS.length];
+    item.append(sw, document.createTextNode(k));
+    if (chartHidden.has(k)) item.classList.add('off');
+    item.title = 'göster/gizle';
+    item.onclick = () => {
+      chartHidden.has(k) ? chartHidden.delete(k) : chartHidden.add(k);
+      renderChart();
+    };
+    legend.appendChild(item);
+  });
+
   if (!names.length) {
-    box.innerHTML = '<p class="lead">Sayısal sütun bulunamadı.</p>';
-    legend.innerHTML = '';
+    box.innerHTML = '<p class="lead">Tüm seriler gizli — göstermek için lejanta tıkla.</p>';
     return;
   }
   const norm = $('#chart-norm')?.checked ?? false;
   const cols = names.map((k) => data.numeric[k]);
   const n = Math.max(...cols.map((c) => c.length));
-  const all = cols.flat();
-  const min = Math.min(...all);
-  const max = Math.max(...all);
+  const flatVals = cols.flat();
+  const min = Math.min(...flatVals);
+  const max = Math.max(...flatVals);
   const W = 880, H = 430, L = 64, R = 18, T = 18, B = 38;
   const xs = (i) => L + (W - L - R) * (n < 2 ? 0.5 : i / (n - 1));
   // norm: her seri kendi min/max'ına göre ölçeklenir (farklı büyüklükteki seriler karşılaştırılabilir)
@@ -695,9 +717,6 @@ function renderChart(data) {
     const pts = cols[si].map((v, i) => `${xs(i).toFixed(1)},${ys(si, v).toFixed(1)}`).join(' ');
     series += `<polyline fill="none" stroke="${CHART_COLORS[si % CHART_COLORS.length]}" stroke-width="2" points="${pts}"/>`;
   });
-  legend.innerHTML = names
-    .map((k, si) => `<span><i style="background:${CHART_COLORS[si % CHART_COLORS.length]}"></i>${esc(k)}</span>`)
-    .join('');
   // X ekseni etiketleri: ilk metin sütunu varsa kullanılır
   let ticks = '';
   if (data.labelName && Array.isArray(data.labels) && data.labels.length) {

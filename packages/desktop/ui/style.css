@@ -563,3 +563,5 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 .hero.collapsed { display: none !important; }
 .approval .a-count { color: var(--dim); font-size: 12px; }
 #btn-send.btn-stop { background: var(--err); color: #fff; font-weight: 600; }
+.chart-legend span { cursor: pointer; }
+.chart-legend span.off { opacity: 0.35; text-decoration: line-through; }
