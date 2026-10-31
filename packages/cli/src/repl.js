@@ -125,6 +125,37 @@ export async function startRepl(argv = []) {
       .replace(/^### (.*)$/gm, (m1, h) => bold(h))
       .replace(/^## (.*)$/gm, (m1, h) => bold(h));
 
+  // Akış sırasında satır satır markdown cilası: kod blokları cyan, başlık/kalın bold
+  let mdLineBuf = '';
+  let mdInCode = false;
+  const styleLine = (line) => {
+    if (/^\s*```/.test(line)) {
+      mdInCode = !mdInCode;
+      return dim(`── ${line.trim().replace(/^```/, '') || 'kod'} ──`);
+    }
+    if (mdInCode) return cyan(line);
+    let s = line;
+    s = s.replace(/`([^`]+)`/g, cyan('$1'));
+    s = s.replace(/\*\*([^*]+)\*\*/g, bold('$1'));
+    if (/^#{1,3} /.test(s)) return bold(s);
+    return s;
+  };
+  const feedStreamText = (text) => {
+    mdLineBuf += text;
+    let idx;
+    while ((idx = mdLineBuf.indexOf('\n')) !== -1) {
+      process.stdout.write(styleLine(mdLineBuf.slice(0, idx)) + '\n');
+      mdLineBuf = mdLineBuf.slice(idx + 1);
+    }
+  };
+  const flushStreamText = () => {
+    if (mdLineBuf) {
+      process.stdout.write(styleLine(mdLineBuf) + '\n');
+      mdLineBuf = '';
+    }
+    pendingNewline = false;
+  };
+
   const printEvent = (ev) => {
     if (ev.type === 'reasoning') {
       flushLine();
@@ -133,16 +164,18 @@ export async function startRepl(argv = []) {
       process.stdout.write(dim(ev.text));
       pendingNewline = true;
     } else if (ev.type === 'text_delta') {
-      process.stdout.write(ev.text);
-      pendingNewline = true;
+      feedStreamText(ev.text);
+      pendingNewline = mdLineBuf.length > 0;
     } else if (ev.type === 'text') {
       flushLine();
+      flushStreamText();
       console.log(mdTerm(ev.text));
     } else if (ev.type === 'info') {
       flushLine();
       console.log(dim(ev.text));
     } else if (ev.type === 'tool_call') {
       flushLine();
+      flushStreamText();
       console.log(cyan(`\n→ ${ev.name} ${trunc(JSON.stringify(ev.args), 300)}`));
     } else if (ev.type === 'tool_result') {
       flushLine();
@@ -177,6 +210,8 @@ export async function startRepl(argv = []) {
   async function handle(input) {
     messages.push({ role: 'user', content: input });
     console.log(dim(`[${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}]`));
+    mdLineBuf = '';
+    mdInCode = false;
     try {
       // eq-layer yönlendirmesi: model çağrısından önce çalışır; hata olursa sessizce atlanır.
       let systemExtra;
@@ -192,6 +227,7 @@ export async function startRepl(argv = []) {
     } catch (e) {
       console.log(red(`Hata: ${e.message}`));
     }
+    flushStreamText();
     saveHistory();
     console.log();
   }
