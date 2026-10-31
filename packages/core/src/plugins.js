@@ -2,6 +2,7 @@ import { python_eval, csv_stats } from './science/sci-tools.js';
 import { sciExtraTools } from './science/sci-extra.js';
 import { stats_calc, matrix_ops } from './science/sci-data.js';
 import { molar_mass } from './science/sci-chem.js';
+import { sciFuroxTools } from './science/sci-furox.js';
 
 /**
  * Eklenti kancası: özel bilimsel model geldiğinde yeni bir eklenti tanımlanarak
@@ -36,6 +37,22 @@ const BUILTINS = {
     tools: [molar_mass],
     systemPrompt:
       'Kimya modu: mol kütlesi gerektiren her hesapta molar_mass aracını kullan; atom kütlelerini hafızadan verme.',
+  },
+  'sci-furox': {
+    name: 'sci-furox',
+    description:
+      'Kullanıcının açık bilimsel paketleri (Furox-Art): axiomize (modelleme/birim doğrulama/belirsizlik/SBML) ve cds2 (scientific-computing-system-2.0: lineer cebir, ODE/PDE, Monte Carlo, istatistik, sinyal, kuantum simülasyonu) köprü araçları',
+    tools: sciFuroxTools,
+    systemPrompt:
+      'Bilimsel yığın modu: numpy/scipy/pandas ve kullanıcı paketleri kurulu. Sayısal hesapları furox_compute ile yap (yığın otomatik yüklenir). Modelleme, birim/boyut doğrulama, kalibrasyon, belirsizlik analizi ve SBML/CellML/Modelica dışa aktarım için axiomize_cli (keşif: ["capabilities"]). Lineer cebir, ODE/PDE, kadratür, Monte Carlo, sinyal ve kuantum simülasyonu için cds2_cli (keşif: ["--help"]). Cevabı uydurma; bu araçlarla doğrula.',
+  },
+  'sci-quantum': {
+    name: 'sci-quantum',
+    description:
+      'Akıl yürütme protokolü (Furox-Art/quantum-reasoning-skill v1.2.0, MIT): birden çok hipotezi açık tut, kanıtla çürüt, en güçlüye çök',
+    tools: [],
+    systemPrompt:
+      'Zor/belirsiz/yüksek riskli bilimsel problemlerde şu protokolü uygula (basit sorularda kullanma): (1) Durumu çerçevele: amaç, doğrulanmış olgular, varsayımlar, araçlar; olguları hipotezlerden ayır. (2) Gerçekten farklı aday yollar aç — kozmetik varyant sayma; ortogonal sınıflar: doğrudan türetme, çürütme/karşıörnek, ayrıştırma, alternatif mekanizma, sayısal/çalıştırılabilir test, bağımsız yeniden kurma, rakip eleştiri. (3) Dalları active/dormant/rejected olarak izle; bir dal öne geçti diye diğerini kalıcı olarak reddetme. (4) Her dalı kanıtla, hitabetle değerlendir; modelin kendi özgüveni zayıf kanıttır. (5) Araçları onaylamak için değil çürütmek için kullan: öndeki dalı deviren kanıt ara (furox_compute/python_eval/axiomize_cli sayısal testleri idealdir). (6) Dalları karşılaştırırken ortak varsayımı taşıyanları çift sayma; bağımsız doğrulanan sonuçları pekiştir; yeni doğrulanan olguyu kısıtladığı her dala aktar. (7) Bütçeyi belirsizliğe göre ayarla: düşük belirsizlikte daral ve derinleş; yüksek belirsizlikte genişle. (8) Yeni kanıt öndeki varsayımı geçersiz kılarsa dormant dalı canlandır. (9) Aramanın marjinal değeri düştüğünde en iyi desteklenen cevaba çök; gerçekten çözülmemiş dallar kalırsa alternatifleri ve ayırt edici kanıtı açıkça raporla.',
   },
 };
 

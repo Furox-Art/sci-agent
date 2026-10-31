@@ -76,7 +76,7 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 | `edit_file` | evet | Bul-değiştir ile dosya düzenler (çoklu eşleşme koruması) |
 | `run_command` | evet | Kabuk komutu çalıştırır |
 | `task` | hayır* | Alt ajan başlatır; aynı adımdakiler paralel yürür (*alt ajanın tehlikeli çağrıları yine onay ister) |
-| `python_eval` | evet | Python kodu çalıştırır (bilimsel hesaplama; Python kurulu olmalı) |
+| `python_eval` | evet | Python kodu çalıştırır (PATH'ten bağımsız Python çözücü: `pybridge`) |
 | `csv_stats` | hayır | CSV sütunları için n/ortalama/ss/min/maks |
 | `math_eval` | hayır | Güvenli matematik ifade değerlendirici (parser'lı, eval'siz) |
 | `unit_convert` | hayır | Birim dönüşümleri (uzunluk, kütle, enerji, basınç, sıcaklık, açı…) |
@@ -84,8 +84,17 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 | `stats_calc` | hayır | Betimsel istatistik, Pearson korelasyonu, doğrusal regresyon |
 | `matrix_ops` | hayır | Matris determinant, ters ve çarpım (Gauss eliminasyonu) |
 | `molar_mass` | hayır | Formülden mol kütlesi — 118 element (IUPAC kütleleri, hidrat destekli) |
+| `furox_compute` | evet | Kullanıcının bilimsel yığınıyla (numpy/scipy/pandas/cds2/axiomize) Python kodu |
+| `axiomize_cli` | evet | axiomize CLI: modelleme IR, birim/boyut doğrulama, belirsizlik, SBML/CellML/Modelica |
+| `cds2_cli` | evet | cds2 CLI (scientific-computing-system-2.0): lineer cebir, ODE/PDE, Monte Carlo, sinyal, kuantum sim. |
 
-**Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`) modele hesap yapma gücü kazandırır: model sayısal işleri kendisi uydurmak yerine bu araçlarla hesaplar — bilimsel işlerde doğruluk ve kapsam ek bir sıçrama sağlar.
+**Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`) modele hesap yapma gücü kazandırır: model sayısal işleri kendisi uydurmak yerine bu araçlarla hesaplar — bilimsel işlerde doğruluk ve kapsam ek bir sıçrama sağlar.
+
+**Kullanıcının açık depolarından entegrasyon** (`sci-furox`, `sci-quantum`): [axiomize](https://github.com/Furox-Art/axiomize) ve [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) (import `cds2`) pip ile kurulur; köprü araçları PATH'ten bağımsız Python çözücüsüyle (`pybridge`) çalışır. [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) protokolü prompt eklentisi olarak gömüldü. Kurulum:
+
+```bash
+pip install numpy scipy pandas axiomize scientific-computing-system-2.0
+```
 
 ## Bilimsel model geldiğinde
 
@@ -94,7 +103,7 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
 2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
 
-Varsayılan dört eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`) bu kancanın çalışan örnekleridir: 9 bilimsel araç + bilimsel davranış istemleri.
+Varsayılan altı eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`) bu kancanın çalışan örnekleridir: 12 bilimsel araç + bilimsel davranış/akıl yürütme istemleri.
 
 ## Yol haritası
 
@@ -102,9 +111,10 @@ Varsayılan dört eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`) bu 
 - [x] Bul-değiştir düzenleme aracı (`edit_file`)
 - [x] Paralel alt-ajanlar (`task`) ve eklenti mimarisi
 - [x] Bilimsel araç seti: matematik-fizik (`sci-extra`), veri analizi (`sci-data`), kimya (`sci-chem`)
-- [ ] Web araması, literatür (Zotero) entegrasyonu
+- [x] Kullanıcı depolarından köprü: axiomize + cds2 (`sci-furox`), quantum-reasoning protokolü (`sci-quantum`)
+- [ ] literature-evidence-mcp entegrasyonu (literatür arama/kanıt zinciri — MCP sunucusu)
 - [ ] Çoklu oturum ve proje geçmişi
 
 ## Durum
 
-v0.4 — üç yeni bilimsel eklenti (math_eval, unit_convert, physical_constants, stats_calc, matrix_ops, molar_mass) paralel ajanlarla geliştirildi; 53 test + tarayıcıda görsel doğrulama yapıldı. `python_eval` bu makinede Python kurulmadan sınanamadı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.5 — bilimsel Python yığını (numpy/scipy/pandas) ve kullanıcının pip paketleri (axiomize 1.14.x, cds2/scientific-computing-system-2.0 5.4.x) köprü araçlarıyla bağlandı; quantum-reasoning protokolü eklendi. 57 test geçti (atlama yok); gerçek numpy hesabı arayüzden onay akışıyla doğrulandı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

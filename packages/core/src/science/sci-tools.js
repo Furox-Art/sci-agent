@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { resolveSafe } from '../tools/fs-tools.js';
+import { resolvePython } from './pybridge.js';
 
 /** Bilimsel araç takımı: model-bağımsız, yerel çalışan hesaplama araçları. */
 
@@ -19,10 +20,11 @@ export const python_eval = {
   needsApproval: true,
   async execute({ code, timeoutMs = 120_000 }, { workspaceRoot }) {
     const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
-    const exe = process.platform === 'win32' ? 'python' : 'python3';
+    const exe = resolvePython();
+    if (!exe) return 'Hata: Python bulunamadı. Kurun veya SCI_AGENT_PYTHON ile yolu verin.';
     return await new Promise((resolve) => {
-      // -I: yalıtılmış kip; kod kabuk üzerinden değil doğrudan argüman olarak verilir.
-      const child = spawn(exe, ['-I', '-c', code], { cwd: workspaceRoot, timeout, windowsHide: true });
+      // -I: yalıtılmış kip; -X utf8: Windows'ta standart çıktı UTF-8 olsun.
+      const child = spawn(exe, ['-I', '-X', 'utf8', '-c', code], { cwd: workspaceRoot, timeout, windowsHide: true });
       let out = '';
       const grab = (d) => {
         if (out.length < 50_000) out += d.toString('utf8');
