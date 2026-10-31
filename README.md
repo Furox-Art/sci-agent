@@ -78,6 +78,14 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 | `task` | hayır* | Alt ajan başlatır; aynı adımdakiler paralel yürür (*alt ajanın tehlikeli çağrıları yine onay ister) |
 | `python_eval` | evet | Python kodu çalıştırır (bilimsel hesaplama; Python kurulu olmalı) |
 | `csv_stats` | hayır | CSV sütunları için n/ortalama/ss/min/maks |
+| `math_eval` | hayır | Güvenli matematik ifade değerlendirici (parser'lı, eval'siz) |
+| `unit_convert` | hayır | Birim dönüşümleri (uzunluk, kütle, enerji, basınç, sıcaklık, açı…) |
+| `physical_constants` | hayır | 22 fizik sabiti (CODATA, birimli) |
+| `stats_calc` | hayır | Betimsel istatistik, Pearson korelasyonu, doğrusal regresyon |
+| `matrix_ops` | hayır | Matris determinant, ters ve çarpım (Gauss eliminasyonu) |
+| `molar_mass` | hayır | Formülden mol kütlesi — 118 element (IUPAC kütleleri, hidrat destekli) |
+
+**Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`) modele hesap yapma gücü kazandırır: model sayısal işleri kendisi uydurmak yerine bu araçlarla hesaplar — bilimsel işlerde doğruluk ve kapsam ek bir sıçrama sağlar.
 
 ## Bilimsel model geldiğinde
 
@@ -86,16 +94,17 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
 2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
 
-Varsayılan `sci-tools` eklentisi bu kancanın çalışan örneğidir (python_eval, csv_stats + bilimsel davranış istemi).
+Varsayılan dört eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`) bu kancanın çalışan örnekleridir: 9 bilimsel araç + bilimsel davranış istemleri.
 
 ## Yol haritası
 
 - [x] Akış (streaming) yanıt desteği
 - [x] Bul-değiştir düzenleme aracı (`edit_file`)
-- [x] Paralel alt-ajanlar (`task`) ve eklenti mimarisi (`sci-tools`)
+- [x] Paralel alt-ajanlar (`task`) ve eklenti mimarisi
+- [x] Bilimsel araç seti: matematik-fizik (`sci-extra`), veri analizi (`sci-data`), kimya (`sci-chem`)
 - [ ] Web araması, literatür (Zotero) entegrasyonu
 - [ ] Çoklu oturum ve proje geçmişi
 
 ## Durum
 
-v0.3 — paralel alt-ajanlar ve bilimsel eklenti mimarisi eklendi; 21 test + tarayıcıda görsel doğrulama yapıldı. `python_eval` bu makinede Python kurulmadan sınanamadı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.4 — üç yeni bilimsel eklenti (math_eval, unit_convert, physical_constants, stats_calc, matrix_ops, molar_mass) paralel ajanlarla geliştirildi; 53 test + tarayıcıda görsel doğrulama yapıldı. `python_eval` bu makinede Python kurulmadan sınanamadı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
