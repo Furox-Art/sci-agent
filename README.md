@@ -4,6 +4,14 @@
 
 Model-bağımsız, Claude benzeri bütünleşik bir kodlama ajanı: **çekirdek motor + CLI + masaüstü arayüz**. Özel bilimsel modelinizi OpenAI uyumlu bir API üzerinden bağlarsınız; ajan dosya okuma/yazma, arama ve terminal komutlarını **onay mekanizmasıyla** çalıştırır.
 
+## Ekran Görüntüleri
+
+| Sohbet + Hero | Araçlar |
+|---|---|
+| ![Sohbet](docs/screenshots/sohbet.png) | ![Araçlar](docs/screenshots/araclar.png) |
+| **Grafikler** | **Ajanlar** |
+| ![Grafikler](docs/screenshots/grafikler.png) | ![Ajanlar](docs/screenshots/ajanlar.png) |
+
 ## Mimari
 
 ```
@@ -125,7 +133,8 @@ Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 - [x] Kullanıcı depolarından köprü: axiomize + cds2 (`sci-furox`), quantum-reasoning (`sci-quantum`)
 - [x] literature-evidence-mcp (`sci-lit`) ve plan-auditor (`sci-audit`) entegrasyonu
 - [x] eq-layer otomatik yönlendirme katmanı (mesaj öncesi niyet/politika routing'i)
-- [ ] Çoklu oturum ve proje geçmişi
+- [x] Çoklu oturum (uygulama + CLI paylaşımlı) ve sohbet geçmişi
+- [x] Grafikler görünümü (CSV → çok serili çizgi grafiği), Ajanlar görev kartları
 
 ## Lisans
 
@@ -133,4 +142,4 @@ Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 
 ## Durum
 
-v0.6 — literatür kanıt araçları (gerçek OpenAlex/Europe PMC/Crossref çağrılarıyla doğrulandı), plan-auditor köprüsü ve eq-layer otomatik yönlendirme eklendi. 73 test geçti (atlama yok); arayüzden uçtan uca doğrulandı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.7 — çoklu oturum (uygulama + CLI paylaşımlı), Grafikler görünümü, Ajanlar görev kartları, markdown/kod render, sohbet dışa aktarma, model bağlantı testi ve araç arama filtresi eklendi. 73 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

@@ -414,6 +414,7 @@ $('#s-save').onclick = async () => {
       }),
     });
     $('#settings').classList.add('hidden');
+    agentsInfoLoaded = false; // Ajanlar kartı yeni model bilgisiyle tazelensin
     await loadConfig();
   } catch (e) {
     alert('Kaydedilemedi: ' + e.message);
