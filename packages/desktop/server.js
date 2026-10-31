@@ -179,6 +179,17 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         return json(res, { ok: true, id: state.sessionId, title: state.sessionTitle });
       }
 
+      if (url.pathname === '/api/sessions/rename' && req.method === 'POST') {
+        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum yeniden adlandırılamaz' }, 409);
+        const b = await readBody(req);
+        const s = readSession(String(b.id ?? ''));
+        if (!s) return json(res, { error: 'Oturum bulunamadı' }, 404);
+        const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim().slice(0, 60) : s.title;
+        writeSession(String(b.id), title, s.messages);
+        if (state.sessionId === b.id) state.sessionTitle = title;
+        return json(res, { ok: true, title });
+      }
+
       if (url.pathname === '/api/sessions/delete' && req.method === 'POST') {
         if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum silinemez' }, 409);
         const b = await readBody(req);

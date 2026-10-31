@@ -331,6 +331,27 @@ $('#model-badge').style.cursor = 'pointer';
 $('#model-badge').title = 'Model ayarlarını aç';
 $('#model-badge').onclick = () => $('#settings').classList.remove('hidden');
 
+// Hero bandını gizle/göster (tercih hatırlanır)
+const heroEl = document.querySelector('.hero');
+const applyHero = () => {
+  const off = localStorage.getItem('sciagent-hero') === 'off';
+  heroEl.classList.toggle('collapsed', off);
+  $('#btn-hero').textContent = off ? '▾' : '▴';
+};
+$('#btn-hero').onclick = () => {
+  localStorage.setItem('sciagent-hero', localStorage.getItem('sciagent-hero') === 'off' ? 'on' : 'off');
+  applyHero();
+};
+applyHero();
+
+// Araç arama filtresi
+$('#tool-filter').addEventListener('input', () => {
+  const q = $('#tool-filter').value.trim().toLowerCase();
+  [...$('#tools-list').children].forEach((li) => {
+    li.style.display = !q || li.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
 // Sohbeti Markdown olarak dışa aktar
 $('#btn-export').onclick = async () => {
   try {
@@ -674,6 +695,18 @@ function renderSessions(s) {
       renderEmpty();
       loadSessions();
     };
+    const ren = document.createElement('button');
+    ren.className = 'ss-del';
+    ren.textContent = '✎';
+    ren.title = 'Yeniden adlandır';
+    ren.onclick = async (e) => {
+      e.stopPropagation();
+      const t = prompt('Yeni başlık', sess.title);
+      if (!t || !t.trim()) return;
+      await api('/api/sessions/rename', { method: 'POST', body: JSON.stringify({ id: sess.id, title: t }) }).catch(() => {});
+      loadSessions();
+    };
+    item.appendChild(ren);
     item.appendChild(del);
     item.onclick = async () => {
       if (busy) return alert('Ajan çalışıyor; oturum değiştirilemez.');

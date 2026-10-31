@@ -543,3 +543,21 @@ details.tool .t-copy {
   margin-top: 6px;
 }
 details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
+
+/* Araç arama filtresi */
+.tool-filter {
+  width: 100%;
+  max-width: 460px;
+  background: #051129;
+  color: var(--txt);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  margin-bottom: 12px;
+}
+.tool-filter:focus { outline: 1px solid var(--blue); }
+
+/* Hero gizle/göster */
+#btn-hero { padding: 8px 10px; }
+.hero.collapsed { display: none !important; }
