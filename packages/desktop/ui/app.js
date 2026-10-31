@@ -388,6 +388,10 @@ $('#btn-clear').onclick = async () => {
   renderEmpty();
 };
 $('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
+// Esc ile Ayarlar penceresini kapat
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('#settings').classList.add('hidden');
+});
 // Model rozetine tıklayınca Ayarlar açılır
 $('#model-badge').style.cursor = 'pointer';
 $('#model-badge').title = 'Model ayarlarını aç';
@@ -771,13 +775,20 @@ function renderChart() {
   box.innerHTML = `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img">${grid}${ticks}${series}<text x="${W - R - 150}" y="${H - 12}" fill="#8FA3BD" font-size="11">${xNote}${yAxisNote ? ' · ' + yAxisNote : ''}</text></svg>`;
 }
 
-$('#btn-chart').onclick = loadChart;
+// Son kullanılan grafik yolunu hatırla
+const chartPathInput = $('#chart-path');
+chartPathInput.value = localStorage.getItem('sciagent-chart-path') ?? '';
+const loadChartSaved = async () => {
+  await loadChart();
+  if (chartData) localStorage.setItem('sciagent-chart-path', chartPathInput.value);
+};
+$('#btn-chart').onclick = loadChartSaved;
 $('#chart-example').onclick = () => {
   $('#chart-path').value = 'examples/veri.csv';
-  loadChart();
+  loadChartSaved();
 };
-$('#chart-path').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') loadChart();
+chartPathInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadChartSaved();
 });
 
 // ===== Oturumlar (sol menü) =====
@@ -916,6 +927,8 @@ async function loadTools() {
         list.appendChild(li);
       }
     }
+    // Liste geç yüklendiyse aktif filtreyi yeniden uygula
+    $('#tool-filter').dispatchEvent(new Event('input'));
   } catch (e) {
     list.innerHTML = '';
     const li = document.createElement('li');
