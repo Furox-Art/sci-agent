@@ -349,6 +349,7 @@ async function send() {
     sendBtn.textContent = 'Gönder';
     sendBtn.classList.remove('btn-stop');
     setStatus('');
+    inputEl.style.height = 'auto';
     loadSessions();
     input.focus();
   }

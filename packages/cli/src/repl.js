@@ -176,6 +176,7 @@ export async function startRepl(argv = []) {
 
   async function handle(input) {
     messages.push({ role: 'user', content: input });
+    console.log(dim(`[${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}]`));
     try {
       // eq-layer yönlendirmesi: model çağrısından önce çalışır; hata olursa sessizce atlanır.
       let systemExtra;
