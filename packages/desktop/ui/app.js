@@ -130,7 +130,7 @@ function approvalCard({ id, name, args }) {
   count.textContent = '5:00';
   card.append(p, pre, row, remember, count);
   chatEl.appendChild(card);
-  approvalCards.set(id, { card, yes, no });
+  approvalCards.set(id, { card, yes, no, tick });
   if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   const decide = async (approved) => {
     yes.disabled = true;
@@ -242,19 +242,22 @@ function handleEvent(ev) {
   } else if (ev.type === 'approval_result') {
     // Sunucu tarafı sonuç (ör. 5 dk zaman aşımı) — kart hâlâ bekliyorsa kapat.
     const c = approvalCards.get(ev.id);
-    if (c && !c.yes.disabled) {
-      c.yes.disabled = true;
-      c.no.disabled = true;
-      c.card.classList.add(ev.approved ? 'ok' : 'no');
-      if (ev.timeout) {
-        const note = document.createElement('div');
-        note.className = 'a-state';
-        note.style.color = 'var(--err)';
-        note.textContent = '⏱ 5 dakika içinde onaylanmadı — otomatik reddedildi.';
-        c.card.appendChild(note);
+    if (c) {
+      clearInterval(c.tick);
+      if (!c.yes.disabled) {
+        c.yes.disabled = true;
+        c.no.disabled = true;
+        c.card.classList.add(ev.approved ? 'ok' : 'no');
+        if (ev.timeout) {
+          const note = document.createElement('div');
+          note.className = 'a-state';
+          note.style.color = 'var(--err)';
+          note.textContent = '⏱ 5 dakika içinde onaylanmadı — otomatik reddedildi.';
+          c.card.appendChild(note);
+        }
       }
+      approvalCards.delete(ev.id);
     }
-    approvalCards.delete(ev.id);
   } else if (ev.type === 'error') {
     resetStream();
     const b = bubble('assistant');
@@ -381,11 +384,16 @@ $('#input').addEventListener('keydown', (e) => {
   }
 });
 $('#btn-clear').onclick = async () => {
-  await api('/api/clear', { method: 'POST' }).catch(() => {});
-  chatEl.innerHTML = '';
-  lastTool = null;
-  resetStream();
-  renderEmpty();
+  try {
+    await api('/api/clear', { method: 'POST' });
+    chatEl.innerHTML = '';
+    lastTool = null;
+    resetStream();
+    renderEmpty();
+  } catch (e) {
+    setStatus('Ajan çalışıyor; temizlenemez.');
+    setTimeout(() => setStatus(''), 2500);
+  }
 };
 $('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
 // Esc ile Ayarlar penceresini kapat
