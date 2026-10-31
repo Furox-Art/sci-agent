@@ -56,6 +56,19 @@ test('akış desteklenmezse akışsız moda geri düşer', async () => {
   assert.equal(deltas.find((d) => d.type === 'info')?.text.includes('akışsız'), true);
 });
 
+test('sağlayıcı configdeki name alanını model olarak kabul eder', async () => {
+  const fakeFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    return {
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: `model=${body.model}` } }] }),
+    };
+  };
+  const p = new OpenAICompatProvider({ baseUrl: 'http://x/v1', name: 'bilimsel-model', stream: false, fetchImpl: fakeFetch });
+  const out = await p.chat({ messages: [{ role: 'user', content: 'hi' }] });
+  assert.equal(out.content, 'model=bilimsel-model');
+});
+
 test('ajan döngüsü akışta text_delta yayınlar, tam metni tekrarlamaz', async () => {
   const provider = new MockProvider([{ content: 'merhaba dünya' }]);
   const events = [];

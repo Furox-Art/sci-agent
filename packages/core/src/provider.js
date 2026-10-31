@@ -14,12 +14,13 @@ function parseArgs(raw) {
  * Varsayılan olarak akışlı (stream) ister; sunucu akışı reddederse bir kez akışsız dener.
  */
 export class OpenAICompatProvider {
-  constructor({ baseUrl, apiKey = '', model, temperature = 0.2, stream = true, fetchImpl = fetch } = {}) {
+  // Yapılandırmada model adı `name` alanında taşınır; `model` takma adı da kabul edilir.
+  constructor({ baseUrl, apiKey = '', model, name, temperature = 0.2, stream = true, fetchImpl = fetch } = {}) {
     if (!baseUrl) throw new Error('model.baseUrl gerekli');
-    if (!model) throw new Error('model.name gerekli');
+    if (!model && !name) throw new Error('model.name gerekli');
     this.baseUrl = String(baseUrl).replace(/\/+$/, '');
     this.apiKey = apiKey;
-    this.model = model;
+    this.model = model ?? name;
     this.temperature = temperature;
     this.stream = stream !== false;
     this.fetchImpl = fetchImpl;
