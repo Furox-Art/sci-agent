@@ -103,7 +103,22 @@ function approvalCard({ id, name, args }) {
   const rbox = document.createElement('input');
   rbox.type = 'checkbox';
   remember.append(rbox, document.createTextNode('Bu oturumda bu araca izin ver'));
-  card.append(p, pre, row, remember);
+  // 5 dakikalık onay penceresi geri sayımı
+  let left = 300;
+  const count = document.createElement('span');
+  count.className = 'a-count';
+  const tick = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      count.textContent = 'süre doldu';
+      clearInterval(tick);
+      return;
+    }
+    count.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  }, 1000);
+  tick.unref?.();
+  count.textContent = '5:00';
+  card.append(p, pre, row, remember, count);
   chatEl.appendChild(card);
   approvalCards.set(id, { card, yes, no });
   if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
@@ -111,6 +126,8 @@ function approvalCard({ id, name, args }) {
     yes.disabled = true;
     no.disabled = true;
     rbox.disabled = true;
+    count.textContent = 'karar verildi';
+    clearInterval(tick);
     card.classList.add(approved ? 'ok' : 'no');
     try {
       await api('/api/approve', {
@@ -797,25 +814,32 @@ async function loadTools() {
   try {
     const c = await api('/api/config');
     list.innerHTML = '';
-    for (const t of c.tools) {
-      const li = document.createElement('li');
-      if (t.name === 'task') li.className = 'ai';
-      const nameRow = document.createElement('div');
-      const name = document.createElement('span');
-      name.className = 't-name';
-      name.textContent = t.name;
-      nameRow.appendChild(name);
-      if (t.needsApproval) {
-        const chip = document.createElement('span');
-        chip.className = 't-chip';
-        chip.textContent = 'onay ister';
-        nameRow.appendChild(chip);
+    const groups = groupTools(c.tools);
+    for (const [title, tools] of groups) {
+      const h = document.createElement('h3');
+      h.className = 'sub-h';
+      h.textContent = `${title} (${tools.length})`;
+      list.appendChild(h);
+      for (const t of tools) {
+        const li = document.createElement('li');
+        if (t.name === 'task') li.className = 'ai';
+        const nameRow = document.createElement('div');
+        const name = document.createElement('span');
+        name.className = 't-name';
+        name.textContent = t.name;
+        nameRow.appendChild(name);
+        if (t.needsApproval) {
+          const chip = document.createElement('span');
+          chip.className = 't-chip';
+          chip.textContent = 'onay ister';
+          nameRow.appendChild(chip);
+        }
+        const desc = document.createElement('div');
+        desc.className = 't-desc';
+        desc.textContent = t.description;
+        li.append(nameRow, desc);
+        list.appendChild(li);
       }
-      const desc = document.createElement('div');
-      desc.className = 't-desc';
-      desc.textContent = t.description;
-      li.append(nameRow, desc);
-      list.appendChild(li);
     }
   } catch (e) {
     list.innerHTML = '';
@@ -823,4 +847,26 @@ async function loadTools() {
     li.textContent = 'Araç listesi alınamadı: ' + e.message;
     list.appendChild(li);
   }
+}
+
+function groupTools(tools) {
+  const g = new Map();
+  const push = (title, t) => {
+    if (!g.has(title)) g.set(title, []);
+    g.get(title).push(t);
+  };
+  for (const t of tools) {
+    if (t.name === 'task') push('Yapay zekâ ajanları', t);
+    else if (t.name.startsWith('lit_')) push('Literatür (kanıt zinciri)', t);
+    else if (['furox_compute', 'axiomize_cli', 'cds2_cli'].includes(t.name)) push('Bilimsel paket köprüleri', t);
+    else if (t.name === 'plan_audit') push('Plan doğrulama', t);
+    else if (
+      ['python_eval', 'csv_stats', 'math_eval', 'unit_convert', 'physical_constants', 'stats_calc', 'matrix_ops', 'molar_mass'].includes(t.name)
+    ) {
+      push('Bilimsel hesaplama', t);
+    } else {
+      push('Dosya & kod', t);
+    }
+  }
+  return g;
 }

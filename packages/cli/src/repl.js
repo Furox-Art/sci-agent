@@ -14,7 +14,7 @@ const HELP = [
   'Komutlar:',
   '  /help     yardım            /model  model bilgisi',
   '  /tools    araç listesi      /clear  sohbeti temizle',
-  '  /sessions [no]  oturum listesi / geçiş',
+  '  /sessions [no|del no|ren no başlık]  oturum listesi / geçiş / sil / yeniden adlandır',
   '  /save     sohbeti .md olarak kaydet',
   '  /test     model bağlantısını test et',
   '  /exit     çıkış',
@@ -218,7 +218,6 @@ export async function startRepl(argv = []) {
       console.log(dim('(önceki görev sürüyor; bekleyin)'));
       return;
     }
-    busy = true;
     try {
       if (input === '/exit') {
         rl.close();
@@ -235,10 +234,39 @@ export async function startRepl(argv = []) {
             .join('\n'),
         );
       } else if (input.startsWith('/sessions')) {
-        const arg = input.split(/\s+/)[1];
+        const parts = input.split(/\s+/);
+        const arg = parts[1];
         const files = listSessionFiles();
         if (!files.length) {
           console.log(dim('Kayıtlı oturum yok.'));
+        } else if (arg === 'del' && /^\d+$/.test(parts[2] ?? '')) {
+          const f = files[Number(parts[2]) - 1];
+          if (!f) console.log(red('Geçersiz oturum numarası.'));
+          else {
+            const wasCurrent = f.path === sessionFile;
+            try {
+              const fsmod = await import('node:fs');
+              fsmod.unlinkSync(f.path);
+            } catch {}
+            if (wasCurrent) {
+              messages.length = 0;
+              messages.push({ role: 'system', content: buildSystemPrompt(cfg) });
+              sessionFile = null;
+            }
+            console.log(dim(`Oturum silindi: ${f.title}${wasCurrent ? ' (güncel oturumdun; temiz başlandı)' : ''}`));
+          }
+        } else if (arg === 'ren' && /^\d+$/.test(parts[2] ?? '')) {
+          const f = files[Number(parts[2]) - 1];
+          const newTitle = parts.slice(3).join(' ').trim();
+          if (!f) console.log(red('Geçersiz oturum numarası.'));
+          else if (!newTitle) console.log(red('Kullanım: /sessions ren <no> <yeni başlık>'));
+          else {
+            const d = JSON.parse(readFileSync(f.path, 'utf8'));
+            d.title = newTitle;
+            writeFileSync(f.path, JSON.stringify(d));
+            if (f.path === sessionFile) sessionTitle = newTitle;
+            console.log(dim(`Yeniden adlandırıldı: ${newTitle}`));
+          }
         } else if (arg && /^\d+$/.test(arg)) {
           const f = files[Number(arg) - 1];
           if (!f) {
@@ -254,7 +282,7 @@ export async function startRepl(argv = []) {
             console.log(dim(`Oturuma geçildi: ${sessionTitle} (${messages.length - 1} mesaj)`));
           }
         } else {
-          console.log(bold('Oturumlar (geçmek için: /sessions <no>)'));
+          console.log(bold('Oturumlar — /sessions <no> (geç) · /sessions del <no> (sil) · /sessions ren <no> <başlık>'));
           files.forEach((f, i) => console.log(`  ${i + 1}. ${f.title} ${dim(f.date)}${f.path === sessionFile ? cyan(' ← güncel') : ''}`));
         }
       } else if (input === '/save') {
@@ -288,10 +316,19 @@ export async function startRepl(argv = []) {
         saveHistory();
         console.log(dim('Sohbet temizlendi (kayıt dosyası da sıfırlandı).'));
       } else {
-        await handle(input);
+        // busy yalnızca model çağrısı içeren görevleri kilitler; menü komutları her zaman çalışır.
+        if (busy) {
+          console.log(dim('(önceki görev sürüyor; bekleyin)'));
+        } else {
+          busy = true;
+          try {
+            await handle(input);
+          } finally {
+            busy = false;
+          }
+        }
       }
     } finally {
-      busy = false;
       if (input !== '/exit') rl.prompt();
     }
   });
