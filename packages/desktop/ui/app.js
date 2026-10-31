@@ -290,6 +290,56 @@ $('#btn-clear').onclick = async () => {
   renderEmpty();
 };
 $('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
+
+// Sohbeti Markdown olarak dışa aktar
+$('#btn-export').onclick = async () => {
+  try {
+    const h = await api('/api/history');
+    const lines = ['# SciAgent Sohbeti', '', new Date().toLocaleString('tr-TR'), ''];
+    for (const m of h.messages) {
+      if (m.role === 'user') lines.push(`## Kullanıcı\n\n${m.content}\n`);
+      else if (m.role === 'assistant') {
+        if (m.tool_calls?.length) {
+          for (const tc of m.tool_calls) {
+            lines.push(`**→ araç:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
+          }
+        }
+        if (m.content) lines.push(`**SciAgent**\n\n${m.content}\n`);
+      } else if (m.role === 'tool') {
+        lines.push(`> sonuç: ${String(m.content).slice(0, 400)}\n`);
+      }
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sciagent-sohbet.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    alert('Dışa aktarılamadı: ' + e.message);
+  }
+};
+
+// Model bağlantı testi
+$('#s-test').onclick = async () => {
+  const r = $('#s-test-result');
+  r.classList.remove('hidden');
+  r.textContent = 'test ediliyor…';
+  try {
+    const res = await api('/api/test-model', {
+      method: 'POST',
+      body: JSON.stringify({
+        provider: $('#s-provider').value,
+        baseUrl: $('#s-baseurl').value,
+        name: $('#s-name').value,
+        apiKey: $('#s-key').value,
+      }),
+    });
+    r.textContent = res.ok ? `✓ bağlantı başarılı (${res.ms} ms)` : `✕ başarısız: ${res.error}`;
+  } catch (e) {
+    r.textContent = '✕ ' + e.message;
+  }
+};
 $('#s-cancel').onclick = () => $('#settings').classList.add('hidden');
 $('#s-save').onclick = async () => {
   try {

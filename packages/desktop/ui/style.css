@@ -478,3 +478,4 @@ textarea:focus { outline: 1px solid var(--blue); }
   white-space: nowrap;
 }
 .chart-norm input { accent-color: var(--blue); }
+.test-row { display: flex; align-items: center; gap: 8px; }

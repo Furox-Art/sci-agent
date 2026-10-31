@@ -24,6 +24,7 @@
       <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">bilimsel kodlama ajanı</span></div>
       <div class="head-actions">
         <span id="model-badge" class="badge">yükleniyor…</span>
+        <button id="btn-export" class="ghost">Dışa Aktar</button>
         <button id="btn-clear" class="ghost">Temizle</button>
         <button id="btn-settings" class="ghost">Ayarlar</button>
       </div>
@@ -97,6 +98,10 @@
       <label>API anahtarı (boş bırakılırsa değişmez)
         <input id="s-key" type="password" placeholder="••••••" />
       </label>
+      <div class="test-row">
+        <button id="s-test" class="ghost">Bağlantıyı Test Et</button>
+        <span id="s-test-result" class="badge hidden"></span>
+      </div>
       <div class="modal-actions">
         <button id="s-cancel" class="ghost">Vazgeç</button>
         <button id="s-save" class="turquoise">Kaydet</button>

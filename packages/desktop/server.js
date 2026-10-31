@@ -108,6 +108,26 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         return json(res, { messages: state.messages.filter((m) => m.role !== 'system') });
       }
 
+      // Model bağlantı testi (Ayarlar'daki "Bağlantıyı Test Et")
+      if (url.pathname === '/api/test-model' && req.method === 'POST') {
+        const b = await readBody(req);
+        const testCfg = {
+          ...cfg.model,
+          ...(typeof b.provider === 'string' && b.provider.trim() ? { provider: b.provider.trim() } : {}),
+          ...(typeof b.baseUrl === 'string' && b.baseUrl.trim() ? { baseUrl: b.baseUrl.trim() } : {}),
+          ...(typeof b.name === 'string' && b.name.trim() ? { name: b.name.trim() } : {}),
+          ...(typeof b.apiKey === 'string' && b.apiKey ? { apiKey: b.apiKey } : {}),
+        };
+        const t0 = Date.now();
+        try {
+          const provider = createProvider(testCfg);
+          const out = await provider.chat({ messages: [{ role: 'user', content: 'Yalnızca "ok" yaz.' }] });
+          return json(res, { ok: true, ms: Date.now() - t0, sample: String(out.content ?? '').slice(0, 60) });
+        } catch (e) {
+          return json(res, { ok: false, ms: Date.now() - t0, error: String(e.message).slice(0, 300) });
+        }
+      }
+
       if (url.pathname === '/api/csv' && req.method === 'GET') {
         const rel = url.searchParams.get('path') ?? '';
         const abs = resolveSafe(cfg.agent.workspaceRoot, rel);

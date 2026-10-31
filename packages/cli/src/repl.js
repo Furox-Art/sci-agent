@@ -1,5 +1,6 @@
 import readline from 'node:readline';
 import path from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
@@ -23,6 +24,23 @@ export async function startRepl(argv = []) {
 
   const cfg = loadConfig(workspace);
   const messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
+
+  // Paylaşılan sohbet geçmişi (masaüstü uygulamasıyla aynı dosya)
+  const historyFile = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
+  let loadedMsgs = 0;
+  try {
+    const saved = JSON.parse(readFileSync(historyFile, 'utf8'));
+    if (Array.isArray(saved) && saved.length) {
+      messages.length = 0;
+      messages.push(...saved);
+      loadedMsgs = saved.length;
+    }
+  } catch {}
+  const saveHistory = () => {
+    try {
+      writeFileSync(historyFile, JSON.stringify(messages));
+    } catch {}
+  };
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
@@ -110,12 +128,14 @@ export async function startRepl(argv = []) {
     } catch (e) {
       console.log(red(`Hata: ${e.message}`));
     }
+    saveHistory();
   }
 
   console.log(bold('SciAgent v0.1 — bilimsel kodlama ajanı'));
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
   console.log(`Çalışma alanı: ${cfg.agent.workspaceRoot} | Araçlar: ${registry.tools.length}`);
   console.log(dim(HELP));
+  if (loadedMsgs) console.log(dim(`Önceki oturum yüklendi (${loadedMsgs - 1} mesaj) — /clear ile temizleyebilirsin.`));
 
   const once = argv.indexOf('--prompt');
   if (once !== -1 && argv[once + 1]) {
@@ -150,7 +170,8 @@ export async function startRepl(argv = []) {
         console.log(registry.list().map((t) => `${t.name}${t.needsApproval ? ' (onay ister)' : ''} — ${t.description}`).join('\n'));
       } else if (input === '/clear') {
         messages.splice(1);
-        console.log(dim('Sohbet temizlendi.'));
+        saveHistory();
+        console.log(dim('Sohbet temizlendi (kayıt dosyası da sıfırlandı).'));
       } else {
         await handle(input);
       }
