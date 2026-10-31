@@ -12,6 +12,7 @@
     <nav class="side-nav">
       <button class="nav-item active" data-view="chat"><span class="ico">💬</span> Sohbet</button>
       <button class="nav-item" data-view="tools"><span class="ico">🔬</span> Araçlar</button>
+      <button class="nav-item" data-view="agents"><span class="ico ai">🤖</span> Ajanlar</button>
       <button class="nav-item" data-view="settings" id="nav-settings"><span class="ico">⚙️</span> Ayarlar</button>
     </nav>
     <div class="side-foot">v0.6 · bilimsel ajan</div>
@@ -49,6 +50,16 @@
         <h2>Araçlar</h2>
         <p class="lead">Ajanın kullanabildiği araçlar. Bilimsel araçlar elektrik mavisi, yapay zekâ/ajan araçları turkuaz ile gösterilir.</p>
         <ul id="tools-list"></ul>
+      </div>
+    </section>
+
+    <section id="view-agents" class="view hidden">
+      <div class="tools-wrap">
+        <h2>Ajanlar</h2>
+        <p class="lead">Yapay zekâ ajanının durumu ve bu oturumdaki alt-ajan görevleri.</p>
+        <div id="agents-info"></div>
+        <h3 class="sub-h">Görev kartları</h3>
+        <div id="agents-list"></div>
       </div>
     </section>
   </div>

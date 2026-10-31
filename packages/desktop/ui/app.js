@@ -3,6 +3,11 @@ const chatEl = $('#chat');
 let busy = false;
 let lastTool = null;
 const toolBlocks = new Map(); // araç çağrı id'si → <details> (paralel yürütmede doğru eşleme)
+let agentRuns = []; // bu oturumdaki alt-ajan görevleri
+let agentsInfoLoaded = false;
+
+// Akıllı kaydırma: kullanıcı yukarı bakıyorsa zorla aşağı çekme
+const nearBottom = () => chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 140;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { 'content-type': 'application/json' }, ...opts });
@@ -15,7 +20,7 @@ function bubble(cls) {
   const d = document.createElement('div');
   d.className = `msg ${cls}`;
   chatEl.appendChild(d);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   return d;
 }
 
@@ -25,7 +30,7 @@ function addText(target, text) {
   span.textContent = text;
   target.appendChild(span);
   target.appendChild(document.createTextNode('\n'));
-  chatEl.scrollTop = chatEl.scrollHeight;
+  if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function toolBlock(id, name, args) {
@@ -42,7 +47,7 @@ function toolBlock(id, name, args) {
   chatEl.appendChild(det);
   if (id) toolBlocks.set(id, det);
   lastTool = det;
-  chatEl.scrollTop = chatEl.scrollHeight;
+  if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   return det;
 }
 
@@ -53,7 +58,7 @@ function toolResult(id, ok, output) {
   pre.className = ok ? 'out' : 'err';
   pre.textContent = output;
   det.appendChild(pre);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function subNote(text) {
@@ -61,7 +66,7 @@ function subNote(text) {
   d.className = 'reasoning';
   d.textContent = text;
   chatEl.appendChild(d);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
 }
 
 function approvalCard({ id, name, args }) {
@@ -82,7 +87,7 @@ function approvalCard({ id, name, args }) {
   row.append(yes, no);
   card.append(p, pre, row);
   chatEl.appendChild(card);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   const decide = async (approved) => {
     yes.disabled = true;
     no.disabled = true;
@@ -125,7 +130,7 @@ function handleEvent(ev) {
     }
     streamText += ev.text;
     streamTarget.textContent = streamText;
-    chatEl.scrollTop = chatEl.scrollHeight;
+    if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'reasoning_delta') {
     if (!reasoningEl) {
       reasoningEl = document.createElement('div');
@@ -134,30 +139,35 @@ function handleEvent(ev) {
     }
     reasoningEl._text = (reasoningEl._text || '') + ev.text;
     reasoningEl.textContent = `🧠 ${reasoningEl._text}`;
-    chatEl.scrollTop = chatEl.scrollHeight;
+    if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'reasoning') {
     const d = document.createElement('div');
     d.className = 'reasoning';
     d.textContent = `🧠 ${ev.text}`;
     chatEl.appendChild(d);
-    chatEl.scrollTop = chatEl.scrollHeight;
+    if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'text') {
-    addText(bubble('assistant'), ev.text);
+    renderMd(bubble('assistant'), ev.text);
   } else if (ev.type === 'info') {
     const d = document.createElement('div');
     d.className = 'reasoning';
     d.textContent = `ℹ ${ev.text}`;
     chatEl.appendChild(d);
-    chatEl.scrollTop = chatEl.scrollHeight;
+    if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'tool_call') {
     resetStream();
     toolBlock(ev.id, ev.name, ev.args);
   } else if (ev.type === 'tool_result') {
     toolResult(ev.id, ev.ok, ev.output);
   } else if (ev.type === 'task_start') {
+    agentRuns.push({ prompt: ev.prompt, status: 'running', summary: '' });
     subNote(`▶ Alt ajan başladı: ${ev.prompt}`);
+    renderAgents();
   } else if (ev.type === 'task_end') {
+    const run = [...agentRuns].reverse().find((r) => r.prompt === ev.prompt && r.status === 'running');
+    if (run) run.status = ev.done === false ? 'failed' : 'done';
     subNote(`■ Alt ajan bitti: ${ev.prompt}`);
+    renderAgents();
   } else if (ev.type === 'sub_event') {
     const e = ev.ev ?? {};
     const what =
@@ -168,6 +178,11 @@ function handleEvent(ev) {
           : e.type === 'error'
             ? `hata: ${e.text}`
             : e.type;
+    if (e.type === 'text') {
+      const run = [...agentRuns].reverse().find((r) => r.prompt === ev.prompt);
+      if (run) run.summary = e.text;
+      renderAgents();
+    }
     subNote(`  ↳ ${ev.prompt} · ${what}`);
   } else if (ev.type === 'approval_request') {
     resetStream();
@@ -176,6 +191,8 @@ function handleEvent(ev) {
     resetStream();
     addText(bubble('assistant'), `⚠ ${ev.text}`);
   } else if (ev.type === 'done') {
+    // Akış bitti: birikmiş metni markdown olarak yeniden çiz (kod blokları vb.)
+    if (streamTarget && streamText) renderMd(streamTarget, streamText);
     resetStream();
   }
 }
@@ -185,6 +202,7 @@ async function send() {
   const input = $('#input');
   const text = input.value.trim();
   if (!text) return;
+  $('#empty')?.remove();
   input.value = '';
   busy = true;
   $('#btn-send').disabled = true;
@@ -248,6 +266,8 @@ $('#btn-clear').onclick = async () => {
   await api('/api/clear', { method: 'POST' }).catch(() => {});
   chatEl.innerHTML = '';
   lastTool = null;
+  resetStream();
+  renderEmpty();
 };
 $('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
 $('#s-cancel').onclick = () => $('#settings').classList.add('hidden');
@@ -269,10 +289,144 @@ $('#s-save').onclick = async () => {
   }
 };
 
+// ===== Markdown (kod bloğu + kopyala) =====
+function esc(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function mdToHtml(src) {
+  const blocks = [];
+  let t = esc(src);
+  t = t.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    blocks.push({ lang, code });
+    return `\u0000CODE${blocks.length - 1}\u0000`;
+  });
+  t = t.replace(/`([^`\n]+)`/g, '<code class="inline">$1</code>');
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+  t = t.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+  t = t.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+  t = t.replace(/^- (.*)$/gm, '• $1');
+  t = t.replace(/\n/g, '<br>');
+  t = t.replace(/\u0000CODE(\d+)\u0000/g, (m, i) => {
+    const b = blocks[Number(i)];
+    return `<div class="codebox"><div class="codebar"><span>${esc(b.lang || 'kod')}</span><button class="copy">kopyala</button></div><pre><code>${b.code}</code></pre></div>`;
+  });
+  return t;
+}
+
+function renderMd(el, text) {
+  el.innerHTML = mdToHtml(text);
+}
+
+chatEl.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.copy');
+  if (!btn) return;
+  const code = btn.closest('.codebox')?.querySelector('code');
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code.textContent);
+    btn.textContent = 'kopyalandı';
+    setTimeout(() => (btn.textContent = 'kopyala'), 1500);
+  } catch {}
+});
+
+// ===== Boş sohbet önerileri =====
+function renderEmpty() {
+  if (chatEl.querySelector('.msg, details.tool, #empty')) return;
+  const d = document.createElement('div');
+  d.id = 'empty';
+  d.className = 'empty';
+  const t = document.createElement('div');
+  t.className = 'e-title';
+  t.textContent = 'Bir görev yaz ya da bir öneri seç';
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+  const ideas = [
+    'data/ altındaki CSV dosyasını analiz et',
+    'Literatürde "protein katlanması" araması yap',
+    "1 eV kaç joule? Fizik sabitleriyle doğrula",
+    'Görevi paralel alt-ajanlara bölüp rapor hazırla',
+  ];
+  for (const idea of ideas) {
+    const c = document.createElement('button');
+    c.className = 'chip';
+    c.textContent = idea;
+    c.onclick = () => {
+      $('#empty')?.remove();
+      const input = $('#input');
+      input.value = idea;
+      send();
+    };
+    chips.appendChild(c);
+  }
+  d.append(t, chips);
+  chatEl.appendChild(d);
+}
+
+// ===== Ajanlar görünümü =====
+async function renderAgents() {
+  if (!agentsInfoLoaded) {
+    try {
+      const c = await api('/api/config');
+      const info = $('#agents-info');
+      info.innerHTML = '';
+      const mk = (k, v, cls = '') => {
+        const box = document.createElement('div');
+        const l = document.createElement('div');
+        l.className = 'k';
+        l.textContent = k;
+        const val = document.createElement('div');
+        val.className = 'v ' + cls;
+        val.textContent = v;
+        box.append(l, val);
+        return box;
+      };
+      info.append(
+        mk('Model', `${c.model.provider} · ${c.model.name}`, 'blue'),
+        mk('Çalışma alanı', c.workspaceRoot),
+        mk('Araç sayısı', String(c.tools.length), 'turquoise'),
+        mk('Durum', busy ? 'görev çalışıyor' : 'boşta', busy ? 'turquoise' : ''),
+      );
+      agentsInfoLoaded = true;
+    } catch {}
+  }
+  const list = $('#agents-list');
+  list.innerHTML = '';
+  if (!agentRuns.length) {
+    const d = document.createElement('div');
+    d.className = 'agent-card';
+    d.textContent = 'Bu oturumda alt-ajan görevi başlatılmadı. Sohbette paralel görev isteyerek task aracını kullandır.';
+    list.appendChild(d);
+    return;
+  }
+  for (const r of [...agentRuns].reverse()) {
+    const card = document.createElement('div');
+    card.className = 'agent-card ' + (r.status === 'running' ? 'running' : r.status === 'failed' ? 'failed' : 'done');
+    const head = document.createElement('div');
+    head.className = 'a-head';
+    const p = document.createElement('div');
+    p.className = 'a-prompt';
+    p.textContent = r.prompt;
+    const st = document.createElement('div');
+    st.className = 'a-state';
+    st.textContent = r.status === 'running' ? '● devam ediyor' : r.status === 'failed' ? '✕ hata' : '✓ tamamlandı';
+    head.append(p, st);
+    card.appendChild(head);
+    if (r.summary) {
+      const s = document.createElement('div');
+      s.className = 'a-summary';
+      s.textContent = r.summary;
+      card.appendChild(s);
+    }
+    list.appendChild(card);
+  }
+}
+
+renderEmpty();
 loadConfig().catch((e) => setStatus('Yapılandırma yüklenemedi: ' + e.message));
 
 // ===== Sol menü: görünüm geçişi + araç listesi =====
-const views = { chat: $('#view-chat'), tools: $('#view-tools') };
+const views = { chat: $('#view-chat'), tools: $('#view-tools'), agents: $('#view-agents') };
 
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
@@ -284,6 +438,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
     for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== v);
     if (v === 'tools') loadTools();
+    if (v === 'agents') renderAgents();
   };
 });
 
