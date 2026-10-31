@@ -1,10 +1,10 @@
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, resolveSafe } from '@sci/core';
 import { buildSteering } from '../core/src/eq/eq-layer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +24,18 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     res: null,
     pending: new Map(),
     messages: [{ role: 'system', content: buildSystemPrompt(cfg) }],
+  };
+
+  // Sohbet geçmişi kalıcılığı (çalışma alanında, git'e girmez)
+  const historyFile = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
+  try {
+    const saved = JSON.parse(readFileSync(historyFile, 'utf8'));
+    if (Array.isArray(saved) && saved.length) state.messages = saved;
+  } catch {}
+  const saveHistory = () => {
+    try {
+      writeFileSync(historyFile, JSON.stringify(state.messages));
+    } catch {}
   };
 
   const emit = (ev) => {
@@ -92,6 +104,28 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         return json(res, { ok: true });
       }
 
+      if (url.pathname === '/api/history' && req.method === 'GET') {
+        return json(res, { messages: state.messages.filter((m) => m.role !== 'system') });
+      }
+
+      if (url.pathname === '/api/csv' && req.method === 'GET') {
+        const rel = url.searchParams.get('path') ?? '';
+        const abs = resolveSafe(cfg.agent.workspaceRoot, rel);
+        const st = await stat(abs);
+        if (st.size > 2_000_000) return json(res, { error: 'Dosya çok büyük (>2 MB)' }, 400);
+        const text = (await readFile(abs, 'utf8')).replace(/^\uFEFF/, '');
+        const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
+        if (lines.length < 2) return json(res, { error: 'CSV en az başlık + 1 satır içermeli' }, 400);
+        const columns = lines[0].split(',').map((h) => h.trim());
+        const rows = lines.slice(1, 5001).map((l) => l.split(','));
+        const numeric = {};
+        columns.forEach((col, i) => {
+          const nums = rows.map((r) => Number(r[i])).filter((v) => Number.isFinite(v));
+          if (nums.length >= Math.max(2, Math.floor(rows.length * 0.6))) numeric[col] = nums;
+        });
+        return json(res, { path: rel, columns, rowCount: rows.length, numeric });
+      }
+
       if (url.pathname === '/api/chat' && req.method === 'POST') {
         if (state.busy) return json(res, { error: 'Ajan şu an meşgul' }, 409);
         const b = await readBody(req);
@@ -128,6 +162,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         } finally {
           state.busy = false;
           state.res = null;
+          saveHistory();
           res.end();
         }
         return;

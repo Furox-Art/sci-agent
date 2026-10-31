@@ -12,6 +12,7 @@
     <nav class="side-nav">
       <button class="nav-item active" data-view="chat"><span class="ico">💬</span> Sohbet</button>
       <button class="nav-item" data-view="tools"><span class="ico">🔬</span> Araçlar</button>
+      <button class="nav-item" data-view="charts"><span class="ico">📊</span> Grafikler</button>
       <button class="nav-item" data-view="agents"><span class="ico ai">🤖</span> Ajanlar</button>
       <button class="nav-item" data-view="settings" id="nav-settings"><span class="ico">⚙️</span> Ayarlar</button>
     </nav>
@@ -60,6 +61,20 @@
         <div id="agents-info"></div>
         <h3 class="sub-h">Görev kartları</h3>
         <div id="agents-list"></div>
+      </div>
+    </section>
+
+    <section id="view-charts" class="view hidden">
+      <div class="tools-wrap">
+        <h2>Grafikler</h2>
+        <p class="lead">Çalışma alanındaki bir CSV dosyasını görselleştir. Ana seri elektrik mavisi, ikinci seri turkuaz, yardımcılar açık cyandır.</p>
+        <div class="chart-bar">
+          <input id="chart-path" type="text" placeholder="ör. examples/veri.csv" />
+          <button id="btn-chart" class="turquoise">Yükle</button>
+          <label class="chart-norm"><input id="chart-norm" type="checkbox" /> seri başına ölçekle</label>
+        </div>
+        <div id="chart-legend" class="chart-legend"></div>
+        <div id="chart-box"></div>
       </div>
     </section>
   </div>

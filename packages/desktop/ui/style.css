@@ -451,3 +451,30 @@ textarea:focus { outline: 1px solid var(--blue); }
 }
 .msg h2 { font-size: 15px; margin: 8px 0 2px; }
 .msg h3 { font-size: 14px; margin: 6px 0 2px; }
+
+/* ===== GRAFİKLER GÖRÜNÜMÜ ===== */
+.chart-bar { display: flex; gap: 8px; margin-bottom: 10px; }
+.chart-bar input {
+  flex: 1;
+  max-width: 460px;
+  background: #051129;
+  color: var(--txt);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+.chart-bar input:focus { outline: 1px solid var(--blue); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; color: var(--txt); font-size: 13px; }
+.chart-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.chartsvg { width: 100%; height: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.m-title { font-weight: 700; margin-bottom: 4px; }
+.chart-norm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.chart-norm input { accent-color: var(--blue); }

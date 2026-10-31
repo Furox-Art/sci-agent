@@ -189,7 +189,27 @@ function handleEvent(ev) {
     approvalCard(ev);
   } else if (ev.type === 'error') {
     resetStream();
-    addText(bubble('assistant'), `⚠ ${ev.text}`);
+    const b = bubble('assistant');
+    if (/fetch failed|ECONNREFUSED|ENOTFOUND|Model sunucusu \d{3}/i.test(ev.text)) {
+      // Modele ulaşılamadı: kibar kart + Ayarlar kısayolu
+      const t = document.createElement('div');
+      t.className = 'm-title';
+      t.textContent = 'Modele ulaşılamadı';
+      const d = document.createElement('div');
+      d.style.color = 'var(--dim)';
+      d.textContent = ev.text;
+      const hint = document.createElement('div');
+      hint.style.color = 'var(--dim)';
+      hint.style.margin = '6px 0';
+      hint.textContent = 'Ayarlar\u2019dan API adresini ve model adını kontrol et (ör. Ollama: http://localhost:11434/v1).';
+      const btn = document.createElement('button');
+      btn.className = 'turquoise';
+      btn.textContent = 'Ayarları Aç';
+      btn.onclick = () => $('#settings').classList.remove('hidden');
+      b.append(t, d, hint, btn);
+    } else {
+      addText(b, `⚠ ${ev.text}`);
+    }
   } else if (ev.type === 'done') {
     // Akış bitti: birikmiş metni markdown olarak yeniden çiz (kod blokları vb.)
     if (streamTarget && streamText) renderMd(streamTarget, streamText);
@@ -422,11 +442,118 @@ async function renderAgents() {
   }
 }
 
+// ===== Sohbet geçmişi (sunucu kalıcılığından geri yükleme) =====
+async function restoreHistory() {
+  let h;
+  try {
+    h = await api('/api/history');
+  } catch {
+    return;
+  }
+  const msgs = Array.isArray(h.messages) ? h.messages : [];
+  for (const m of msgs) {
+    if (m.role === 'user') {
+      addText(bubble('user'), m.content);
+    } else if (m.role === 'assistant') {
+      if (m.tool_calls?.length) {
+        for (const tc of m.tool_calls) {
+          toolBlock(tc.id, tc.function?.name ?? '?', safeParse(tc.function?.arguments));
+          const det = toolBlocks.get(tc.id);
+          if (det) det.open = false;
+        }
+        if (m.content) renderMd(bubble('assistant'), m.content);
+      } else if (m.content) {
+        renderMd(bubble('assistant'), m.content);
+      }
+    } else if (m.role === 'tool') {
+      toolResult(m.tool_call_id, true, m.content);
+    }
+  }
+  if (msgs.length) $('#empty')?.remove();
+}
+
+function safeParse(raw) {
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw ?? {};
+  } catch {
+    return { _raw: String(raw) };
+  }
+}
+
+// ===== Grafikler görünümü =====
+const CHART_COLORS = ['#1677FF', '#00D5C8', '#66F0FF', '#F5FAFF', '#8FA3BD'];
+
+async function loadChart() {
+  const p = $('#chart-path').value.trim();
+  if (!p) return;
+  const box = $('#chart-box');
+  box.innerHTML = '<p class="lead">yükleniyor…</p>';
+  try {
+    const data = await api('/api/csv?path=' + encodeURIComponent(p));
+    renderChart(data);
+  } catch (e) {
+    box.innerHTML = '';
+    const d = document.createElement('p');
+    d.className = 'lead';
+    d.textContent = 'Hata: ' + e.message;
+    box.appendChild(d);
+  }
+}
+
+function renderChart(data) {
+  const names = Object.keys(data.numeric ?? {});
+  const box = $('#chart-box');
+  const legend = $('#chart-legend');
+  if (!names.length) {
+    box.innerHTML = '<p class="lead">Sayısal sütun bulunamadı.</p>';
+    legend.innerHTML = '';
+    return;
+  }
+  const norm = $('#chart-norm')?.checked ?? false;
+  const cols = names.map((k) => data.numeric[k]);
+  const n = Math.max(...cols.map((c) => c.length));
+  const all = cols.flat();
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const W = 880, H = 430, L = 64, R = 18, T = 18, B = 38;
+  const xs = (i) => L + (W - L - R) * (n < 2 ? 0.5 : i / (n - 1));
+  // norm: her seri kendi min/max'ına göre ölçeklenir (farklı büyüklükteki seriler karşılaştırılabilir)
+  const lo = (si) => (norm ? Math.min(...cols[si]) : min);
+  const hi = (si) => (norm ? Math.max(...cols[si]) : max);
+  const ys = (si, v) => T + (H - T - B) * (1 - (v - lo(si)) / (hi(si) - lo(si) || 1));
+
+  let grid = '';
+  for (let g = 0; g <= 4; g++) {
+    const y = T + (H - T - B) * (g / 4);
+    const val = norm ? 1 - g / 4 : max - (max - min) * (g / 4);
+    grid += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="rgba(143,163,189,0.18)"/>`;
+    grid += `<text x="10" y="${y + 4}" fill="#8FA3BD" font-size="11">${norm ? val.toFixed(2) : Number(val.toPrecision(5))}</text>`;
+  }
+  let series = '';
+  names.forEach((k, si) => {
+    const pts = cols[si].map((v, i) => `${xs(i).toFixed(1)},${ys(si, v).toFixed(1)}`).join(' ');
+    series += `<polyline fill="none" stroke="${CHART_COLORS[si % CHART_COLORS.length]}" stroke-width="2" points="${pts}"/>`;
+  });
+  legend.innerHTML = names
+    .map((k, si) => `<span><i style="background:${CHART_COLORS[si % CHART_COLORS.length]}"></i>${esc(k)}</span>`)
+    .join('');
+  const yAxisNote = norm ? 'göreli (0–1, seri başına)' : '';
+  box.innerHTML = `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img">${grid}${series}<text x="${L}" y="${H - 12}" fill="#8FA3BD" font-size="11">satır (0–${n - 1})${yAxisNote ? ' · ' + yAxisNote : ''}</text></svg>`;
+}
+
+$('#btn-chart').onclick = loadChart;
+$('#chart-path').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadChart();
+});
+
 renderEmpty();
-loadConfig().catch((e) => setStatus('Yapılandırma yüklenemedi: ' + e.message));
+loadConfig()
+  .then(() => restoreHistory())
+  .then(() => renderEmpty())
+  .catch((e) => setStatus('Yapılandırma yüklenemedi: ' + e.message));
 
 // ===== Sol menü: görünüm geçişi + araç listesi =====
-const views = { chat: $('#view-chat'), tools: $('#view-tools'), agents: $('#view-agents') };
+const views = { chat: $('#view-chat'), tools: $('#view-tools'), agents: $('#view-agents'), charts: $('#view-charts') };
 
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
