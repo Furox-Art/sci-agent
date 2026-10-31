@@ -59,6 +59,16 @@ function toolResult(id, ok, output) {
   pre.className = ok ? 'out' : 'err';
   pre.textContent = output;
   det.appendChild(pre);
+  const cb = document.createElement('button');
+  cb.className = 't-copy';
+  cb.textContent = 'kopyala';
+  cb.onclick = () => {
+    navigator.clipboard.writeText(output).then(() => {
+      cb.textContent = 'kopyalandı';
+      setTimeout(() => (cb.textContent = 'kopyala'), 1200);
+    });
+  };
+  det.appendChild(cb);
   if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
 }
 
@@ -316,6 +326,10 @@ $('#btn-clear').onclick = async () => {
   renderEmpty();
 };
 $('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
+// Model rozetine tıklayınca Ayarlar açılır
+$('#model-badge').style.cursor = 'pointer';
+$('#model-badge').title = 'Model ayarlarını aç';
+$('#model-badge').onclick = () => $('#settings').classList.remove('hidden');
 
 // Sohbeti Markdown olarak dışa aktar
 $('#btn-export').onclick = async () => {

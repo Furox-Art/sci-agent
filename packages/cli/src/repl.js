@@ -12,9 +12,12 @@ const trunc = (s, n = 400) => (String(s).length > n ? `${String(s).slice(0, n)}�
 
 const HELP = [
   'Komutlar:',
-  '  /help   yardım          /model  model bilgisi',
-  '  /tools  araç listesi    /clear  sohbeti temizle',
-  '  /exit   çıkış',
+  '  /help     yardım            /model  model bilgisi',
+  '  /tools    araç listesi      /clear  sohbeti temizle',
+  '  /sessions [no]  oturum listesi / geçiş',
+  '  /save     sohbeti .md olarak kaydet',
+  '  /test     model bağlantısını test et',
+  '  /exit     çıkış',
 ].join('\n');
 
 export async function startRepl(argv = []) {
@@ -66,6 +69,29 @@ export async function startRepl(argv = []) {
       }
     } catch {}
   };
+  const listSessionFiles = () => {
+    try {
+      return readdirSync(sessionsDir)
+        .filter((f) => f.endsWith('.json'))
+        .map((f) => {
+          try {
+            const d = JSON.parse(readFileSync(path.join(sessionsDir, f), 'utf8'));
+            return {
+              path: path.join(sessionsDir, f),
+              title: String(d.title ?? f),
+              date: String(d.updatedAt ?? '').slice(0, 16).replace('T', ' '),
+              messages: d.messages,
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.date.localeCompare(a.date));
+    } catch {
+      return [];
+    }
+  };
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
@@ -90,6 +116,15 @@ export async function startRepl(argv = []) {
       pendingNewline = false;
     }
   };
+  // Terminal için hafif markdown: kod blokları cyan, başlık/kalın bold, `kod` cyan
+  const mdTerm = (s) =>
+    String(s)
+      .replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => `\n${dim(`── ${lang || 'kod'} ──────────`)}\n${cyan(code.trimEnd())}\n${dim('──────────────')}`)
+      .replace(/`([^`\n]+)`/g, cyan('$1'))
+      .replace(/\*\*([^*\n]+)\*\*/g, bold('$1'))
+      .replace(/^### (.*)$/gm, (m1, h) => bold(h))
+      .replace(/^## (.*)$/gm, (m1, h) => bold(h));
+
   const printEvent = (ev) => {
     if (ev.type === 'reasoning') {
       flushLine();
@@ -102,7 +137,7 @@ export async function startRepl(argv = []) {
       pendingNewline = true;
     } else if (ev.type === 'text') {
       flushLine();
-      console.log(ev.text);
+      console.log(mdTerm(ev.text));
     } else if (ev.type === 'info') {
       flushLine();
       console.log(dim(ev.text));
@@ -193,6 +228,55 @@ export async function startRepl(argv = []) {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(atanmış)' : '' }, null, 2));
       } else if (input === '/tools') {
         console.log(registry.list().map((t) => `${t.name}${t.needsApproval ? ' (onay ister)' : ''} — ${t.description}`).join('\n'));
+      } else if (input.startsWith('/sessions')) {
+        const arg = input.split(/\s+/)[1];
+        const files = listSessionFiles();
+        if (!files.length) {
+          console.log(dim('Kayıtlı oturum yok.'));
+        } else if (arg && /^\d+$/.test(arg)) {
+          const f = files[Number(arg) - 1];
+          if (!f) {
+            console.log(red('Geçersiz oturum numarası.'));
+          } else {
+            const d = JSON.parse(readFileSync(f.path, 'utf8'));
+            sessionFile = f.path;
+            sessionTitle = d.title ?? 'varsayılan';
+            messages.length = 0;
+            messages.push(...(Array.isArray(d.messages) ? d.messages : []));
+            loadedMsgs = messages.length;
+            saveHistory();
+            console.log(dim(`Oturuma geçildi: ${sessionTitle} (${messages.length - 1} mesaj)`));
+          }
+        } else {
+          console.log(bold('Oturumlar (geçmek için: /sessions <no>)'));
+          files.forEach((f, i) => console.log(`  ${i + 1}. ${f.title} ${dim(f.date)}${f.path === sessionFile ? cyan(' ← güncel') : ''}`));
+        }
+      } else if (input === '/save') {
+        const lines = ['# SciAgent Sohbeti', '', new Date().toLocaleString('tr-TR'), ''];
+        for (const m of messages) {
+          if (m.role === 'user') lines.push(`## Kullanıcı\n\n${m.content}\n`);
+          else if (m.role === 'assistant') {
+            if (m.tool_calls?.length) {
+              for (const tc of m.tool_calls) lines.push(`**→ araç:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
+            }
+            if (m.content) lines.push(`**SciAgent**\n\n${m.content}\n`);
+          } else if (m.role === 'tool') {
+            lines.push(`> sonuç: ${String(m.content).slice(0, 400)}\n`);
+          }
+        }
+        const out = path.join(cfg.agent.workspaceRoot, 'sciagent-sohbet.md');
+        writeFileSync(out, lines.join('\n'));
+        console.log(dim(`Kaydedildi: ${out}`));
+      } else if (input === '/test') {
+        const t0 = Date.now();
+        console.log(dim('Model bağlantısı test ediliyor…'));
+        try {
+          const provider = createProvider(cfg.model);
+          const out = await provider.chat({ messages: [{ role: 'user', content: 'Yalnızca "ok" yaz.' }] });
+          console.log(`${cyan('✓ bağlantı başarılı')} (${Date.now() - t0} ms) — yanıt örneği: ${trunc(out.content, 40)}`);
+        } catch (e) {
+          console.log(red(`✕ başarısız (${Date.now() - t0} ms): ${trunc(e.message, 200)}`));
+        }
       } else if (input === '/clear') {
         messages.splice(1);
         saveHistory();

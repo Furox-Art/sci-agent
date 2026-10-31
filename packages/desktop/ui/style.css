@@ -533,3 +533,13 @@ textarea:focus { outline: 1px solid var(--blue); }
   margin-top: 8px;
 }
 .approval .remember input { accent-color: var(--turquoise); }
+details.tool .t-copy {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
