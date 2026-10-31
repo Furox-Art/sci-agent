@@ -11,6 +11,15 @@ let lastUserText = '';
 // Akıllı kaydırma: kullanıcı yukarı bakıyorsa zorla aşağı çekme
 const nearBottom = () => chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 140;
 
+// Baloncuklara saat damgası
+const nowTime = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+const stampChip = () => {
+  const s = document.createElement('span');
+  s.className = 'time';
+  s.textContent = nowTime();
+  return s;
+};
+
 async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { 'content-type': 'application/json' }, ...opts });
   const data = await r.json().catch(() => ({}));
@@ -21,6 +30,7 @@ async function api(path, opts = {}) {
 function bubble(cls) {
   const d = document.createElement('div');
   d.className = `msg ${cls}`;
+  d.appendChild(stampChip());
   chatEl.appendChild(d);
   if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   return d;
@@ -518,6 +528,7 @@ function mdToHtml(src) {
 
 function renderMd(el, text) {
   el.innerHTML = mdToHtml(text);
+  el.appendChild(stampChip());
 }
 
 chatEl.addEventListener('click', async (e) => {
@@ -683,6 +694,12 @@ async function loadChart() {
     d.textContent = 'Hata: ' + e.message;
     box.appendChild(d);
   }
+}
+
+function renderChartEmpty() {
+  $('#chart-legend').innerHTML = '';
+  $('#chart-box').innerHTML =
+    '<div class="empty"><div class="e-title">Henüz grafik yok</div><div>Yukarıdaki alana bir CSV yolu yaz ya da örnek düğmesini kullan.</div></div>';
 }
 
 function renderChart() {
@@ -857,6 +874,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== v);
     if (v === 'tools') loadTools();
     if (v === 'agents') renderAgents();
+    if (v === 'charts' && !chartData) renderChartEmpty();
   };
 });
 

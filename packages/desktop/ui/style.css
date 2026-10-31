@@ -565,3 +565,14 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 #btn-send.btn-stop { background: var(--err); color: #fff; font-weight: 600; }
 .chart-legend span { cursor: pointer; }
 .chart-legend span.off { opacity: 0.35; text-decoration: line-through; }
+
+/* Saat damgası */
+.msg { position: relative; padding-top: 19px; }
+.msg .time {
+  position: absolute;
+  top: 3px;
+  right: 10px;
+  font-size: 10.5px;
+  color: var(--dim);
+  opacity: 0.85;
+}
