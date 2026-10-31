@@ -4,6 +4,7 @@
   "private": true,
   "description": "Model-bağımsız bilimsel kodlama ajanı: çekirdek motor + CLI + masaüstü arayüz",
   "type": "module",
+  "license": "(MIT OR Apache-2.0)",
   "engines": { "node": ">=20" },
   "workspaces": ["packages/*"],
   "scripts": {

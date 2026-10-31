@@ -127,6 +127,10 @@ Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 - [x] eq-layer otomatik yönlendirme katmanı (mesaj öncesi niyet/politika routing'i)
 - [ ] Çoklu oturum ve proje geçmişi
 
+## Lisans
+
+Çift lisans: **MIT OR Apache-2.0** — LICENSE-MIT ve LICENSE-APACHE dosyalarına bakın. Apache-2.0 patent hakkını açıkça verir; MIT kısa ve basittir, kullanıcı ikisinden birini seçebilir.
+
 ## Durum
 
 v0.6 — literatür kanıt araçları (gerçek OpenAlex/Europe PMC/Crossref çağrılarıyla doğrulandı), plan-auditor köprüsü ve eq-layer otomatik yönlendirme eklendi. 73 test geçti (atlama yok); arayüzden uçtan uca doğrulandı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
