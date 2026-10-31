@@ -7,30 +7,51 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <header>
-    <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">bilimsel kodlama ajanı</span></div>
-    <div class="head-actions">
-      <span id="model-badge" class="badge">yükleniyor…</span>
-      <button id="btn-clear" class="ghost">Temizle</button>
-      <button id="btn-settings" class="ghost">Ayarlar</button>
-    </div>
-  </header>
+  <aside id="side">
+    <div class="side-brand"><span class="logo">⚛</span> <span>SciAgent</span></div>
+    <nav class="side-nav">
+      <button class="nav-item active" data-view="chat"><span class="ico">💬</span> Sohbet</button>
+      <button class="nav-item" data-view="tools"><span class="ico">🔬</span> Araçlar</button>
+      <button class="nav-item" data-view="settings" id="nav-settings"><span class="ico">⚙️</span> Ayarlar</button>
+    </nav>
+    <div class="side-foot">v0.6 · bilimsel ajan</div>
+  </aside>
 
-  <!-- HERO BANDI — başlangıç (geri alma: bu bloğu sil) -->
-  <section class="hero" aria-label="SciAgent hero">
-    <img class="hero-hands" src="assets/hands.png"
-         alt="Sol insan eli ve sağ krom el, parmak uçları merkezde neredeyse değiyor" />
-    <div class="hero-glow"></div>
-  </section>
-  <!-- HERO BANDI — bitiş -->
+  <div class="wrap">
+    <header>
+      <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">bilimsel kodlama ajanı</span></div>
+      <div class="head-actions">
+        <span id="model-badge" class="badge">yükleniyor…</span>
+        <button id="btn-clear" class="ghost">Temizle</button>
+        <button id="btn-settings" class="ghost">Ayarlar</button>
+      </div>
+    </header>
 
-  <main id="chat"></main>
-  <div id="status" class="status hidden"></div>
+    <section id="view-chat" class="view">
+      <!-- HERO BANDI — başlangıç (geri alma: bu bloğu sil) -->
+      <section class="hero" aria-label="SciAgent hero">
+        <img class="hero-hands" src="assets/hands.png"
+             alt="Sol insan eli ve sağ krom el, parmak uçları merkezde neredeyse değiyor" />
+      </section>
+      <!-- HERO BANDI — bitiş -->
 
-  <footer>
-    <textarea id="input" rows="1" placeholder="Görevini yaz… (Enter: gönder, Shift+Enter: yeni satır)"></textarea>
-    <button id="btn-send">Gönder</button>
-  </footer>
+      <main id="chat"></main>
+      <div id="status" class="status hidden"></div>
+
+      <footer>
+        <textarea id="input" rows="1" placeholder="Görevini yaz… (Enter: gönder, Shift+Enter: yeni satır)"></textarea>
+        <button id="btn-send" class="turquoise">Gönder</button>
+      </footer>
+    </section>
+
+    <section id="view-tools" class="view hidden">
+      <div class="tools-wrap">
+        <h2>Araçlar</h2>
+        <p class="lead">Ajanın kullanabildiği araçlar. Bilimsel araçlar elektrik mavisi, yapay zekâ/ajan araçları turkuaz ile gösterilir.</p>
+        <ul id="tools-list"></ul>
+      </div>
+    </section>
+  </div>
 
   <div id="settings" class="modal hidden">
     <div class="modal-card">
@@ -52,7 +73,7 @@
       </label>
       <div class="modal-actions">
         <button id="s-cancel" class="ghost">Vazgeç</button>
-        <button id="s-save">Kaydet</button>
+        <button id="s-save" class="turquoise">Kaydet</button>
       </div>
     </div>
   </div>

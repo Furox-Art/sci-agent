@@ -31,6 +31,7 @@ function addText(target, text) {
 function toolBlock(id, name, args) {
   const det = document.createElement('details');
   det.className = 'tool';
+  if (name === 'task') det.classList.add('ai'); // ajan araçları turkuaz
   det.open = true;
   const sum = document.createElement('summary');
   sum.textContent = `→ ${name}`;
@@ -269,3 +270,57 @@ $('#s-save').onclick = async () => {
 };
 
 loadConfig().catch((e) => setStatus('Yapılandırma yüklenemedi: ' + e.message));
+
+// ===== Sol menü: görünüm geçişi + araç listesi =====
+const views = { chat: $('#view-chat'), tools: $('#view-tools') };
+
+document.querySelectorAll('.nav-item').forEach((btn) => {
+  btn.onclick = () => {
+    const v = btn.dataset.view;
+    if (v === 'settings') {
+      $('#settings').classList.remove('hidden');
+      return;
+    }
+    document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
+    for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== v);
+    if (v === 'tools') loadTools();
+  };
+});
+
+async function loadTools() {
+  const list = $('#tools-list');
+  list.innerHTML = '';
+  const loading = document.createElement('li');
+  loading.textContent = 'yükleniyor…';
+  loading.style.color = 'var(--dim)';
+  list.appendChild(loading);
+  try {
+    const c = await api('/api/config');
+    list.innerHTML = '';
+    for (const t of c.tools) {
+      const li = document.createElement('li');
+      if (t.name === 'task') li.className = 'ai';
+      const nameRow = document.createElement('div');
+      const name = document.createElement('span');
+      name.className = 't-name';
+      name.textContent = t.name;
+      nameRow.appendChild(name);
+      if (t.needsApproval) {
+        const chip = document.createElement('span');
+        chip.className = 't-chip';
+        chip.textContent = 'onay ister';
+        nameRow.appendChild(chip);
+      }
+      const desc = document.createElement('div');
+      desc.className = 't-desc';
+      desc.textContent = t.description;
+      li.append(nameRow, desc);
+      list.appendChild(li);
+    }
+  } catch (e) {
+    list.innerHTML = '';
+    const li = document.createElement('li');
+    li.textContent = 'Araç listesi alınamadı: ' + e.message;
+    list.appendChild(li);
+  }
+}
