@@ -182,3 +182,40 @@ textarea:focus { outline: 1px solid var(--acc); }
   font: inherit;
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ===== HERO BANDI — başlangıç (geri alma: bu bloğu sil) ===== */
+.hero {
+  position: relative;
+  height: 370px;
+  background: var(--bg);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.hero .hero-hands {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(62% 100% at 50% 50%, #000 38%, transparent 78%);
+  mask-image: radial-gradient(62% 100% at 50% 50%, #000 38%, transparent 78%);
+}
+.hero .hero-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(780px, 92%);
+  height: 88%;
+  background: radial-gradient(closest-side, rgba(61, 220, 151, 0.14), rgba(61, 220, 151, 0.04) 55%, transparent 78%);
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .hero { height: 300px; }
+}
+@media (max-width: 480px) {
+  .hero { height: 240px; }
+}
+/* ===== HERO BANDI — bitiş ===== */

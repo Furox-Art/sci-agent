@@ -14,6 +14,7 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json',
+  '.png': 'image/png',
 };
 
 export async function startServer({ port = 8765, host = '127.0.0.1', workspace = process.cwd() } = {}) {
