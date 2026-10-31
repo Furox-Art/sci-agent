@@ -1,4 +1,6 @@
-# SciAgent — Bilimsel Kodlama Ajanı
+<div align="center">
+  <img src="docs/assets/logo.png" alt="SciAgent — bilimsel kodlama ajanı" width="560" />
+</div>
 
 Model-bağımsız, Claude benzeri bütünleşik bir kodlama ajanı: **çekirdek motor + CLI + masaüstü arayüz**. Özel bilimsel modelinizi OpenAI uyumlu bir API üzerinden bağlarsınız; ajan dosya okuma/yazma, arama ve terminal komutlarını **onay mekanizmasıyla** çalıştırır.
 

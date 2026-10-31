@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- SciAgent logo kaynağı: tarayıcıda açılıp 1200x300 boyutunda PNG'ye dönüştürülür.
+     Yeniden üretim: bu dosyayı http üzerinden açıp tam görünümü ekran görüntüsüne çevir. -->
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; padding: 0; background: #0d1117; }
+  #logo {
+    width: 1200px;
+    height: 320px;
+    background: #0d1117;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+  }
+  .wordmark {
+    font: 700 116px/1 "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #f0f3f8;
+    letter-spacing: -2.5px;
+  }
+  .wordmark .sci { color: #6c8cff; }
+</style>
+</head>
+<body>
+  <div id="logo">
+    <svg width="152" height="152" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="orbit" x1="0" y1="0" x2="100" y2="100">
+          <stop offset="0" stop-color="#6c8cff" />
+          <stop offset="1" stop-color="#3ddc97" />
+        </linearGradient>
+      </defs>
+      <g stroke="url(#orbit)" stroke-width="5.5" stroke-linecap="round">
+        <ellipse cx="50" cy="50" rx="44" ry="17" />
+        <ellipse cx="50" cy="50" rx="44" ry="17" transform="rotate(60 50 50)" />
+        <ellipse cx="50" cy="50" rx="44" ry="17" transform="rotate(-60 50 50)" />
+      </g>
+      <circle cx="50" cy="50" r="8.5" fill="#e8ecf6" />
+      <circle cx="94" cy="50" r="4.5" fill="#3ddc97" />
+      <circle cx="28" cy="15.9" r="4.5" fill="#6c8cff" />
+    </svg>
+    <div class="wordmark"><span class="sci">Sci</span>Agent</div>
+  </div>
+</body>
+</html>
