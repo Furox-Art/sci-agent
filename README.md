@@ -87,13 +87,22 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 | `furox_compute` | evet | Kullanıcının bilimsel yığınıyla (numpy/scipy/pandas/cds2/axiomize) Python kodu |
 | `axiomize_cli` | evet | axiomize CLI: modelleme IR, birim/boyut doğrulama, belirsizlik, SBML/CellML/Modelica |
 | `cds2_cli` | evet | cds2 CLI (scientific-computing-system-2.0): lineer cebir, ODE/PDE, Monte Carlo, sinyal, kuantum sim. |
+| `lit_search` | hayır | Literatür araması: OpenAlex + Europe PMC + Crossref eşzamanlı |
+| `lit_verify` | hayır | Atıf eşleşme + retraksiyon/düzeltme kontrolü (DOI/başlık) |
+| `lit_quote` | hayır | Tam metin alıntı eşleşmesi (PMCID + sha256 kanıtlı) |
+| `plan_audit` | evet | plan-auditor CLI: mühürlü plan, kanıt zinciri, tamamlanma kapısı |
 
-**Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`) modele hesap yapma gücü kazandırır: model sayısal işleri kendisi uydurmak yerine bu araçlarla hesaplar — bilimsel işlerde doğruluk ve kapsam ek bir sıçrama sağlar.
+**Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
 
-**Kullanıcının açık depolarından entegrasyon** (`sci-furox`, `sci-quantum`): [axiomize](https://github.com/Furox-Art/axiomize) ve [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) (import `cds2`) pip ile kurulur; köprü araçları PATH'ten bağımsız Python çözücüsüyle (`pybridge`) çalışır. [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) protokolü prompt eklentisi olarak gömüldü. Kurulum:
+**Kullanıcının açık depolarından entegrasyon** (6 depo bağlı):
+- [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) → `sci-furox` köprü araçları (pip)
+- [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) → `sci-quantum` akıl yürütme protokolü (prompt)
+- [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) → `sci-lit` literatür kanıt araçları (pip)
+- [plan-auditor](https://github.com/Furox-Art/plan-auditor) → `sci-audit` plan doğrulama köprüsü (pip)
+- [eq-layer](https://github.com/Furox-Art/eq-layer) → **otomatik ön-işleme**: her kullanıcı mesajında niyet/duygu routing'i çalışır, yönlendirme o turun sistem istemine eklenir (kalıcı geçmiş değişmez; `SCI_AGENT_EQ_DISABLE=1` ile kapatılır). Bilinçli olarak eklenmeyenler: scientific-computing-system v1 (2.0 zaten var), scientific-toolkit-mcp (bağımlılık çakışması riski), nomosguard/repocraft (bilimsel hesaplama kapsamı dışı). Kurulum:
 
 ```bash
-pip install numpy scipy pandas axiomize scientific-computing-system-2.0
+pip install numpy scipy pandas axiomize scientific-computing-system-2.0 literature-evidence-mcp plan-auditor "eq-layer[ml]"
 ```
 
 ## Bilimsel model geldiğinde
@@ -103,7 +112,7 @@ pip install numpy scipy pandas axiomize scientific-computing-system-2.0
 1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
 2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
 
-Varsayılan altı eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`) bu kancanın çalışan örnekleridir: 12 bilimsel araç + bilimsel davranış/akıl yürütme istemleri.
+Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) bu kancanın çalışan örnekleridir: 15 bilimsel/kanıt aracı + bilimsel davranış ve akıl yürütme istemleri.
 
 ## Yol haritası
 
@@ -111,10 +120,11 @@ Varsayılan altı eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 - [x] Bul-değiştir düzenleme aracı (`edit_file`)
 - [x] Paralel alt-ajanlar (`task`) ve eklenti mimarisi
 - [x] Bilimsel araç seti: matematik-fizik (`sci-extra`), veri analizi (`sci-data`), kimya (`sci-chem`)
-- [x] Kullanıcı depolarından köprü: axiomize + cds2 (`sci-furox`), quantum-reasoning protokolü (`sci-quantum`)
-- [ ] literature-evidence-mcp entegrasyonu (literatür arama/kanıt zinciri — MCP sunucusu)
+- [x] Kullanıcı depolarından köprü: axiomize + cds2 (`sci-furox`), quantum-reasoning (`sci-quantum`)
+- [x] literature-evidence-mcp (`sci-lit`) ve plan-auditor (`sci-audit`) entegrasyonu
+- [x] eq-layer otomatik yönlendirme katmanı (mesaj öncesi niyet/politika routing'i)
 - [ ] Çoklu oturum ve proje geçmişi
 
 ## Durum
 
-v0.5 — bilimsel Python yığını (numpy/scipy/pandas) ve kullanıcının pip paketleri (axiomize 1.14.x, cds2/scientific-computing-system-2.0 5.4.x) köprü araçlarıyla bağlandı; quantum-reasoning protokolü eklendi. 57 test geçti (atlama yok); gerçek numpy hesabı arayüzden onay akışıyla doğrulandı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.6 — literatür kanıt araçları (gerçek OpenAlex/Europe PMC/Crossref çağrılarıyla doğrulandı), plan-auditor köprüsü ve eq-layer otomatik yönlendirme eklendi. 73 test geçti (atlama yok); arayüzden uçtan uca doğrulandı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

@@ -3,6 +3,8 @@ import { sciExtraTools } from './science/sci-extra.js';
 import { stats_calc, matrix_ops } from './science/sci-data.js';
 import { molar_mass } from './science/sci-chem.js';
 import { sciFuroxTools } from './science/sci-furox.js';
+import { lit_search, lit_verify, lit_quote } from './science/sci-lit.js';
+import { plan_audit } from './science/sci-audit.js';
 
 /**
  * Eklenti kancası: özel bilimsel model geldiğinde yeni bir eklenti tanımlanarak
@@ -53,6 +55,22 @@ const BUILTINS = {
     tools: [],
     systemPrompt:
       'Zor/belirsiz/yüksek riskli bilimsel problemlerde şu protokolü uygula (basit sorularda kullanma): (1) Durumu çerçevele: amaç, doğrulanmış olgular, varsayımlar, araçlar; olguları hipotezlerden ayır. (2) Gerçekten farklı aday yollar aç — kozmetik varyant sayma; ortogonal sınıflar: doğrudan türetme, çürütme/karşıörnek, ayrıştırma, alternatif mekanizma, sayısal/çalıştırılabilir test, bağımsız yeniden kurma, rakip eleştiri. (3) Dalları active/dormant/rejected olarak izle; bir dal öne geçti diye diğerini kalıcı olarak reddetme. (4) Her dalı kanıtla, hitabetle değerlendir; modelin kendi özgüveni zayıf kanıttır. (5) Araçları onaylamak için değil çürütmek için kullan: öndeki dalı deviren kanıt ara (furox_compute/python_eval/axiomize_cli sayısal testleri idealdir). (6) Dalları karşılaştırırken ortak varsayımı taşıyanları çift sayma; bağımsız doğrulanan sonuçları pekiştir; yeni doğrulanan olguyu kısıtladığı her dala aktar. (7) Bütçeyi belirsizliğe göre ayarla: düşük belirsizlikte daral ve derinleş; yüksek belirsizlikte genişle. (8) Yeni kanıt öndeki varsayımı geçersiz kılarsa dormant dalı canlandır. (9) Aramanın marjinal değeri düştüğünde en iyi desteklenen cevaba çök; gerçekten çözülmemiş dallar kalırsa alternatifleri ve ayırt edici kanıtı açıkça raporla.',
+  },
+  'sci-lit': {
+    name: 'sci-lit',
+    description:
+      'Literatür kanıt araçları (literature-evidence-mcp): OpenAlex/Europe PMC/Crossref arama, atıf eşleşme, retraksiyon kontrolü, tam metin alıntı doğrulama',
+    tools: [lit_search, lit_verify, lit_quote],
+    systemPrompt:
+      'Literatür modu: literatür iddialarını hafızadan uydurma; lit_search ile arama yap, atıf verirken lit_verify ile DOI/retraksiyon kontrolü yap, alıntı gösterirken lit_quote ile tam metin eşleşmesini doğrula. Dış API başarısızsa bunu açıkça belirt.',
+  },
+  'sci-audit': {
+    name: 'sci-audit',
+    description:
+      'Plan doğrulama (plan-auditor): mühürlü planlar, SHA-256 kanıt zinciri, STRIPS erişilebilirlik, fail-closed tamamlanma kapısı',
+    tools: [plan_audit],
+    systemPrompt:
+      'Doğrulama modu: "bitti" demeden önce kanıt üret — çok adımlı işlerde plan_audit ile planı denetle ve komut çıktısını kanıt olarak göster.',
   },
 };
 

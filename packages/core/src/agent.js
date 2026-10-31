@@ -1,11 +1,18 @@
 /**
  * Ajan döngüsü: modeli çağırır, araç çağrılarını çalıştırır, sonuçları modele geri verir.
  * onEvent ile akış olayları yayınlanır: reasoning | text | tool_call | tool_result | error
+ * systemExtra verilirse bu turun model çağrılarında sistem mesajına eklenir
+ * (kalıcı messages dizisi değişmez; örn. eq-layer yönlendirmesi için kullanılır).
  */
-export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal } = {}) {
+export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra } = {}) {
   for (let step = 0; step < maxSteps; step++) {
+    // systemExtra yalnızca model çağrılarına eklenir; kalıcı geçmiş kopya üzerinden korunur.
+    const chatMessages =
+      systemExtra && messages.length && typeof messages[0]?.content === 'string'
+        ? messages.map((m, i) => (i === 0 ? { ...m, content: `${m.content}\n\n${systemExtra}` } : m))
+        : messages;
     const res = await provider.chat({
-      messages,
+      messages: chatMessages,
       tools: registry.schemas(),
       signal,
       onChunk: (c) => {

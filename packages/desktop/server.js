@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+import { buildSteering } from '../core/src/eq/eq-layer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UI_DIR = path.join(__dirname, 'ui');
@@ -108,7 +109,17 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         state.messages.push({ role: 'user', content: message });
         try {
           const provider = createProvider(cfg.model);
-          await runAgentLoop({ provider, registry, messages: state.messages, maxSteps: cfg.agent.maxSteps, onEvent: emit });
+          // eq-layer yönlendirmesi: model çağrısından önce niyet/duygu politikası çıkar;
+          // hata olursa /api/chat hiçbir koşulda patlamaz (systemExtra tanımsız kalır).
+          let systemExtra;
+          try {
+            const steer = await buildSteering({ messages: state.messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
+            if (steer?.steering) {
+              systemExtra = steer.steering;
+              emit({ type: 'info', text: `eq-layer yönlendirmesi: ${steer.source}` });
+            }
+          } catch {}
+          await runAgentLoop({ provider, registry, messages: state.messages, maxSteps: cfg.agent.maxSteps, onEvent: emit, systemExtra });
           emit({ type: 'done' });
         } catch (e) {
           emit({ type: 'error', text: e.message });

@@ -8,6 +8,6 @@
     "stream": true
   },
   "agent": { "maxSteps": 25, "workspaceRoot": "." },
-  "plugins": ["sci-tools", "sci-extra", "sci-data", "sci-chem", "sci-furox", "sci-quantum"],
+  "plugins": ["sci-tools", "sci-extra", "sci-data", "sci-chem", "sci-furox", "sci-quantum", "sci-lit", "sci-audit"],
   "policies": { "autoApprove": ["read_file", "list_dir", "search_files"] }
 }

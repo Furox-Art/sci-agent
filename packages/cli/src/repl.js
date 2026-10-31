@@ -1,6 +1,7 @@
 import readline from 'node:readline';
 import path from 'node:path';
 import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const cyan = (s) => `\x1b[36m${s}\x1b[0m`;
@@ -95,8 +96,17 @@ export async function startRepl(argv = []) {
   async function handle(input) {
     messages.push({ role: 'user', content: input });
     try {
+      // eq-layer yönlendirmesi: model çağrısından önce çalışır; hata olursa sessizce atlanır.
+      let systemExtra;
+      try {
+        const steer = await buildSteering({ messages: messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
+        if (steer?.steering) {
+          systemExtra = steer.steering;
+          console.log(dim(`eq-layer: yönlendirme uygulandı (${steer.source})`));
+        }
+      } catch {}
       const provider = createProvider(cfg.model);
-      await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent });
+      await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
     } catch (e) {
       console.log(red(`Hata: ${e.message}`));
     }
