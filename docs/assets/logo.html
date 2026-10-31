@@ -20,7 +20,8 @@
     color: #f0f3f8;
     letter-spacing: -2.5px;
   }
-  .wordmark .sci { color: #6c8cff; }
+  .wordmark .sci { color: #6c8cff; }    /* mavi: bilim, teknoloji, araştırma, güven */
+  .wordmark .agent { color: #2dd4bf; }  /* turkuaz: ajan/etkileşim */
 </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
       <defs>
         <linearGradient id="orbit" x1="0" y1="0" x2="100" y2="100">
           <stop offset="0" stop-color="#6c8cff" />
-          <stop offset="1" stop-color="#3ddc97" />
+          <stop offset="1" stop-color="#2dd4bf" />
         </linearGradient>
       </defs>
       <g stroke="url(#orbit)" stroke-width="5.5" stroke-linecap="round">
@@ -38,10 +39,10 @@
         <ellipse cx="50" cy="50" rx="44" ry="17" transform="rotate(-60 50 50)" />
       </g>
       <circle cx="50" cy="50" r="8.5" fill="#e8ecf6" />
-      <circle cx="94" cy="50" r="4.5" fill="#3ddc97" />
+      <circle cx="94" cy="50" r="4.5" fill="#2dd4bf" />
       <circle cx="28" cy="15.9" r="4.5" fill="#6c8cff" />
     </svg>
-    <div class="wordmark"><span class="sci">Sci</span>Agent</div>
+    <div class="wordmark"><span class="sci">Sci</span><span class="agent">Agent</span></div>
   </div>
 </body>
 </html>
