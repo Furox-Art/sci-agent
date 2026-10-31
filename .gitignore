@@ -5,3 +5,4 @@ dist/
 sci-agent.config.json
 .sci-agent-history.json
 .sci-agent-sessions/
+sciagent-sohbet.md
