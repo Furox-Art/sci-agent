@@ -667,11 +667,26 @@ function renderChart(data) {
   legend.innerHTML = names
     .map((k, si) => `<span><i style="background:${CHART_COLORS[si % CHART_COLORS.length]}"></i>${esc(k)}</span>`)
     .join('');
+  // X ekseni etiketleri: ilk metin sütunu varsa kullanılır
+  let ticks = '';
+  if (data.labelName && Array.isArray(data.labels) && data.labels.length) {
+    const step = Math.max(1, Math.ceil(data.labels.length / 10));
+    data.labels.forEach((lb, i) => {
+      if (i % step === 0 && i < n) {
+        ticks += `<text x="${xs(i).toFixed(1)}" y="${H - B + 16}" fill="#8FA3BD" font-size="10" text-anchor="middle">${esc(String(lb)).slice(0, 12)}</text>`;
+      }
+    });
+  }
   const yAxisNote = norm ? 'göreli (0–1, seri başına)' : '';
-  box.innerHTML = `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img">${grid}${series}<text x="${L}" y="${H - 12}" fill="#8FA3BD" font-size="11">satır (0–${n - 1})${yAxisNote ? ' · ' + yAxisNote : ''}</text></svg>`;
+  const xNote = data.labelName ? ` · x: ${esc(data.labelName)}` : ` · satır (0–${n - 1})`;
+  box.innerHTML = `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img">${grid}${ticks}${series}<text x="${W - R - 150}" y="${H - 12}" fill="#8FA3BD" font-size="11">${xNote}${yAxisNote ? ' · ' + yAxisNote : ''}</text></svg>`;
 }
 
 $('#btn-chart').onclick = loadChart;
+$('#chart-example').onclick = () => {
+  $('#chart-path').value = 'examples/veri.csv';
+  loadChart();
+};
 $('#chart-path').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loadChart();
 });

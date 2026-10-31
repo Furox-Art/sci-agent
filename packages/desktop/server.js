@@ -248,7 +248,19 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
           const nums = rows.map((r) => Number(r[i])).filter((v) => Number.isFinite(v));
           if (nums.length >= Math.max(2, Math.floor(rows.length * 0.6))) numeric[col] = nums;
         });
-        return json(res, { path: rel, columns, rowCount: rows.length, numeric });
+        // X ekseni etiketleri: ilk sayısal olmayan (metin) sütun
+        let labelName = null;
+        let labels = [];
+        for (let i = 0; i < columns.length; i++) {
+          if (numeric[columns[i]]) continue;
+          const vals = rows.map((r) => (r[i] ?? '').trim()).filter(Boolean);
+          if (vals.length >= Math.floor(rows.length * 0.5)) {
+            labelName = columns[i];
+            labels = vals;
+            break;
+          }
+        }
+        return json(res, { path: rel, columns, rowCount: rows.length, numeric, labelName, labels });
       }
 
       if (url.pathname === '/api/chat' && req.method === 'POST') {
