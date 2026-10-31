@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG = {
     apiKey: '',
     name: 'bilimsel-model',
     temperature: 0.2,
+    stream: true,
   },
   agent: { maxSteps: 25, workspaceRoot: '.' },
   policies: { autoApprove: ['read_file', 'list_dir', 'search_files'] },

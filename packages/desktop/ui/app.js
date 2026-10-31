@@ -94,8 +94,35 @@ function setStatus(t) {
   s.classList.remove('hidden');
 }
 
+let streamTarget = null;
+let streamText = '';
+let reasoningEl = null;
+
+function resetStream() {
+  streamTarget = null;
+  streamText = '';
+  reasoningEl = null;
+}
+
 function handleEvent(ev) {
-  if (ev.type === 'reasoning') {
+  if (ev.type === 'text_delta') {
+    if (!streamTarget) {
+      streamTarget = bubble('assistant');
+      streamText = '';
+    }
+    streamText += ev.text;
+    streamTarget.textContent = streamText;
+    chatEl.scrollTop = chatEl.scrollHeight;
+  } else if (ev.type === 'reasoning_delta') {
+    if (!reasoningEl) {
+      reasoningEl = document.createElement('div');
+      reasoningEl.className = 'reasoning';
+      chatEl.appendChild(reasoningEl);
+    }
+    reasoningEl._text = (reasoningEl._text || '') + ev.text;
+    reasoningEl.textContent = `🧠 ${reasoningEl._text}`;
+    chatEl.scrollTop = chatEl.scrollHeight;
+  } else if (ev.type === 'reasoning') {
     const d = document.createElement('div');
     d.className = 'reasoning';
     d.textContent = `🧠 ${ev.text}`;
@@ -103,14 +130,25 @@ function handleEvent(ev) {
     chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'text') {
     addText(bubble('assistant'), ev.text);
+  } else if (ev.type === 'info') {
+    const d = document.createElement('div');
+    d.className = 'reasoning';
+    d.textContent = `ℹ ${ev.text}`;
+    chatEl.appendChild(d);
+    chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'tool_call') {
+    resetStream();
     lastTool = toolBlock(ev.name, ev.args);
   } else if (ev.type === 'tool_result') {
     toolResult(ev.ok, ev.output);
   } else if (ev.type === 'approval_request') {
+    resetStream();
     approvalCard(ev);
   } else if (ev.type === 'error') {
+    resetStream();
     addText(bubble('assistant'), `⚠ ${ev.text}`);
+  } else if (ev.type === 'done') {
+    resetStream();
   }
 }
 
@@ -125,6 +163,7 @@ async function send() {
   setStatus('Ajan çalışıyor…');
   addText(bubble('user'), text);
   lastTool = null;
+  resetStream();
   try {
     const r = await fetch('/api/chat', {
       method: 'POST',

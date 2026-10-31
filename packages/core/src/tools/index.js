@@ -1,7 +1,7 @@
-import { read_file, write_file, list_dir, search_files } from './fs-tools.js';
+import { read_file, write_file, edit_file, list_dir, search_files } from './fs-tools.js';
 import { run_command } from './shell-tool.js';
 
-export const defaultTools = [read_file, write_file, list_dir, search_files, run_command];
+export const defaultTools = [read_file, write_file, edit_file, list_dir, search_files, run_command];
 
 const MAX_OUTPUT = 16_000;
 

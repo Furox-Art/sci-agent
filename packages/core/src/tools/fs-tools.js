@@ -75,6 +75,37 @@ export const write_file = {
   },
 };
 
+export const edit_file = {
+  name: 'edit_file',
+  description:
+    'Bir dosyada eski metin parçasını bulup yenisiyle değiştirir. Eski metin dosyada tam olarak geçmeli; çok sayıda eşleşme varsa hata verir (replaceAll ile tümü değiştirilir).',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Çalışma alanına göre dosya yolu' },
+      oldText: { type: 'string', description: 'Değiştirilecek, dosyada birebir geçen metin' },
+      newText: { type: 'string', description: 'Yerine yazılacak metin' },
+      replaceAll: { type: 'boolean', description: 'Tüm eşleşmeleri değiştir (varsayılan false)' },
+    },
+    required: ['path', 'oldText', 'newText'],
+  },
+  needsApproval: true,
+  async execute({ path: p, oldText, newText, replaceAll = false }, { workspaceRoot }) {
+    if (!oldText) throw new Error('oldText boş olamaz');
+    const abs = resolveSafe(workspaceRoot, p);
+    if (await isBinary(abs)) throw new Error(`ikili dosya düzenlenemez: ${p}`);
+    const src = await fs.readFile(abs, 'utf8');
+    const count = src.split(oldText).length - 1;
+    if (count === 0) throw new Error('eski metin dosyada bulunamadı');
+    if (count > 1 && !replaceAll) {
+      throw new Error(`eski metin ${count} kez geçiyor; daha belirli (uzun) bir parça ver ya da replaceAll kullan`);
+    }
+    const out = replaceAll ? src.replaceAll(oldText, newText) : src.replace(oldText, newText);
+    await fs.writeFile(abs, out, 'utf8');
+    return `${p} güncellendi (${replaceAll ? count : 1} değişiklik)`;
+  },
+};
+
 export const list_dir = {
   name: 'list_dir',
   description: 'Bir dizinin içeriğini listeler.',

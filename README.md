@@ -15,7 +15,8 @@ sci-agent/
 
 - **Model-bağımsız:** Herhangi bir OpenAI uyumlu uç nokta (vLLM, Ollama, HF TGI, LM Studio, bulut API'leri…).
 - **Ajan döngüsü:** Model → araç çağrısı → sonuç → model … (adım sınırıyla).
-- **Onay politikası:** `read_file`, `list_dir`, `search_files` otomatik; `write_file` ve `run_command` varsayılan olarak **onay ister** (politika `sci-agent.config.json` ile değiştirilebilir).
+- **Akışlı yanıtlar:** `model.stream` (varsayılan `true`) ile metin ve akıl yürütme deltaları canlı gösterilir; sunucu akışı reddederse bir kez akışsız denenir.
+- **Onay politikası:** `read_file`, `list_dir`, `search_files` otomatik; `write_file`, `edit_file` ve `run_command` varsayılan olarak **onay ister** (politika `sci-agent.config.json` ile değiştirilebilir).
 - **Çalışma alanı sanal kutusu:** Araçlar yapılandırılan kökün dışına erişemez.
 
 ## Kurulum
@@ -70,15 +71,16 @@ Tek seferlik görev: `node packages/cli/bin/sci-agent.js --prompt "görev"`.
 | `list_dir` | hayır | Dizin listeler |
 | `search_files` | hayır | Ad/ içerik araması (regex) |
 | `write_file` | evet | Dosya yazar/üzerine yazar |
+| `edit_file` | evet | Bul-değiştir ile dosya düzenler (çoklu eşleşme koruması) |
 | `run_command` | evet | Kabuk komutu çalıştırır |
 
 ## Yol haritası
 
-- Akış (streaming) yanıt desteği
-- Python/bilimsel hesaplama aracı, web araması, literatür (Zotero) entegrasyonu
-- Çoklu oturum ve proje geçmişi
-- Düzenleme (diff-tabanlı) aracı
+- [x] Akış (streaming) yanıt desteği
+- [x] Bul-değiştir düzenleme aracı (`edit_file`)
+- [ ] Python/bilimsel hesaplama aracı, web araması, literatür (Zotero) entegrasyonu
+- [ ] Çoklu oturum ve proje geçmişi
 
 ## Durum
 
-v0.1 — testler ve arayüz doğrulaması yapıldı; gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.2 — akışlı yanıtlar ve `edit_file` eklendi; testler ve arayüz doğrulaması yapıldı. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

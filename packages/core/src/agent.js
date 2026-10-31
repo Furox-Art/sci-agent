@@ -4,7 +4,16 @@
  */
 export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal } = {}) {
   for (let step = 0; step < maxSteps; step++) {
-    const res = await provider.chat({ messages, tools: registry.schemas(), signal });
+    const res = await provider.chat({
+      messages,
+      tools: registry.schemas(),
+      signal,
+      onChunk: (c) => {
+        if (c.type === 'text_delta') onEvent({ type: 'text_delta', text: c.text });
+        else if (c.type === 'reasoning_delta') onEvent({ type: 'reasoning_delta', text: c.text });
+        else if (c.type === 'info') onEvent({ type: 'info', text: c.text });
+      },
+    });
 
     const assistant = { role: 'assistant', content: res.content ?? '' };
     if (res.toolCalls?.length) {
@@ -16,8 +25,9 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     }
     messages.push(assistant);
 
-    if (res.reasoning) onEvent({ type: 'reasoning', text: res.reasoning });
-    if (res.content) onEvent({ type: 'text', text: res.content });
+    // Deltalar akış sırasında gösterildi; yalnızca akışsız yanıtta tam metni yayınla.
+    if (res.reasoning && !res.streamed) onEvent({ type: 'reasoning', text: res.reasoning });
+    if (res.content && !res.streamed) onEvent({ type: 'text', text: res.content });
     if (!res.toolCalls?.length) return { done: true, steps: step + 1 };
 
     for (const tc of res.toolCalls) {

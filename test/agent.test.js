@@ -51,7 +51,7 @@ test('OpenAI sağlayıcı istek biçimi ve ayrıştırma', async () => {
       }),
     };
   };
-  const p = new OpenAICompatProvider({ baseUrl: 'http://x/v1/', model: 'm', fetchImpl: fakeFetch });
+  const p = new OpenAICompatProvider({ baseUrl: 'http://x/v1/', model: 'm', stream: false, fetchImpl: fakeFetch });
   const out = await p.chat({
     messages: [{ role: 'user', content: 'hi' }],
     tools: [{ name: 'list_dir', description: 'd', parameters: { type: 'object' } }],

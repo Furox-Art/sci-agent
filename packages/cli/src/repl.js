@@ -35,12 +35,39 @@ export async function startRepl(argv = []) {
     },
   });
 
+  let pendingNewline = false;
+  const flushLine = () => {
+    if (pendingNewline) {
+      process.stdout.write('\n');
+      pendingNewline = false;
+    }
+  };
   const printEvent = (ev) => {
-    if (ev.type === 'reasoning') console.log(dim(`🧠 ${trunc(ev.text, 600)}`));
-    else if (ev.type === 'text') console.log(ev.text);
-    else if (ev.type === 'tool_call') console.log(cyan(`\n→ ${ev.name} ${trunc(JSON.stringify(ev.args), 300)}`));
-    else if (ev.type === 'tool_result') console.log(ev.ok ? dim(`← ${trunc(ev.output, 500)}`) : red(`← ${trunc(ev.output, 500)}`));
-    else if (ev.type === 'error') console.log(red(`Hata: ${ev.text}`));
+    if (ev.type === 'reasoning') {
+      flushLine();
+      console.log(dim(`🧠 ${trunc(ev.text, 600)}`));
+    } else if (ev.type === 'reasoning_delta') {
+      process.stdout.write(dim(ev.text));
+      pendingNewline = true;
+    } else if (ev.type === 'text_delta') {
+      process.stdout.write(ev.text);
+      pendingNewline = true;
+    } else if (ev.type === 'text') {
+      flushLine();
+      console.log(ev.text);
+    } else if (ev.type === 'info') {
+      flushLine();
+      console.log(dim(ev.text));
+    } else if (ev.type === 'tool_call') {
+      flushLine();
+      console.log(cyan(`\n→ ${ev.name} ${trunc(JSON.stringify(ev.args), 300)}`));
+    } else if (ev.type === 'tool_result') {
+      flushLine();
+      console.log(ev.ok ? dim(`← ${trunc(ev.output, 500)}`) : red(`← ${trunc(ev.output, 500)}`));
+    } else if (ev.type === 'error') {
+      flushLine();
+      console.log(red(`Hata: ${ev.text}`));
+    }
   };
 
   async function handle(input) {

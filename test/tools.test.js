@@ -49,3 +49,33 @@ test('search_files içerikte arar', async () => {
   assert.ok(s.ok, s.output);
   assert.match(s.output, /notes\.md/);
 });
+
+test('edit_file tek eşleşmeyi değiştirir', async () => {
+  const r = reg();
+  await r.invoke('write_file', { path: 'kod.js', content: 'const a = 1;\nconst b = 2;\n' });
+  const e = await r.invoke('edit_file', { path: 'kod.js', oldText: 'const a = 1;', newText: 'const a = 42;' });
+  assert.ok(e.ok, e.output);
+  const rd = await r.invoke('read_file', { path: 'kod.js' });
+  assert.match(rd.output, /const a = 42;/);
+  assert.match(rd.output, /const b = 2;/);
+});
+
+test('edit_file çoklu eşleşmede hata verir, replaceAll ile değiştirir', async () => {
+  const r = reg();
+  await r.invoke('write_file', { path: 'c.txt', content: 'x y x' });
+  const e1 = await r.invoke('edit_file', { path: 'c.txt', oldText: 'x', newText: 'z' });
+  assert.equal(e1.ok, false);
+  assert.match(e1.output, /2 kez geçiyor/);
+  const e2 = await r.invoke('edit_file', { path: 'c.txt', oldText: 'x', newText: 'z', replaceAll: true });
+  assert.ok(e2.ok, e2.output);
+  const rd = await r.invoke('read_file', { path: 'c.txt' });
+  assert.equal(rd.output, 'z y z');
+});
+
+test('edit_file eşleşme yoksa hata verir', async () => {
+  const r = reg();
+  await r.invoke('write_file', { path: 'd.txt', content: 'abc' });
+  const e = await r.invoke('edit_file', { path: 'd.txt', oldText: 'yok', newText: 'x' });
+  assert.equal(e.ok, false);
+  assert.match(e.output, /bulunamadı/);
+});
