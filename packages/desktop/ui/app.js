@@ -780,6 +780,8 @@ async function loadSessions() {
 function renderSessions(s) {
   const list = $('#ss-list');
   list.innerHTML = '';
+  const active = s.sessions.find((x) => x.id === s.active);
+  if (active) document.title = `SciAgent — ${active.title}`;
   for (const sess of s.sessions) {
     const item = document.createElement('div');
     item.className = 'ss-item' + (sess.id === s.active ? ' active' : '');
