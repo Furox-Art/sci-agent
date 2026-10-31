@@ -757,8 +757,13 @@ function renderChart() {
   }
   let series = '';
   names.forEach((k, si) => {
+    const color = CHART_COLORS[si % CHART_COLORS.length];
     const pts = cols[si].map((v, i) => `${xs(i).toFixed(1)},${ys(si, v).toFixed(1)}`).join(' ');
-    series += `<polyline fill="none" stroke="${CHART_COLORS[si % CHART_COLORS.length]}" stroke-width="2" points="${pts}"/>`;
+    series += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/>`;
+    // Tek noktalı serilerde çizgi görünmez olur → nokta işaretleyici çiz
+    if (cols[si].length === 1) {
+      series += `<circle cx="${xs(0).toFixed(1)}" cy="${ys(si, cols[si][0]).toFixed(1)}" r="4" fill="${color}"/>`;
+    }
   });
   // X ekseni etiketleri: ilk metin sütunu varsa kullanılır
   let ticks = '';

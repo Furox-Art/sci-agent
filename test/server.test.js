@@ -85,6 +85,30 @@ test('boş mesaj 400 döner', async (t) => {
   assert.equal(r.status, 400);
 });
 
+test('temizleme geçmişi sıfırlar', async (t) => {
+  const { base } = await makeServer(t);
+  const res = await fetch(base + '/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ message: 'doldur' }),
+  });
+  await res.text(); // SSE akışı bitene kadar bekle
+  let h = await (await fetch(base + '/api/history')).json();
+  assert.ok(h.messages.length >= 2);
+  const c = await (await jpost(base, '/api/clear')).json();
+  assert.equal(c.ok, true);
+  h = await (await fetch(base + '/api/history')).json();
+  assert.equal(h.messages.length, 0);
+});
+
+test('tek satırlık CSV sayısal sütunla çalışır', async (t) => {
+  const { base, root } = await makeServer(t);
+  await fs.writeFile(path.join(root, 'tek.csv'), 'deger\n42\n', 'utf8');
+  const d = await (await fetch(base + '/api/csv?path=' + encodeURIComponent('tek.csv'))).json();
+  assert.deepEqual(d.numeric.deger, [42]);
+  assert.equal(d.rowCount, 1);
+});
+
 test('csv uç noktası sayısal sütun ve etiket döndürür', async (t) => {
   const { base, root } = await makeServer(t);
   await fs.writeFile(path.join(root, 'veri.csv'), 'donem,deger\nOca,10\nSub,20\nMar,30\n', 'utf8');

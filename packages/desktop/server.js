@@ -136,6 +136,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       if (url.pathname === '/api/clear' && req.method === 'POST') {
+        if (state.busy) return json(res, { error: 'Ajan çalışıyor; temizlenemez' }, 409);
         state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
         saveActive();
         return json(res, { ok: true });
@@ -253,7 +254,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         const numeric = {};
         columns.forEach((col, i) => {
           const nums = rows.map((r) => Number(r[i])).filter((v) => Number.isFinite(v));
-          if (nums.length >= Math.max(2, Math.floor(rows.length * 0.6))) numeric[col] = nums;
+          if (nums.length >= Math.max(1, Math.floor(rows.length * 0.6))) numeric[col] = nums;
         });
         // X ekseni etiketleri: ilk sayısal olmayan (metin) sütun
         let labelName = null;
