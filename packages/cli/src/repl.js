@@ -150,6 +150,9 @@ export async function startRepl(argv = []) {
     } else if (ev.type === 'error') {
       flushLine();
       console.log(red(`Hata: ${ev.text}`));
+    } else if (ev.type === 'step') {
+      flushLine();
+      console.log(dim(`— adım ${ev.step}/${ev.maxSteps} —`));
     } else if (ev.type === 'task_start') {
       flushLine();
       console.log(dim(`▶ Alt ajan başladı: ${trunc(ev.prompt, 120)}`));

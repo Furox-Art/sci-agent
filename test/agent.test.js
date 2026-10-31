@@ -23,6 +23,9 @@ test('ajan döngüsü: araç çağırır ve yanıtlar', async () => {
   assert.equal(messages.at(-1).content, 'rapor yazıldı');
   assert.equal(messages.at(-2).role, 'tool');
   assert.equal(events.find((e) => e.type === 'tool_call')?.name, 'write_file');
+  // Adım olayları: her tur için sıralı step olayı yayınlanır
+  const stepEvents = events.filter((e) => e.type === 'step').map((e) => e.step);
+  assert.deepEqual(stepEvents, [1, 2]);
 });
 
 test('adım sınırında durur', async () => {

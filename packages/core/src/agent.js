@@ -6,6 +6,7 @@
  */
 export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra } = {}) {
   for (let step = 0; step < maxSteps; step++) {
+    onEvent({ type: 'step', step: step + 1, maxSteps });
     // systemExtra yalnızca model çağrılarına eklenir; kalıcı geçmiş kopya üzerinden korunur.
     const chatMessages =
       systemExtra && messages.length && typeof messages[0]?.content === 'string'

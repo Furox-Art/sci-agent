@@ -224,6 +224,8 @@ function handleEvent(ev) {
       renderAgents();
     }
     subNote(`  ↳ ${ev.prompt} · ${what}`);
+  } else if (ev.type === 'step') {
+    setStatus(`Ajan çalışıyor… adım ${ev.step}/${ev.maxSteps}`);
   } else if (ev.type === 'approval_request') {
     resetStream();
     approvalCard(ev);
@@ -393,12 +395,31 @@ $('#btn-hero').onclick = () => {
 };
 applyHero();
 
-// Araç arama filtresi
+// Araç arama filtresi (boş kalan grup başlıklarını da gizler)
 $('#tool-filter').addEventListener('input', () => {
   const q = $('#tool-filter').value.trim().toLowerCase();
-  [...$('#tools-list').children].forEach((li) => {
-    li.style.display = !q || li.textContent.toLowerCase().includes(q) ? '' : 'none';
+  const list = $('#tools-list');
+  let lastHead = null;
+  let visible = 0;
+  [...list.children].forEach((el) => {
+    if (el.tagName === 'H3') {
+      if (lastHead) lastHead.style.display = visible ? '' : 'none';
+      lastHead = el;
+      visible = 0;
+    } else {
+      const show = !q || el.textContent.toLowerCase().includes(q);
+      el.style.display = show ? '' : 'none';
+      if (show) visible += 1;
+    }
   });
+  if (lastHead) lastHead.style.display = visible ? '' : 'none';
+});
+
+// Girdi alanı içeriğe göre büyüsün (en fazla ~6 satır)
+const inputEl = $('#input');
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = `${Math.min(inputEl.scrollHeight, 150)}px`;
 });
 
 // Sohbeti Markdown olarak dışa aktar
