@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, resolveSafe } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, resolveSafe, toolGroup } from '@sci/core';
 import { buildSteering } from '../core/src/eq/eq-layer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -119,7 +119,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         return json(res, {
           model: { provider: cfg.model.provider, baseUrl: cfg.model.baseUrl, name: cfg.model.name, hasKey: Boolean(cfg.model.apiKey) },
           workspaceRoot: cfg.agent.workspaceRoot,
-          tools: registry.list(),
+          tools: registry.list().map((t) => ({ ...t, group: toolGroup(t.name) })),
         });
       }
 

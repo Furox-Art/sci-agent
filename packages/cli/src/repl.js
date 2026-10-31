@@ -1,7 +1,7 @@
 import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -267,12 +267,13 @@ export async function startRepl(argv = []) {
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(atanmış)' : '' }, null, 2));
       } else if (input === '/tools') {
-        console.log(
-          registry
-            .list()
-            .map((t) => `${t.name === 'task' ? cyan(t.name) : t.name}${t.needsApproval ? dim(' (onay ister)') : ''} — ${t.description}`)
-            .join('\n'),
-        );
+        const groups = groupTools(registry.list());
+        for (const [title, tools] of groups) {
+          console.log(bold(`${title} (${tools.length})`));
+          for (const t of tools) {
+            console.log(`  ${t.name === 'task' ? cyan(t.name) : t.name}${t.needsApproval ? dim(' (onay ister)') : ''} — ${t.description}`);
+          }
+        }
       } else if (input.startsWith('/sessions')) {
         const parts = input.split(/\s+/);
         const arg = parts[1];

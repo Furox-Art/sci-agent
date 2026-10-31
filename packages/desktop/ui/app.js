@@ -900,7 +900,12 @@ async function loadTools() {
   try {
     const c = await api('/api/config');
     list.innerHTML = '';
-    const groups = groupTools(c.tools);
+    const groups = new Map();
+    for (const t of c.tools) {
+      const title = t.group ?? 'Diğer';
+      if (!groups.has(title)) groups.set(title, []);
+      groups.get(title).push(t);
+    }
     for (const [title, tools] of groups) {
       const h = document.createElement('h3');
       h.className = 'sub-h';
@@ -935,26 +940,4 @@ async function loadTools() {
     li.textContent = 'Araç listesi alınamadı: ' + e.message;
     list.appendChild(li);
   }
-}
-
-function groupTools(tools) {
-  const g = new Map();
-  const push = (title, t) => {
-    if (!g.has(title)) g.set(title, []);
-    g.get(title).push(t);
-  };
-  for (const t of tools) {
-    if (t.name === 'task') push('Yapay zekâ ajanları', t);
-    else if (t.name.startsWith('lit_')) push('Literatür (kanıt zinciri)', t);
-    else if (['furox_compute', 'axiomize_cli', 'cds2_cli'].includes(t.name)) push('Bilimsel paket köprüleri', t);
-    else if (t.name === 'plan_audit') push('Plan doğrulama', t);
-    else if (
-      ['python_eval', 'csv_stats', 'math_eval', 'unit_convert', 'physical_constants', 'stats_calc', 'matrix_ops', 'molar_mass'].includes(t.name)
-    ) {
-      push('Bilimsel hesaplama', t);
-    } else {
-      push('Dosya & kod', t);
-    }
-  }
-  return g;
 }
