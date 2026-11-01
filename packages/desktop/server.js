@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, resolveSafe, toolGroup } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, resolveSafe, toolGroup, fetchSkill, skillsSystemText } from '@sci/core';
 import { buildSteering } from '../core/src/eq/eq-layer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -83,6 +83,38 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     return true;
   };
 
+  // GitHub becerileri: yapılandırmadaki kaynakları yükler (hatalar nazikçe raporlanır)
+  state.skills = [];
+  state.skillErrors = [];
+  let skillsLoading = false;
+  const ensureSkills = async () => {
+    if (skillsLoading) return;
+    skillsLoading = true;
+    try {
+      for (const source of cfg.skills?.sources ?? []) {
+        if (state.skills.some((s) => s.source === source)) continue;
+        if (state.skillErrors.some((x) => x.source === source)) continue;
+        try {
+          state.skills.push(await fetchSkill(source));
+        } catch (e) {
+          state.skillErrors.push({ source, error: String(e.message).slice(0, 200) });
+        }
+      }
+    } finally {
+      skillsLoading = false;
+    }
+  };
+  const persistSkills = (sources) => {
+    const file = path.join(cfg.agent.workspaceRoot, 'sci-agent.config.json');
+    let cur = {};
+    try {
+      cur = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {}
+    cur.skills = { sources };
+    writeFileSync(file, JSON.stringify(cur, null, 2));
+  };
+  ensureSkills(); // açılışta arka planda yükle
+
   const emit = (ev) => {
     const res = state.res;
     if (!res) return;
@@ -145,6 +177,43 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/stop' && req.method === 'POST') {
         if (!state.abort) return json(res, { ok: false, error: 'Çalışan görev yok' }, 409);
         state.abort.abort();
+        return json(res, { ok: true });
+      }
+
+      if (url.pathname === '/api/agent-skills' && req.method === 'GET') {
+        await ensureSkills();
+        return json(res, {
+          sources: cfg.skills?.sources ?? [],
+          loaded: state.skills.map(({ source, name, description }) => ({ source, name, description })),
+          errors: state.skillErrors,
+        });
+      }
+
+      if (url.pathname === '/api/agent-skills' && req.method === 'POST') {
+        const b = await readBody(req);
+        const source = String(b.source ?? '').trim();
+        if (!source.startsWith('github:')) return json(res, { error: 'Kaynak "github:kullanici/depo" biçiminde olmalı' }, 400);
+        try {
+          const skill = await fetchSkill(source);
+          if (!cfg.skills?.sources.includes(source)) {
+            cfg.skills = cfg.skills ?? { sources: [] };
+            cfg.skills.sources.push(source);
+            persistSkills(cfg.skills.sources);
+          }
+          if (!state.skills.some((s) => s.source === source)) state.skills.push(skill);
+          return json(res, { ok: true, skill: { source, name: skill.name, description: skill.description } });
+        } catch (e) {
+          return json(res, { error: String(e.message).slice(0, 300) }, 502);
+        }
+      }
+
+      if (url.pathname === '/api/agent-skills/remove' && req.method === 'POST') {
+        const b = await readBody(req);
+        const source = String(b.source ?? '');
+        cfg.skills = cfg.skills ?? { sources: [] };
+        cfg.skills.sources = cfg.skills.sources.filter((s) => s !== source);
+        state.skills = state.skills.filter((s) => s.source !== source);
+        persistSkills(cfg.skills.sources);
         return json(res, { ok: true });
       }
 
@@ -304,13 +373,16 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
           // eq-layer yönlendirmesi: model çağrısından önce niyet/duygu politikası çıkar;
           // hata olursa /api/chat hiçbir koşulda patlamaz (systemExtra tanımsız kalır).
           let systemExtra;
+          const skillText = skillsSystemText(state.skills);
           try {
             const steer = await buildSteering({ messages: state.messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
+            systemExtra = [skillText, steer?.steering].filter(Boolean).join('\n\n') || undefined;
             if (steer?.steering) {
-              systemExtra = steer.steering;
               emit({ type: 'info', text: `eq-layer yönlendirmesi: ${steer.source}` });
             }
-          } catch {}
+          } catch {
+            systemExtra = skillText || undefined;
+          }
           await runAgentLoop({ provider, registry, messages: state.messages, maxSteps: cfg.agent.maxSteps, onEvent: emit, systemExtra, signal: ac.signal });
           emit({ type: 'done' });
         } catch (e) {

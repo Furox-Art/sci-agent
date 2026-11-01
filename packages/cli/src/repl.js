@@ -1,7 +1,7 @@
 import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -329,6 +329,42 @@ export async function startRepl(argv = []) {
             console.log(`  ${i + 1}. ${f.title} ${dim(`${count} mesaj · ${f.date}`)}${f.path === sessionFile ? cyan(' ← güncel') : ''}`);
           });
         }
+      } else if (input === '/skills') {
+        if (busy) {
+          console.log(dim('(önceki görev sürüyor; bekleyin)'));
+        } else {
+          busy = true;
+          try {
+            console.log(dim('Beceriler yükleniyor…'));
+            for (const source of cfg.skills?.sources ?? []) {
+              try {
+                const sk = await fetchSkill(source);
+                console.log(`${cyan(sk.name)} ${dim(`(${source})`)}\n  ${trunc(sk.description || sk.body, 160)}`);
+              } catch (e) {
+                console.log(red(`✕ ${source}: ${trunc(e.message, 140)}`));
+              }
+            }
+          } finally {
+            busy = false;
+          }
+        }
+      } else if (input.startsWith('/skills add ')) {
+        const source = input.slice('/skills add '.length).trim();
+        try {
+          const sk = await fetchSkill(source);
+          cfg.skills = cfg.skills ?? { sources: [] };
+          if (!cfg.skills.sources.includes(source)) cfg.skills.sources.push(source);
+          const cfile = path.join(cfg.agent.workspaceRoot, 'sci-agent.config.json');
+          let cur = {};
+          try {
+            cur = JSON.parse(readFileSync(cfile, 'utf8'));
+          } catch {}
+          cur.skills = { sources: cfg.skills.sources };
+          writeFileSync(cfile, JSON.stringify(cur, null, 2));
+          console.log(`${cyan('✓ Beceri eklendi')}: ${sk.name} ${dim(`(${source})`)}`);
+        } catch (e) {
+          console.log(red(`✕ ${trunc(e.message, 200)}`));
+        }
       } else if (input === '/save') {
         const lines = ['# SciAgent Sohbeti', '', new Date().toLocaleString('tr-TR'), ''];
         for (const m of messages) {
@@ -374,11 +410,19 @@ export async function startRepl(argv = []) {
         }
       }
     } finally {
-      if (input !== '/exit') rl.prompt();
+      if (input !== '/exit' && !rl.closed) rl.prompt();
     }
   });
   rl.on('close', () => {
-    console.log(dim('Görüşürüz.'));
-    process.exit(0);
+    // Sürerken (ör. /skills ağ isteği) anında çıkma; bitmesini bekle
+    const wait = () => {
+      if (busy) {
+        setTimeout(wait, 200);
+        return;
+      }
+      console.log(dim('Görüşürüz.'));
+      process.exit(0);
+    };
+    wait();
   });
 }

@@ -818,6 +818,74 @@ chartPathInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loadChartSaved();
 });
 
+// ===== Beceriler (GitHub SKILL.md) =====
+async function loadAgentSkills() {
+  const list = $('#skills-list');
+  try {
+    const s = await api('/api/agent-skills');
+    list.innerHTML = '';
+    for (const sk of s.loaded) {
+      const d = document.createElement('div');
+      d.className = 'skill-item';
+      const n = document.createElement('div');
+      const name = document.createElement('span');
+      name.className = 't-name';
+      name.textContent = sk.name;
+      const del = document.createElement('button');
+      del.className = 'ss-del skill-del';
+      del.textContent = '×';
+      del.title = 'Beceriyi kaldır';
+      del.onclick = async () => {
+        await api('/api/agent-skills/remove', { method: 'POST', body: JSON.stringify({ source: sk.source }) }).catch(() => {});
+        loadAgentSkills();
+      };
+      n.append(name, del);
+      const desc = document.createElement('div');
+      desc.className = 't-desc';
+      desc.textContent = sk.description;
+      const src = document.createElement('div');
+      src.className = 't-desc';
+      src.style.opacity = '0.7';
+      src.textContent = sk.source;
+      d.append(n, desc, src);
+      list.appendChild(d);
+    }
+    for (const err of s.errors) {
+      const d = document.createElement('div');
+      d.className = 't-desc';
+      d.style.color = 'var(--err)';
+      d.textContent = `✕ ${err.source}: ${err.error}`;
+      list.appendChild(d);
+    }
+    if (!s.loaded.length && !s.errors.length) {
+      list.innerHTML = '<div class="t-desc">Beceri yok — aşağıdan github: kaynağı ekleyin.</div>';
+    }
+  } catch (e) {
+    list.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 't-desc';
+    d.textContent = 'Beceriler alınamadı: ' + e.message;
+    list.appendChild(d);
+  }
+}
+
+$('#btn-skill-add').onclick = async () => {
+  const src = $('#skill-source').value.trim();
+  if (!src) return;
+  $('#btn-skill-add').disabled = true;
+  try {
+    const r = await api('/api/agent-skills', { method: 'POST', body: JSON.stringify({ source: src }) });
+    $('#skill-source').value = '';
+    await loadAgentSkills();
+    if (!r.ok) setStatus(`Beceri yüklendi: ${r.skill?.name ?? src}`);
+  } catch (e) {
+    setStatus('Beceri eklenemedi: ' + e.message);
+    setTimeout(() => setStatus(''), 3000);
+  } finally {
+    $('#btn-skill-add').disabled = false;
+  }
+};
+
 // ===== Oturumlar (sol menü) =====
 function resetChatDom() {
   chatEl.innerHTML = '';
@@ -913,7 +981,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
     for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== v);
     if (v === 'tools') loadTools();
-    if (v === 'agents') renderAgents();
+    if (v === 'agents') { renderAgents(); loadAgentSkills(); }
     if (v === 'charts' && !chartData) renderChartEmpty();
   };
 });

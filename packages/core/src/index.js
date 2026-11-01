@@ -8,6 +8,7 @@ export { OpenAICompatProvider, MockProvider } from './provider.js';
 export { ToolRegistry, defaultTools } from './tools/index.js';
 export { resolveSafe } from './tools/fs-tools.js';
 export { groupTools, toolGroup } from './tools/grouping.js';
+export { fetchSkill, githubSkillUrl, parseSkillMd, skillsSystemText } from './skills.js';
 export { runAgentLoop, buildSystemPrompt } from './agent.js';
 export { getPlugin, listPlugins } from './plugins.js';
 
