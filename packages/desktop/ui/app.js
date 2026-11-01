@@ -776,6 +776,14 @@ function renderChart() {
     if (cols[si].length === 1) {
       series += `<circle cx="${xs(0).toFixed(1)}" cy="${ys(si, cols[si][0]).toFixed(1)}" r="4" fill="${color}"/>`;
     }
+    // Hover ipuçları: nokta sayısı makul olduğundan fazlaysa örneklenerek eklenir
+    const hintCount = cols[si].length;
+    const hintStep = Math.max(1, Math.ceil(hintCount / 40));
+    for (let i = 0; i < hintCount; i += hintStep) {
+      const cx = xs(i).toFixed(1);
+      const cy = ys(si, cols[si][i]).toFixed(1);
+      series += `<circle cx="${cx}" cy="${cy}" r="9" fill="transparent" pointer-events="all"><title>${esc(k)}: ${cols[si][i]}</title></circle>`;
+    }
   });
   // X ekseni etiketleri: ilk metin sütunu varsa kullanılır
   let ticks = '';
