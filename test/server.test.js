@@ -126,6 +126,12 @@ test('csv eksik yol 400 döner', async (t) => {
   assert.equal(r.status, 400);
 });
 
+test('csv dizin yolu 400 döner', async (t) => {
+  const { base } = await makeServer(t);
+  const r = await fetch(base + '/api/csv?path=' + encodeURIComponent('.'));
+  assert.equal(r.status, 400);
+});
+
 test('bilinmeyen API 404 döner', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/yok');

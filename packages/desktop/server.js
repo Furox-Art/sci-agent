@@ -320,6 +320,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         if (!rel.trim()) return json(res, { error: 'path gerekli' }, 400);
         const abs = resolveSafe(cfg.agent.workspaceRoot, rel);
         const st = await stat(abs);
+        if (st.isDirectory()) return json(res, { error: 'Bu bir dizin; dosya bekleniyor' }, 400);
         if (st.size > 2_000_000) return json(res, { error: 'Dosya çok büyük (>2 MB)' }, 400);
         const text = (await readFile(abs, 'utf8')).replace(/^\uFEFF/, '');
         const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');

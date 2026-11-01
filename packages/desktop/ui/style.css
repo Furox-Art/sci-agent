@@ -608,3 +608,21 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 /* Sohbet sütununu ortala (geniş ekran okunabilirliği) */
 main { align-items: center; }
 main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
+
+/* Mesaj kopyalama (hover'da görünür) */
+.msg { position: relative; padding-bottom: 16px; }
+.msg .msg-copy {
+  position: absolute;
+  bottom: 2px;
+  right: 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 10.5px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.msg:hover .msg-copy { opacity: 1; }
+.msg .msg-copy:hover { color: var(--cyan); border-color: var(--cyan); }

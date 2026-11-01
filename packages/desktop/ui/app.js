@@ -296,7 +296,10 @@ function handleEvent(ev) {
     }
   } else if (ev.type === 'done') {
     // Akış bitti: birikmiş metni markdown olarak yeniden çiz (kod blokları vb.)
-    if (streamTarget && streamText) renderMd(streamTarget, streamText);
+    if (streamTarget && streamText) {
+      renderMd(streamTarget, streamText);
+      streamTarget.appendChild(copyChip(() => streamText));
+    }
     resetStream();
   }
 }
@@ -541,9 +544,23 @@ function mdToHtml(src) {
   return t;
 }
 
+function copyChip(getText) {
+  const b = document.createElement('button');
+  b.className = 'msg-copy';
+  b.textContent = 'kopyala';
+  b.onclick = () => {
+    navigator.clipboard.writeText(getText()).then(() => {
+      b.textContent = 'kopyalandı';
+      setTimeout(() => (b.textContent = 'kopyala'), 1200);
+    });
+  };
+  return b;
+}
+
 function renderMd(el, text) {
   el.innerHTML = mdToHtml(text);
   el.appendChild(stampChip());
+  el.appendChild(copyChip(() => text));
 }
 
 chatEl.addEventListener('click', async (e) => {

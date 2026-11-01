@@ -74,6 +74,16 @@ npm run desktop    # Electron penceresi
 npm test           # otomatik testler
 ```
 
+### WSL'den çalıştırma
+
+```bash
+gh repo clone Furox-Art/sci-agent ~/sci-agent
+cd ~/sci-agent && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install
+SCI_AGENT_PROVIDER=mock SCI_AGENT_PORT=8932 node packages/desktop/server.js
+```
+
+Not: WSL sunucusuna Windows'tan erişim WSL2 localhost forwarding ayarına bağlıdır; WSL içinde `curl http://127.0.0.1:8932/api/health` ile doğrulayabilirsin. CLI da aynı şekilde WSL'de çalışır (`node packages/cli/bin/sci-agent.js --version`).
+
 ### CLI
 
 ```bash
