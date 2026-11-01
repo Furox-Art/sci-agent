@@ -248,6 +248,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
 
       if (url.pathname === '/api/csv' && req.method === 'GET') {
         const rel = url.searchParams.get('path') ?? '';
+        if (!rel.trim()) return json(res, { error: 'path gerekli' }, 400);
         const abs = resolveSafe(cfg.agent.workspaceRoot, rel);
         const st = await stat(abs);
         if (st.size > 2_000_000) return json(res, { error: 'Dosya çok büyük (>2 MB)' }, 400);

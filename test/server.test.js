@@ -120,6 +120,12 @@ test('csv uç noktası sayısal sütun ve etiket döndürür', async (t) => {
   assert.deepEqual(d.labels, ['Oca', 'Sub', 'Mar']);
 });
 
+test('csv eksik yol 400 döner', async (t) => {
+  const { base } = await makeServer(t);
+  const r = await fetch(base + '/api/csv');
+  assert.equal(r.status, 400);
+});
+
 test('bilinmeyen API 404 döner', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/yok');
