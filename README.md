@@ -91,7 +91,7 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/sessions <no>` | oturuma geç |
 | `/sessions del <no>` | oturumu sil |
 | `/sessions ren <no> <başlık>` | yeniden adlandır |
-| `/save` | sohbeti `sciagent-sohbet.md` olarak kaydet |
+| `/save` | sohbeti zaman damgalı `sciagent-sohbet-*.md` olarak kaydet |
 | `/test` | model bağlantısını test et |
 | `/clear` | sohbeti temizle (dosya kaydı da sıfırlanır) |
 | `/exit` | çıkış |

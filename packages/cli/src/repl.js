@@ -342,7 +342,8 @@ export async function startRepl(argv = []) {
             lines.push(`> sonuç: ${String(m.content).slice(0, 400)}\n`);
           }
         }
-        const out = path.join(cfg.agent.workspaceRoot, 'sciagent-sohbet.md');
+        const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        const out = path.join(cfg.agent.workspaceRoot, `sciagent-sohbet-${stamp}.md`);
         writeFileSync(out, lines.join('\n'));
         console.log(dim(`Kaydedildi: ${out}`));
       } else if (input === '/test') {
