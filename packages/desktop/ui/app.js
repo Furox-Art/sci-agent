@@ -446,6 +446,7 @@ inputEl.addEventListener('input', () => {
 });
 
 // Sohbeti Markdown olarak dışa aktar
+$('#btn-export').title = 'Sohbeti .md dosyası olarak indir';
 $('#btn-export').onclick = async () => {
   try {
     const h = await api('/api/history');
