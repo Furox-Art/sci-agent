@@ -466,7 +466,8 @@ $('#btn-export').onclick = async () => {
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'sciagent-sohbet.md';
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    a.download = `sciagent-sohbet-${stamp}.md`;
     a.click();
     URL.revokeObjectURL(a.href);
   } catch (e) {
