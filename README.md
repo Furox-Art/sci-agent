@@ -138,6 +138,16 @@ CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`
 pip install numpy scipy pandas axiomize scientific-computing-system-2.0 literature-evidence-mcp plan-auditor "eq-layer[ml]"
 ```
 
+## Beceri Sistemi
+
+SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın sistem istemine ekler — Claude Code beceri modeliyle aynı fikir, kaynakları kendi depolarından.
+
+- **Kaynak biçimi:** `github:kullanici/depo[/alt/yol]` (genel depolarda çalışır, anahtar gerekmez)
+- **Varsayılan yüklü:** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) becerisi
+- **Uygulama:** Ajanlar görünümü → Beceriler kartından ekle/kaldır
+- **CLI:** `/skills` (listele) · `/skills add github:kullanici/depo` (ekle; `sci-agent.config.json` dosyasına kalıcı yazılır)
+- Yeni beceri eklemek için tek gereken: deponun kökünde (veya belirttiğin alt yolda) geçerli frontmatter'lı bir `SKILL.md`
+
 ## Bilimsel model geldiğinde
 
 Özel bilimsel modeliniz hazır olduğunda yapılacaklar kod değişikliği gerektirmez:
@@ -158,6 +168,7 @@ Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 - [x] eq-layer otomatik yönlendirme katmanı (mesaj öncesi niyet/politika routing'i)
 - [x] Çoklu oturum (uygulama + CLI paylaşımlı) ve sohbet geçmişi
 - [x] Grafikler görünümü (CSV → çok serili çizgi grafiği), Ajanlar görev kartları
+- [x] GitHub beceri sistemi: SKILL.md yükleyici (quantum-reasoning + eq-layer varsayılan)
 
 ## Lisans
 
@@ -165,4 +176,4 @@ Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 
 ## Durum
 
-v0.7 — çoklu oturum (uygulama + CLI paylaşımlı), Grafikler görünümü, Ajanlar görev kartları, markdown/kod render, sohbet dışa aktarma, model bağlantı testi ve araç arama filtresi eklendi. 73 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.7 — çoklu oturum (CLI ile paylaşımlı), Grafikler görünümü, Ajanlar görev kartları, GitHub beceri sistemi (SKILL.md), markdown/kod render, sohbet dışa aktarma, model bağlantı testi ve araç arama filtresi eklendi. 90 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
