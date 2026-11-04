@@ -421,9 +421,10 @@ $('#btn-hero').onclick = () => {
 };
 applyHero();
 
-// Araç arama filtresi (boş kalan grup başlıklarını da gizler)
+// Araç arama filtresi: | ile AYRI terminaller OR, boşlukla ayrılan kelimeler AND
 $('#tool-filter').addEventListener('input', () => {
   const q = $('#tool-filter').value.trim().toLowerCase();
+  const terms = q.split('|').map((s) => s.trim()).filter(Boolean);
   const list = $('#tools-list');
   let lastHead = null;
   let visible = 0;
@@ -433,7 +434,8 @@ $('#tool-filter').addEventListener('input', () => {
       lastHead = el;
       visible = 0;
     } else {
-      const show = !q || el.textContent.toLowerCase().includes(q);
+      const text = el.textContent.toLowerCase();
+      const show = !terms.length || terms.some((t) => t.split(/\s+/).every((w) => text.includes(w)));
       el.style.display = show ? '' : 'none';
       if (show) visible += 1;
     }

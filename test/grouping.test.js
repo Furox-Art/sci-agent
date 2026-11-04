@@ -9,6 +9,10 @@ test('toolGroup kategorileri doğru eşler', () => {
   assert.equal(toolGroup('furox_compute'), 'Bilimsel paket köprüleri');
   assert.equal(toolGroup('molar_mass'), 'Bilimsel hesaplama');
   assert.equal(toolGroup('read_file'), 'Dosya & kod');
+  assert.equal(toolGroup('cds1_cli'), 'Bilimsel paket köprüleri');
+  assert.equal(toolGroup('repocraft_cli'), 'Bilimsel paket köprüleri');
+  assert.equal(toolGroup('nomosguard_cli'), 'Bilimsel paket köprüleri');
+  assert.equal(toolGroup('eq_route'), 'Bilimsel paket köprüleri');
 });
 
 test('groupTools araçları gruplara ayırır', () => {

@@ -10,7 +10,16 @@ const SCIENTIFIC = new Set([
   'matrix_ops',
   'molar_mass',
 ]);
-const BRIDGES = new Set(['furox_compute', 'axiomize_cli', 'cds2_cli']);
+const BRIDGES = new Set([
+  'furox_compute',
+  'axiomize_cli',
+  'cds2_cli',
+  'cds1_cli',
+  'cds_cli',
+  'repocraft_cli',
+  'nomosguard_cli',
+  'eq_route',
+]);
 
 export function toolGroup(name) {
   if (name === 'task') return 'Yapay zekâ ajanları';

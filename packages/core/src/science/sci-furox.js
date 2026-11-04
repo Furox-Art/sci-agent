@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { resolvePython, pythonScriptsDir } from './pybridge.js';
+import { buildSteering } from '../eq/eq-layer.js';
 
 /**
  * Kullanıcının açık bilimsel paketleri için köprü araçları:
@@ -112,4 +113,56 @@ export const cds2_cli = cliTool({
     'cds2 CLI (scientific-computing-system-2.0): lineer cebir, ODE/PDE çözücüler, kadratür, Monte Carlo, istatistik, sinyal işleme, kuantum simülasyonu, belirsizlik nicemleme (keşif için ["--help"]).',
 });
 
-export const sciFuroxTools = [furox_compute, axiomize_cli, cds2_cli];
+export const cds1_cli = cliTool({
+  name: 'cds1_cli',
+  script: 'cds',
+  installHint: 'Kurmak için: pip install scientific-computing-system',
+  description:
+    'cds CLI (scientific-computing-system v1, saf Python): calc/stats/integrate/units/constants/plot/sample/hypothesis/prompt/modules (keşif için ["--help"]).',
+});
+
+export const repocraft_cli = cliTool({
+  name: 'repocraft_cli',
+  script: 'repocraft',
+  installHint: 'Kurmak için: pip install repocraft',
+  description:
+    'repocraft CLI: doğrulanmış spesifikasyondan deterministik Python proje iskeleti oluşturma (validate/render/make/recipes/ask/craft; keşif için ["--help"]).',
+});
+
+export const nomosguard_cli = cliTool({
+  name: 'nomosguard_cli',
+  script: 'nomosguard',
+  installHint: 'Kurmak için: pip install nomosguard',
+  description:
+    'nomosguard CLI: deterministik güvenlik akıl yürütme çekirdeği — hash zincirli kanıt defteri, fail-closed politika kapısı (alt komutlar için ["--help"]).',
+});
+
+export const eq_route = {
+  name: 'eq_route',
+  description:
+    'eq-layer routing: verilen kullanıcı mesajı için niyet/duygu/repair analizi ve yanıt yönlendirme önerisi üretir (kullanıcının eq-layer paketi; portable yol).',
+  parameters: {
+    type: 'object',
+    properties: {
+      message: { type: 'string', description: 'Yönlendirilecek kullanıcı mesajı' },
+    },
+    required: ['message'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ message }) {
+    const r = await buildSteering({ messages: [{ role: 'user', content: message }] });
+    if (!r) return 'eq-layer kullanılamadı (kurulu değil veya SCI_AGENT_EQ_DISABLE=1).';
+    return `kaynak: ${r.source}\n${r.steering}`;
+  },
+};
+
+export const sciFuroxTools = [
+  furox_compute,
+  axiomize_cli,
+  cds2_cli,
+  cds1_cli,
+  repocraft_cli,
+  nomosguard_cli,
+  eq_route,
+];
