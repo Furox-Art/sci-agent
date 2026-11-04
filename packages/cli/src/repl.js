@@ -135,6 +135,7 @@ export async function startRepl(argv = []) {
     }
     if (mdInCode) return cyan(line);
     let s = line;
+    s = s.replace(/\bhttps?:\/\/\S+/g, (u) => cyan(u));
     s = s.replace(/`([^`]+)`/g, cyan('$1'));
     s = s.replace(/\*\*([^*]+)\*\*/g, bold('$1'));
     if (/^#{1,3} /.test(s)) return bold(s);

@@ -626,3 +626,5 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
 }
 .msg:hover .msg-copy { opacity: 1; }
 .msg .msg-copy:hover { color: var(--cyan); border-color: var(--cyan); }
+.msg a { color: var(--cyan); }
+.msg a:hover { text-decoration: underline; }

@@ -531,6 +531,17 @@ function mdToHtml(src) {
     blocks.push({ lang, code });
     return `\u0000CODE${blocks.length - 1}\u0000`;
   });
+  // URL'leri tıklanabilir bağlantıya çevir (sondaki noktalama bağlantı dışında kalır)
+  t = t.replace(/https?:\/\/[^\s<>"']+/g, (m0) => {
+    let u = m0;
+    const trail = u.match(/[)\].,;:!?'"]+$/);
+    let tail = '';
+    if (trail) {
+      tail = trail[0];
+      u = u.slice(0, u.length - tail.length);
+    }
+    return `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>${tail}`;
+  });
   t = t.replace(/`([^`\n]+)`/g, '<code class="inline">$1</code>');
   t = t.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
   t = t.replace(/^### (.*)$/gm, '<h3>$1</h3>');
