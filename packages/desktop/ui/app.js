@@ -872,6 +872,8 @@ async function loadAgentSkills() {
   const list = $('#skills-list');
   try {
     const s = await api('/api/agent-skills');
+    const h = $('#skills-h');
+    if (h) h.textContent = `Beceriler (GitHub SKILL.md) — ${s.loaded.length} yüklü${s.errors.length ? `, ${s.errors.length} hatalı` : ''}`;
     list.innerHTML = '';
     for (const sk of s.loaded) {
       const d = document.createElement('div');
