@@ -31,7 +31,8 @@
   "skills": {
     "sources": [
       "github:Furox-Art/quantum-reasoning-skill",
-      "github:Furox-Art/eq-layer/skills/eq-layer"
+      "github:Furox-Art/eq-layer/skills/eq-layer",
+      "github:Furox-Art/polyglot-code-guard"
     ]
   }
 }

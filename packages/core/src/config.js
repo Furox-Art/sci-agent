@@ -13,7 +13,11 @@ export const DEFAULT_CONFIG = {
   agent: { maxSteps: 25, workspaceRoot: '.' },
   plugins: ['sci-tools', 'sci-extra', 'sci-data', 'sci-chem', 'sci-furox', 'sci-quantum', 'sci-lit', 'sci-audit'],
   skills: {
-    sources: ['github:Furox-Art/quantum-reasoning-skill', 'github:Furox-Art/eq-layer/skills/eq-layer'],
+    sources: [
+      'github:Furox-Art/quantum-reasoning-skill',
+      'github:Furox-Art/eq-layer/skills/eq-layer',
+      'github:Furox-Art/polyglot-code-guard',
+    ],
   },
   policies: { autoApprove: ['read_file', 'list_dir', 'search_files'] },
 };
