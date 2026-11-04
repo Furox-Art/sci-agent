@@ -185,7 +185,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         await ensureSkills();
         return json(res, {
           sources: cfg.skills?.sources ?? [],
-          loaded: state.skills.map(({ source, name, description }) => ({ source, name, description })),
+          loaded: state.skills.map(({ source, name, description, body }) => ({ source, name, description, body: String(body).slice(0, 3000) })),
           errors: state.skillErrors,
         });
       }

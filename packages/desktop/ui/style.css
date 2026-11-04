@@ -593,6 +593,21 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 }
 .skill-item .t-name { color: var(--cyan); font-family: ui-monospace, Consolas, monospace; font-size: 13.5px; }
 .skill-item .skill-del { float: right; }
+.skill-body { margin-top: 6px; }
+.skill-body summary { cursor: pointer; color: var(--cyan); font-size: 12px; }
+.skill-body pre {
+  font-family: ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow: auto;
+  background: #051129;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--txt);
+}
 .skill-add { display: flex; gap: 8px; margin-top: 8px; }
 .skill-add input {
   flex: 1;

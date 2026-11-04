@@ -901,6 +901,16 @@ async function loadAgentSkills() {
       src.style.opacity = '0.7';
       src.textContent = sk.source;
       d.append(n, desc, src);
+      if (typeof sk.body === 'string' && sk.body.length >= 80) {
+        const det = document.createElement('details');
+        det.className = 'skill-body';
+        const sum = document.createElement('summary');
+        sum.textContent = 'gövde';
+        const pre = document.createElement('pre');
+        pre.textContent = sk.body;
+        det.append(sum, pre);
+        d.append(det);
+      }
       list.appendChild(d);
     }
     for (const err of s.errors) {
