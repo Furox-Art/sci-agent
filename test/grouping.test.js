@@ -12,6 +12,9 @@ test('toolGroup kategorileri doğru eşler', () => {
   assert.equal(toolGroup('cds1_cli'), 'Bilimsel paket köprüleri');
   assert.equal(toolGroup('repocraft_cli'), 'Bilimsel paket köprüleri');
   assert.equal(toolGroup('nomosguard_cli'), 'Bilimsel paket köprüleri');
+  assert.equal(toolGroup('sra_cli'), 'Bilimsel paket köprüleri');
+  assert.equal(toolGroup('polyguard_cli'), 'Bilimsel paket köprüleri');
+  assert.equal(toolGroup('polyglot_cli'), 'Bilimsel paket köprüleri');
   assert.equal(toolGroup('eq_route'), 'Bilimsel paket köprüleri');
 });
 

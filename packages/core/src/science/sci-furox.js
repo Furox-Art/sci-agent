@@ -137,6 +137,30 @@ export const nomosguard_cli = cliTool({
     'nomosguard CLI: deterministik güvenlik akıl yürütme çekirdeği — hash zincirli kanıt defteri, fail-closed politika kapısı (alt komutlar için ["--help"]).',
 });
 
+export const sra_cli = cliTool({
+  name: 'sra_cli',
+  script: 'sra',
+  installHint: 'Kurmak için: pip install scientific-reasoning-auditor',
+  description:
+    'sra CLI (scientific-reasoning-auditor): bilimsel makale akıl yürütme denetimi — audit/review-template/review-model/verify-stats (keşif için ["--help"]).',
+});
+
+export const polyguard_cli = cliTool({
+  name: 'polyguard_cli',
+  script: 'polyguard',
+  installHint: 'Kurmak için: pip install polyglot-code-guard',
+  description:
+    'polyguard CLI (polyglot-code-guard): AI üretimi kod için fail-closed doğrulama — proje test takımlarını çalıştırır, kanıt olmadan geçmez (ör. ["verify","--path","."]).',
+});
+
+export const polyglot_cli = cliTool({
+  name: 'polyglot_cli',
+  script: 'polyglot-python',
+  installHint: 'Kurmak için: pip install polyglot-python',
+  description:
+    'polyglot-python CLI: kendi dilinde Python yaz — deterministik anahtar kelime transpiler (run/translate/check/locales; TR dahil 8 dil; keşif için ["--help"]).',
+});
+
 export const eq_route = {
   name: 'eq_route',
   description:
@@ -164,5 +188,8 @@ export const sciFuroxTools = [
   cds1_cli,
   repocraft_cli,
   nomosguard_cli,
+  sra_cli,
+  polyguard_cli,
+  polyglot_cli,
   eq_route,
 ];

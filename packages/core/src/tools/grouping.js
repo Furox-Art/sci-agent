@@ -18,6 +18,9 @@ const BRIDGES = new Set([
   'cds_cli',
   'repocraft_cli',
   'nomosguard_cli',
+  'sra_cli',
+  'polyguard_cli',
+  'polyglot_cli',
   'eq_route',
 ]);
 

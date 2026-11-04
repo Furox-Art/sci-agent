@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { DEFAULT_CONFIG, createRegistry } from '@sci/core';
 import { resolvePython } from '../packages/core/src/science/pybridge.js';
+import { sra_cli, polyguard_cli, polyglot_cli } from '../packages/core/src/science/sci-furox.js';
 
 const pyExe = resolvePython();
 const hasPython = pyExe && spawnSync(pyExe, ['-I', '-c', 'print(1)'], { timeout: 15000 }).status === 0;
@@ -54,4 +55,34 @@ test('python_eval artık PATH\u2019ten bağımsız çözücü kullanır', { skip
   const s = await r.invoke('python_eval', { code: 'print("ok-pybridge")' });
   assert.ok(s.ok, s.output);
   assert.match(s.output, /ok-pybridge/);
+});
+
+test('sra_cli --help usage verir', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
+  const r = createRegistry({
+    cfg: { agent: { workspaceRoot: root }, plugins: ['sci-furox'], policies: DEFAULT_CONFIG.policies },
+    approve: async () => true,
+  });
+  const s = await r.invoke('sra_cli', { args: ['--help'] });
+  assert.ok(s.output.trim().length > 20, s.output.slice(0, 200));
+});
+
+test('polyguard_cli --help usage verir', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
+  const r = createRegistry({
+    cfg: { agent: { workspaceRoot: root }, plugins: ['sci-furox'], policies: DEFAULT_CONFIG.policies },
+    approve: async () => true,
+  });
+  const s = await r.invoke('polyguard_cli', { args: ['--help'] });
+  assert.ok(s.output.trim().length > 20, s.output.slice(0, 200));
+});
+
+test('polyglot_cli --help usage verir', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
+  const r = createRegistry({
+    cfg: { agent: { workspaceRoot: root }, plugins: ['sci-furox'], policies: DEFAULT_CONFIG.policies },
+    approve: async () => true,
+  });
+  const s = await r.invoke('polyglot_cli', { args: ['--help'] });
+  assert.ok(s.output.trim().length > 20, s.output.slice(0, 200));
 });
