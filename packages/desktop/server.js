@@ -344,7 +344,12 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
             break;
           }
         }
-        return json(res, { path: rel, columns, rowCount: rows.length, numeric, labelName, labels });
+        const sampleRows = rows.slice(0, 20).map((r) => {
+          const o = {};
+          columns.forEach((c, i) => (o[c] = (r[i] ?? '').trim()));
+          return o;
+        });
+        return json(res, { path: rel, columns, rowCount: rows.length, numeric, labelName, labels, sample: { columns, rows: sampleRows } });
       }
 
       if (url.pathname === '/api/chat' && req.method === 'POST') {

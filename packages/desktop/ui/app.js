@@ -720,6 +720,7 @@ function safeParse(raw) {
 const CHART_COLORS = ['#1677FF', '#00D5C8', '#66F0FF', '#F5FAFF', '#8FA3BD'];
 let chartData = null;
 let chartHidden = new Set(); // lejanttan gizlenen seriler
+let chartTableOn = false;
 
 async function loadChart() {
   const p = $('#chart-path').value.trim();
@@ -730,8 +731,10 @@ async function loadChart() {
     chartData = await api('/api/csv?path=' + encodeURIComponent(p));
     chartHidden = new Set();
     renderChart();
+    renderChartTable();
   } catch (e) {
     box.innerHTML = '';
+    $('#table-box').innerHTML = '';
     const d = document.createElement('p');
     d.className = 'lead';
     d.textContent = 'Hata: ' + e.message;
@@ -739,10 +742,24 @@ async function loadChart() {
   }
 }
 
+function renderChartTable() {
+  const box = $('#table-box');
+  if (!chartTableOn || !chartData?.sample) {
+    box.innerHTML = '';
+    return;
+  }
+  const { columns, rows } = chartData.sample;
+  const head = columns.map((c) => `<th>${esc(c)}</th>`).join('');
+  const body = rows.map((r) => `<tr>${columns.map((c) => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+  box.innerHTML = `<table class="data-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  box.scrollTop = 0;
+}
+
 function renderChartEmpty() {
   $('#chart-legend').innerHTML = '';
   $('#chart-box').innerHTML =
     '<div class="empty"><div class="e-title">Henüz grafik yok</div><div>Yukarıdaki alana bir CSV yolu yaz ya da örnek düğmesini kullan.</div></div>';
+  $('#table-box').innerHTML = '';
 }
 
 function renderChart() {
@@ -838,6 +855,10 @@ const loadChartSaved = async () => {
   if (chartData) localStorage.setItem('sciagent-chart-path', chartPathInput.value);
 };
 $('#btn-chart').onclick = loadChartSaved;
+$('#btn-table').onclick = () => {
+  chartTableOn = !chartTableOn;
+  renderChartTable();
+};
 $('#chart-example').onclick = () => {
   $('#chart-path').value = 'examples/veri.csv';
   loadChartSaved();
