@@ -9,6 +9,7 @@ import { buildSteering } from '../core/src/eq/eq-layer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UI_DIR = path.join(__dirname, 'ui');
+const VERSION = JSON.parse(readFileSync(path.join(__dirname, '../../package.json'), 'utf8')).version;
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -145,7 +146,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     try {
-      if (url.pathname === '/api/health') return json(res, { ok: true });
+      if (url.pathname === '/api/health') return json(res, { ok: true, version: VERSION });
 
       if (url.pathname === '/api/config' && req.method === 'GET') {
         return json(res, {
