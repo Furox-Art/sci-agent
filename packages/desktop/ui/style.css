@@ -799,3 +799,9 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
   .chart-bar { flex-direction: column; }
   .chart-norm { margin-top: 4px; }
 }
+
+/* Beceri gövdesi (markdown render) */
+.skill-md { background: #051129; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 12.5px; max-height: 260px; overflow: auto; }
+.skill-md h1, .skill-md h2, .skill-md h3 { color: var(--cyan); font-size: 13px; margin: 8px 0 4px; }
+.skill-md pre { background: transparent; border: 0; padding: 4px 0; }
+.skill-md code.inline { background: transparent; border: 0; padding: 0; }

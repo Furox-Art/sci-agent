@@ -67,6 +67,10 @@
         <p class="lead">Visualize a CSV from the workspace. Primary series electric blue, second turquoise, helpers light cyan.</p>
         <div class="chart-bar">
           <input id="chart-path" type="text" placeholder="e.g. examples/veri.csv" />
+          <select id="chart-type" class="chart-type">
+            <option value="line">Line</option>
+            <option value="bar">Bar</option>
+          </select>
           <button id="btn-chart" class="turquoise">Load</button>
           <label class="chart-norm"><input id="chart-norm" type="checkbox" /> scale per series</label>
         </div>

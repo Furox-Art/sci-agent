@@ -870,23 +870,40 @@ function renderChart() {
     grid += `<text x="10" y="${y + 4}" fill="#8FA3BD" font-size="11">${norm ? val.toFixed(2) : Number(val.toPrecision(5))}</text>`;
   }
   let series = '';
-  names.forEach((k, si) => {
-    const color = CHART_COLORS[si % CHART_COLORS.length];
-    const pts = cols[si].map((v, i) => `${xs(i).toFixed(1)},${ys(si, v).toFixed(1)}`).join(' ');
-    series += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/>`;
-    // Single-point series would show no line → draw a dot marker
-    if (cols[si].length === 1) {
-      series += `<circle cx="${xs(0).toFixed(1)}" cy="${ys(si, cols[si][0]).toFixed(1)}" r="4" fill="${color}"/>`;
-    }
-    // Hover hints: sampled when there are more points than is reasonable
-    const hintCount = cols[si].length;
-    const hintStep = Math.max(1, Math.ceil(hintCount / 40));
-    for (let i = 0; i < hintCount; i += hintStep) {
-      const cx = xs(i).toFixed(1);
-      const cy = ys(si, cols[si][i]).toFixed(1);
-      series += `<circle cx="${cx}" cy="${cy}" r="9" fill="transparent" pointer-events="all"><title>${esc(k)}: ${cols[si][i]}</title></circle>`;
-    }
-  });
+  const chartType = $('#chart-type')?.value ?? 'line';
+  const ns = names.length;
+  if (chartType === 'bar') {
+    // Grouped bars: each row gets a slot; series bars side by side inside the slot
+    const slot = (W - L - R) / Math.max(n, 1);
+    const bw = Math.min(28, (slot / ns) * 0.7);
+    names.forEach((k, si) => {
+      const color = CHART_COLORS[si % CHART_COLORS.length];
+      cols[si].forEach((v, i) => {
+        const x0 = L + slot * i + (slot - bw * ns) / 2 + si * bw;
+        const y = ys(si, v);
+        const h = Math.max(0, H - T - B - (y - T));
+        series += `<rect x="${x0.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" opacity="0.85"><title>${esc(k)}: ${v}</title></rect>`;
+      });
+    });
+  } else {
+    names.forEach((k, si) => {
+      const color = CHART_COLORS[si % CHART_COLORS.length];
+      const pts = cols[si].map((v, i) => `${xs(i).toFixed(1)},${ys(si, v).toFixed(1)}`).join(' ');
+      series += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/>`;
+      // Single-point series → draw a dot (a line would be invisible)
+      if (cols[si].length === 1) {
+        series += `<circle cx="${xs(0).toFixed(1)}" cy="${ys(si, cols[si][0]).toFixed(1)}" r="4" fill="${color}"/>`;
+      }
+      // Hover hints (sampled when > 40 points)
+      const hintCount = cols[si].length;
+      const hintStep = Math.max(1, Math.ceil(hintCount / 40));
+      for (let i = 0; i < hintCount; i += hintStep) {
+        const cx = xs(i).toFixed(1);
+        const cy = ys(si, cols[si][i]).toFixed(1);
+        series += `<circle cx="${cx}" cy="${cy}" r="9" fill="transparent" pointer-events="all"><title>${esc(k)}: ${cols[si][i]}</title></circle>`;
+      }
+    });
+  }
   // X-axis labels: use the first text column if present
   let ticks = '';
   if (data.labelName && Array.isArray(data.labels) && data.labels.length) {
