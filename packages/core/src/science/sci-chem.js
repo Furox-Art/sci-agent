@@ -47,7 +47,7 @@ function readCount(src, i, off) {
   const raw = src.slice(i, j);
   const n = Number(raw);
   if (!Number.isSafeInteger(n) || n <= 0) {
-    throw new Error(`Geçersiz sayısal değer: '${raw}' (konum ${off + i + 1})`);
+    throw new Error(`Invalid numeric value: '${raw}' (position ${off + i + 1})`);
   }
   return { n, next: j };
 }
@@ -64,14 +64,14 @@ function parseSegment(src, i, openIdx, off) {
     const ch = src[i];
     if (ch === ')') {
       if (openIdx === -1) {
-        throw new Error(`Dengesiz parantez: konum ${off + i + 1}'de eşleşmeyen ')' var`);
+        throw new Error(`Unbalanced parenthesis: unmatched ')' at position ${off + i + 1}`);
       }
       return { counts, end: i };
     }
     if (ch === '(') {
       const inner = parseSegment(src, i + 1, i, off);
       if (inner.counts.size === 0) {
-        throw new Error(`Boş parantez grubu (konum ${off + i + 1})`);
+        throw new Error(`Empty parenthesis group (position ${off + i + 1})`);
       }
       i = inner.end + 1;
       const { n, next } = readCount(src, i, off);
@@ -84,7 +84,7 @@ function parseSegment(src, i, openIdx, off) {
       while (j < src.length && src[j] >= 'a' && src[j] <= 'z') j++;
       const sym = src.slice(i, j);
       if (!Object.hasOwn(ATOMIC_MASSES, sym)) {
-        throw new Error(`Bilinmeyen element sembolü: '${sym}' (konum ${off + i + 1})`);
+        throw new Error(`Unknown element symbol: '${sym}' (position ${off + i + 1})`);
       }
       i = j;
       const { n, next } = readCount(src, i, off);
@@ -94,13 +94,13 @@ function parseSegment(src, i, openIdx, off) {
     }
     if (ch >= 'a' && ch <= 'z') {
       throw new Error(
-        `Geçersiz karakter: '${ch}' (konum ${off + i + 1}); element sembolü büyük harfle başlamalı`,
+        `Invalid character: '${ch}' (position ${off + i + 1}); element symbols must start with an uppercase letter`,
       );
     }
-    throw new Error(`Geçersiz karakter: '${ch}' (konum ${off + i + 1})`);
+    throw new Error(`Invalid character: '${ch}' (position ${off + i + 1})`);
   }
   if (openIdx !== -1) {
-    throw new Error(`Dengesiz parantez: konum ${off + openIdx + 1}'daki '(' kapatılmamış`);
+    throw new Error(`Unbalanced parenthesis: '(' at position ${off + openIdx + 1} is not closed`);
   }
   return { counts, end: i };
 }
@@ -113,7 +113,7 @@ function parseSegment(src, i, openIdx, off) {
  */
 function parseFormula(formula) {
   const cleaned = formula.replace(/\s+/g, '');
-  if (!cleaned) throw new Error('Formül boş olamaz');
+  if (!cleaned) throw new Error('Formula cannot be empty');
   const parts = [];
   let off = 0;
   for (const raw of cleaned.split(HYDRATE_SEP)) {
@@ -123,7 +123,7 @@ function parseFormula(formula) {
   const parsed = parts.map(({ raw, off: pOff }) => {
     const head = readCount(raw, 0, pOff);
     if (head.next >= raw.length) {
-      throw new Error(`Konum ${pOff + 1}: ayırıcıdan sonra eksik/boş formül parçası`);
+      throw new Error(`Position ${pOff + 1}: missing/empty formula part after separator`);
     }
     const seg = parseSegment(raw, head.next, -1, pOff);
     return { coef: head.n, counts: seg.counts };
@@ -141,15 +141,15 @@ function parseFormula(formula) {
 export const molar_mass = {
   name: 'molar_mass',
   description:
-    'Kimyasal formülün mol kütlesini (g/mol) hesaplar. Çoklu harfli semboller (Cl, Cu), ' +
-    'alt simgeler (H2O), iç içe parantez (Ca(OH)2, Al2(SO4)3), ağırlıklı ortalama formülleri ' +
-    '((NH4)2SO4) ve hidrat gösterimi (CuSO4·5H2O; ayırıcı olarak ·, * veya . kullanılabilir) ' +
-    'desteklenir; element dökümünü de verir. Atom kütleleri IUPAC standart atom kütleleridir ' +
-    '(~5 anlamlı basamak).',
+    'Computes the molar mass (g/mol) of a chemical formula. Supports multi-letter symbols (Cl, Cu), ' +
+    'subscripts (H2O), nested parentheses (Ca(OH)2, Al2(SO4)3), averaged formulas ' +
+    '((NH4)2SO4) and hydrate notation (CuSO4·5H2O; ·, * or . can be used as separator); ' +
+    'also returns the element breakdown. Atomic masses are IUPAC standard atomic weights ' +
+    '(~5 significant digits).',
   parameters: {
     type: 'object',
     properties: {
-      formula: { type: 'string', description: 'Kimyasal formül (ör. H2O, Ca(OH)2, CuSO4·5H2O)' },
+      formula: { type: 'string', description: 'Chemical formula (e.g. H2O, Ca(OH)2, CuSO4·5H2O)' },
     },
     required: ['formula'],
   },
@@ -158,7 +158,7 @@ export const molar_mass = {
   async execute(args = {}, _ctx) {
     const formula = args.formula;
     if (typeof formula !== 'string' || formula.trim() === '') {
-      throw new Error("formula parametresi zorunlu: hesaplanacak kimyasal formül (metin)");
+      throw new Error('formula parameter is required: the chemical formula to compute (text)');
     }
     const counts = parseFormula(formula);
     let total = 0;
@@ -168,6 +168,6 @@ export const molar_mass = {
       total += m;
       lines.push(`${sym} ×${n} = ${fmt(m)}`);
     }
-    return `${formula.trim()} mol kütlesi: ${fmt(total)} g/mol\n${lines.join('\n')}`;
+    return `${formula.trim()} molar mass: ${fmt(total)} g/mol\n${lines.join('\n')}`;
   },
 };

@@ -42,7 +42,7 @@ export class ToolRegistry {
 
   async invoke(name, args = {}, extraCtx = {}) {
     const tool = this.tools.find((t) => t.name === name);
-    if (!tool) return { ok: false, output: `Bilinmeyen araç: ${name}` };
+    if (!tool) return { ok: false, output: `Unknown tool: ${name}` };
     if (this._needs(name, tool.needsApproval)) {
       let ok = false;
       try {
@@ -50,14 +50,14 @@ export class ToolRegistry {
       } catch {
         ok = false;
       }
-      if (!ok) return { ok: false, output: 'Kullanıcı onayı verilmedi; işlem yapılmadı.' };
+      if (!ok) return { ok: false, output: 'User denied the approval; action not performed.' };
     }
     try {
       const ctx = { workspaceRoot: this.workspaceRoot, cfg: this.cfg, approve: this.approve, ...extraCtx };
       const output = await tool.execute(args, ctx);
       return { ok: true, output: String(output).slice(0, MAX_OUTPUT) };
     } catch (e) {
-      return { ok: false, output: `Hata: ${e.message}` };
+      return { ok: false, output: `Error: ${e.message}` };
     }
   }
 }

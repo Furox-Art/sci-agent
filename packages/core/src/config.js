@@ -41,7 +41,7 @@ export function loadConfig(cwd = process.cwd()) {
     try {
       fileCfg = JSON.parse(readFileSync(file, 'utf8'));
     } catch (e) {
-      throw new Error(`Yapılandırma dosyası okunamadı (${file}): ${e.message}`);
+      throw new Error(`Could not read config file (${file}): ${e.message}`);
     }
   }
   const cfg = deepMerge(structuredClone(DEFAULT_CONFIG), fileCfg);

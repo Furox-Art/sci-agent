@@ -30,7 +30,7 @@ test('furox_compute yığını bildirir ve hesap yapar', { skip: hasPython ? fal
   const r = makeRegistry(root);
   const s = await r.invoke('furox_compute', { code: 'print(round(6*7, 3)); print(__import__("numpy").__version__.split(".")[0])' });
   assert.ok(s.ok, s.output);
-  assert.match(s.output, /YÜKLÜ PAKETLER: /);
+  assert.match(s.output, /LOADED PACKAGES: /);
   assert.match(s.output, /42/);
 });
 

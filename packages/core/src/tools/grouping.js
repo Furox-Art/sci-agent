@@ -25,12 +25,12 @@ const BRIDGES = new Set([
 ]);
 
 export function toolGroup(name) {
-  if (name === 'task') return 'Yapay zekâ ajanları';
-  if (name.startsWith('lit_')) return 'Literatür (kanıt zinciri)';
-  if (name === 'plan_audit') return 'Plan doğrulama';
-  if (BRIDGES.has(name)) return 'Bilimsel paket köprüleri';
-  if (SCIENTIFIC.has(name)) return 'Bilimsel hesaplama';
-  return 'Dosya & kod';
+  if (name === 'task') return 'AI agents';
+  if (name.startsWith('lit_')) return 'Literature (evidence chain)';
+  if (name === 'plan_audit') return 'Plan verification';
+  if (BRIDGES.has(name)) return 'Scientific package bridges';
+  if (SCIENTIFIC.has(name)) return 'Scientific computation';
+  return 'File & code';
 }
 
 export function groupTools(tools) {

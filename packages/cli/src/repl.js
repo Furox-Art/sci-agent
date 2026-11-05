@@ -11,13 +11,13 @@ const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 const trunc = (s, n = 400) => (String(s).length > n ? `${String(s).slice(0, n)}…` : String(s));
 
 const HELP = [
-  'Komutlar:',
-  '  /help     yardım            /model  model bilgisi',
-  '  /tools    araç listesi      /clear  sohbeti temizle',
-  '  /sessions [no|del no|ren no başlık]  oturum listesi / geçiş / sil / yeniden adlandır',
-  '  /save     sohbeti .md olarak kaydet',
-  '  /test     model bağlantısını test et',
-  '  /exit     çıkış',
+  'Commands:',
+  '  /help     help              /model  model info',
+  '  /tools    tool list         /clear  clear chat',
+  '  /sessions [no|del no|ren no title]  list / switch / delete / rename sessions',
+  '  /save     save chat as .md',
+  '  /test     test model connection',
+  '  /exit     exit',
 ].join('\n');
 
 export async function startRepl(argv = []) {
@@ -28,10 +28,10 @@ export async function startRepl(argv = []) {
   const cfg = loadConfig(workspace);
   const messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
 
-  // Paylaşılan oturum geçmişi (masaüstüyle aynı depo): en güncel oturum dosyası
+  // Shared session history (same store as the desktop app): most recent session file
   const sessionsDir = path.join(cfg.agent.workspaceRoot, '.sci-agent-sessions');
   let sessionFile = null;
-  let sessionTitle = 'varsayılan';
+  let sessionTitle = 'default';
   let loadedMsgs = 0;
   try {
     const sorted = readdirSync(sessionsDir)
@@ -39,7 +39,7 @@ export async function startRepl(argv = []) {
       .map((f) => {
         try {
           const d = JSON.parse(readFileSync(path.join(sessionsDir, f), 'utf8'));
-          return { f, updatedAt: String(d.updatedAt ?? ''), title: String(d.title ?? 'varsayılan'), messages: d.messages };
+          return { f, updatedAt: String(d.updatedAt ?? ''), title: String(d.title ?? 'default'), messages: d.messages };
         } catch {
           return null;
         }
@@ -96,12 +96,12 @@ export async function startRepl(argv = []) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
 
-  // Onay istemleri sıraya alınır; paralel alt-ajanlar bile soruları üst üste binmeden sorar.
+  // Approval prompts are queued so parallel sub-agents never overlap
   let approvalQueue = Promise.resolve();
   const approveSerial = (name, args) => {
     const run = approvalQueue.then(async () => {
-      const a = await ask(`\n${bold('[Onay]')} ${name} ${trunc(JSON.stringify(args), 200)} (e/h) `);
-      return /^e(vet)?$/i.test(a.trim());
+      const a = await ask(`\n${bold('[Approve]')} ${name} ${trunc(JSON.stringify(args), 200)} (y/n) `);
+      return /^(e(vet)?|y(es)?)$/i.test(a.trim());
     });
     approvalQueue = run.then(() => {}, () => {});
     return run;
@@ -116,22 +116,22 @@ export async function startRepl(argv = []) {
       pendingNewline = false;
     }
   };
-  // Terminal için hafif markdown: kod blokları cyan, başlık/kalın bold, `kod` cyan
+  // Lightweight terminal markdown: code blocks cyan, headings/bold, `code` cyan
   const mdTerm = (s) =>
     String(s)
-      .replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => `\n${dim(`── ${lang || 'kod'} ──────────`)}\n${cyan(code.trimEnd())}\n${dim('──────────────')}`)
+      .replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => `\n${dim(`── ${lang || 'code'} ──────────`)}\n${cyan(code.trimEnd())}\n${dim('──────────────')}`)
       .replace(/`([^`\n]+)`/g, cyan('$1'))
       .replace(/\*\*([^*\n]+)\*\*/g, bold('$1'))
       .replace(/^### (.*)$/gm, (m1, h) => bold(h))
       .replace(/^## (.*)$/gm, (m1, h) => bold(h));
 
-  // Akış sırasında satır satır markdown cilası: kod blokları cyan, başlık/kalın bold
+  // Line-by-line markdown polish while streaming: code blocks cyan, headings/bold
   let mdLineBuf = '';
   let mdInCode = false;
   const styleLine = (line) => {
     if (/^\s*```/.test(line)) {
       mdInCode = !mdInCode;
-      return dim(`── ${line.trim().replace(/^```/, '') || 'kod'} ──`);
+      return dim(`── ${line.trim().replace(/^```/, '') || 'code'} ──`);
     }
     if (mdInCode) return cyan(line);
     let s = line;
@@ -183,26 +183,26 @@ export async function startRepl(argv = []) {
       console.log(ev.ok ? dim(`← ${trunc(ev.output, 500)}`) : red(`← ${trunc(ev.output, 500)}`));
     } else if (ev.type === 'error') {
       flushLine();
-      console.log(red(`Hata: ${ev.text}`));
+      console.log(red(`Error: ${ev.text}`));
     } else if (ev.type === 'step') {
       flushLine();
-      console.log(dim(`— adım ${ev.step}/${ev.maxSteps} —`));
+      console.log(dim(`— step ${ev.step}/${ev.maxSteps} —`));
     } else if (ev.type === 'task_start') {
       flushLine();
-      console.log(dim(`▶ Alt ajan başladı: ${trunc(ev.prompt, 120)}`));
+      console.log(dim(`▶ Sub-agent started: ${trunc(ev.prompt, 120)}`));
     } else if (ev.type === 'task_end') {
       flushLine();
-      console.log(dim(`■ Alt ajan bitti: ${trunc(ev.prompt, 80)}`));
+      console.log(dim(`■ Sub-agent finished: ${trunc(ev.prompt, 80)}`));
     } else if (ev.type === 'sub_event') {
       flushLine();
       const e = ev.ev ?? {};
       const what =
         e.type === 'tool_call'
-          ? `araç → ${e.name}`
+          ? `tool → ${e.name}`
           : e.type === 'text'
             ? trunc(e.text, 150)
             : e.type === 'error'
-              ? `hata: ${trunc(e.text, 100)}`
+              ? `error: ${trunc(e.text, 100)}`
               : e.type;
       console.log(dim(`  ↳ ${trunc(ev.prompt, 40)} · ${what}`));
     }
@@ -214,30 +214,30 @@ export async function startRepl(argv = []) {
     mdLineBuf = '';
     mdInCode = false;
     try {
-      // eq-layer yönlendirmesi: model çağrısından önce çalışır; hata olursa sessizce atlanır.
+      // eq-layer steering: runs before the model call; silently skipped on error.
       let systemExtra;
       try {
         const steer = await buildSteering({ messages: messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
         if (steer?.steering) {
           systemExtra = steer.steering;
-          console.log(dim(`eq-layer: yönlendirme uygulandı (${steer.source})`));
+          console.log(dim(`eq-layer: steering applied (${steer.source})`));
         }
       } catch {}
       const provider = createProvider(cfg.model);
       await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
     } catch (e) {
-      console.log(red(`Hata: ${e.message}`));
+      console.log(red(`Error: ${e.message}`));
     }
     flushStreamText();
     saveHistory();
     console.log();
   }
 
-  console.log(bold('SciAgent v0.7 — bilimsel kodlama ajanı'));
+  console.log(bold('SciAgent v0.7 — scientific coding agent'));
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
-  console.log(`Çalışma alanı: ${cfg.agent.workspaceRoot} | Araçlar: ${registry.tools.length}`);
+  console.log(`Workspace: ${cfg.agent.workspaceRoot} | Tools: ${registry.tools.length}`);
   console.log(dim(HELP));
-  if (loadedMsgs) console.log(dim(`Önceki oturum yüklendi (${loadedMsgs - 1} mesaj) — /clear ile temizleyebilirsin.`));
+  if (loadedMsgs) console.log(dim(`Previous session loaded (${loadedMsgs - 1} messages) — /clear to reset.`));
 
   const once = argv.indexOf('--prompt');
   if (once !== -1 && argv[once + 1]) {
@@ -256,7 +256,7 @@ export async function startRepl(argv = []) {
       return;
     }
     if (busy) {
-      console.log(dim('(önceki görev sürüyor; bekleyin)'));
+      console.log(dim('(previous task running; please wait)'));
       return;
     }
     try {
@@ -266,13 +266,13 @@ export async function startRepl(argv = []) {
       }
       if (input === '/help') console.log(HELP);
       else if (input === '/model') {
-        console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(atanmış)' : '' }, null, 2));
+        console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(set)' : '' }, null, 2));
       } else if (input === '/tools') {
         const groups = groupTools(registry.list());
         for (const [title, tools] of groups) {
           console.log(bold(`${title} (${tools.length})`));
           for (const t of tools) {
-            console.log(`  ${t.name === 'task' ? cyan(t.name) : t.name}${t.needsApproval ? dim(' (onay ister)') : ''} — ${t.description}`);
+            console.log(`  ${t.name === 'task' ? cyan(t.name) : t.name}${t.needsApproval ? dim(' (requires approval)') : ''} — ${t.description}`);
           }
         }
       } else if (input.startsWith('/sessions')) {
@@ -280,10 +280,10 @@ export async function startRepl(argv = []) {
         const arg = parts[1];
         const files = listSessionFiles();
         if (!files.length) {
-          console.log(dim('Kayıtlı oturum yok.'));
+          console.log(dim('No saved sessions.'));
         } else if (arg === 'del' && /^\d+$/.test(parts[2] ?? '')) {
           const f = files[Number(parts[2]) - 1];
-          if (!f) console.log(red('Geçersiz oturum numarası.'));
+          if (!f) console.log(red('Invalid session number.'));
           else {
             const wasCurrent = f.path === sessionFile;
             try {
@@ -295,48 +295,48 @@ export async function startRepl(argv = []) {
               messages.push({ role: 'system', content: buildSystemPrompt(cfg) });
               sessionFile = null;
             }
-            console.log(dim(`Oturum silindi: ${f.title}${wasCurrent ? ' (güncel oturumdun; temiz başlandı)' : ''}`));
+            console.log(dim(`Session deleted: ${f.title}${wasCurrent ? ' (it was the current session; started fresh)' : ''}`));
           }
         } else if (arg === 'ren' && /^\d+$/.test(parts[2] ?? '')) {
           const f = files[Number(parts[2]) - 1];
           const newTitle = parts.slice(3).join(' ').trim();
-          if (!f) console.log(red('Geçersiz oturum numarası.'));
-          else if (!newTitle) console.log(red('Kullanım: /sessions ren <no> <yeni başlık>'));
+          if (!f) console.log(red('Invalid session number.'));
+          else if (!newTitle) console.log(red('Usage: /sessions ren <no> <new title>'));
           else {
             const d = JSON.parse(readFileSync(f.path, 'utf8'));
             d.title = newTitle;
             writeFileSync(f.path, JSON.stringify(d));
             if (f.path === sessionFile) sessionTitle = newTitle;
-            console.log(dim(`Yeniden adlandırıldı: ${newTitle}`));
+            console.log(dim(`Renamed: ${newTitle}`));
           }
         } else if (arg && /^\d+$/.test(arg)) {
           const f = files[Number(arg) - 1];
           if (!f) {
-            console.log(red('Geçersiz oturum numarası.'));
+            console.log(red('Invalid session number.'));
           } else {
             const d = JSON.parse(readFileSync(f.path, 'utf8'));
             sessionFile = f.path;
-            sessionTitle = d.title ?? 'varsayılan';
+            sessionTitle = d.title ?? 'default';
             messages.length = 0;
             messages.push(...(Array.isArray(d.messages) ? d.messages : []));
             loadedMsgs = messages.length;
             saveHistory();
-            console.log(dim(`Oturuma geçildi: ${sessionTitle} (${messages.length - 1} mesaj)`));
+            console.log(dim(`Switched to session: ${sessionTitle} (${messages.length - 1} messages)`));
           }
         } else {
-          console.log(bold('Oturumlar — /sessions <no> (geç) · /sessions del <no> (sil) · /sessions ren <no> <başlık>'));
+          console.log(bold('Sessions — /sessions <no> (switch) · /sessions del <no> (delete) · /sessions ren <no> <title>'));
           files.forEach((f, i) => {
             const count = Array.isArray(f.messages) ? Math.max(0, f.messages.length - 1) : 0;
-            console.log(`  ${i + 1}. ${f.title} ${dim(`${count} mesaj · ${f.date}`)}${f.path === sessionFile ? cyan(' ← güncel') : ''}`);
+            console.log(`  ${i + 1}. ${f.title} ${dim(`${count} messages · ${f.date}`)}${f.path === sessionFile ? cyan(' ← current') : ''}`);
           });
         }
       } else if (input === '/skills') {
         if (busy) {
-          console.log(dim('(önceki görev sürüyor; bekleyin)'));
+          console.log(dim('(previous task running; please wait)'));
         } else {
           busy = true;
           try {
-            console.log(dim('Beceriler yükleniyor…'));
+            console.log(dim('Loading skills…'));
             for (const source of cfg.skills?.sources ?? []) {
               try {
                 const sk = await fetchSkill(source);
@@ -362,45 +362,45 @@ export async function startRepl(argv = []) {
           } catch {}
           cur.skills = { sources: cfg.skills.sources };
           writeFileSync(cfile, JSON.stringify(cur, null, 2));
-          console.log(`${cyan('✓ Beceri eklendi')}: ${sk.name} ${dim(`(${source})`)}`);
+          console.log(`${cyan('✓ Skill added')}: ${sk.name} ${dim(`(${source})`)}`);
         } catch (e) {
           console.log(red(`✕ ${trunc(e.message, 200)}`));
         }
       } else if (input === '/save') {
-        const lines = ['# SciAgent Sohbeti', '', new Date().toLocaleString('tr-TR'), ''];
+        const lines = ['# SciAgent Chat', '', new Date().toLocaleString('tr-TR'), ''];
         for (const m of messages) {
-          if (m.role === 'user') lines.push(`## Kullanıcı\n\n${m.content}\n`);
+          if (m.role === 'user') lines.push(`## User\n\n${m.content}\n`);
           else if (m.role === 'assistant') {
             if (m.tool_calls?.length) {
-              for (const tc of m.tool_calls) lines.push(`**→ araç:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
+              for (const tc of m.tool_calls) lines.push(`**→ tool:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
             }
             if (m.content) lines.push(`**SciAgent**\n\n${m.content}\n`);
           } else if (m.role === 'tool') {
-            lines.push(`> sonuç: ${String(m.content).slice(0, 400)}\n`);
+            lines.push(`> result: ${String(m.content).slice(0, 400)}\n`);
           }
         }
         const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
         const out = path.join(cfg.agent.workspaceRoot, `sciagent-sohbet-${stamp}.md`);
         writeFileSync(out, lines.join('\n'));
-        console.log(dim(`Kaydedildi: ${out}`));
+        console.log(dim(`Saved: ${out}`));
       } else if (input === '/test') {
         const t0 = Date.now();
-        console.log(dim('Model bağlantısı test ediliyor…'));
+        console.log(dim('Testing model connection…'));
         try {
           const provider = createProvider(cfg.model);
-          const out = await provider.chat({ messages: [{ role: 'user', content: 'Yalnızca "ok" yaz.' }] });
-          console.log(`${cyan('✓ bağlantı başarılı')} (${Date.now() - t0} ms) — yanıt örneği: ${trunc(out.content, 40)}`);
+          const out = await provider.chat({ messages: [{ role: 'user', content: 'Reply with only "ok".' }] });
+          console.log(`${cyan('✓ connection ok')} (${Date.now() - t0} ms) — sample response: ${trunc(out.content, 40)}`);
         } catch (e) {
-          console.log(red(`✕ başarısız (${Date.now() - t0} ms): ${trunc(e.message, 200)}`));
+          console.log(red(`✕ failed (${Date.now() - t0} ms): ${trunc(e.message, 200)}`));
         }
       } else if (input === '/clear') {
         messages.splice(1);
         saveHistory();
-        console.log(dim('Sohbet temizlendi (kayıt dosyası da sıfırlandı).'));
+        console.log(dim('Chat cleared (history file was also reset).'));
       } else {
-        // busy yalnızca model çağrısı içeren görevleri kilitler; menü komutları her zaman çalışır.
+        // busy locks only tasks that call the model; menu commands always run.
         if (busy) {
-          console.log(dim('(önceki görev sürüyor; bekleyin)'));
+          console.log(dim('(previous task running; please wait)'));
         } else {
           busy = true;
           try {
@@ -415,13 +415,13 @@ export async function startRepl(argv = []) {
     }
   });
   rl.on('close', () => {
-    // Sürerken (ör. /skills ağ isteği) anında çıkma; bitmesini bekle
+    // Don't exit immediately while something is running (e.g. a /skills network request); wait for it to finish
     const wait = () => {
       if (busy) {
         setTimeout(wait, 200);
         return;
       }
-      console.log(dim('Görüşürüz.'));
+      console.log(dim('Bye.'));
       process.exit(0);
     };
     wait();

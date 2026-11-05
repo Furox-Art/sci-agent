@@ -2,9 +2,9 @@ import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 /**
- * Kurulu Python yorumlayıcısını bulur (PATH'e bağlı kalmadan).
- * SCI_AGENT_PYTHON ortam değişkeni en yüksek önceliğe sahiptir.
- * Dönen değer: python.exe mutlak yolu ya da PATH'e bırakılmış kısa ad.
+ * Finds the installed Python interpreter (independent of PATH).
+ * The SCI_AGENT_PYTHON environment variable has the highest priority.
+ * Returns: absolute path to python.exe, or a bare name left to PATH.
  */
 let cached = undefined;
 
@@ -41,7 +41,7 @@ function readdirSafe(dir) {
   }
 }
 
-/** Yorumlayıcının Scripts dizini (Windows konsol betikleri: axiomize.exe, cds2.exe…). */
+/** The interpreter's Scripts directory (Windows console scripts: axiomize.exe, cds2.exe…). */
 export function pythonScriptsDir(pyExe) {
   const base = path.dirname(path.resolve(pyExe));
   const scripts = path.join(base, 'Scripts');

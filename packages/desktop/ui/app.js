@@ -2,16 +2,16 @@ const $ = (s) => document.querySelector(s);
 const chatEl = $('#chat');
 let busy = false;
 let lastTool = null;
-const toolBlocks = new Map(); // araç çağrı id'si → <details> (paralel yürütmede doğru eşleme)
-const approvalCards = new Map(); // onay id'si → kart (zaman aşımı bildirimi için)
-let agentRuns = []; // bu oturumdaki alt-ajan görevleri
+const toolBlocks = new Map(); // tool call id → <details> (correct pairing under parallel execution)
+const approvalCards = new Map(); // approval id → card (for the timeout notification)
+let agentRuns = []; // sub-agent tasks in this session
 let agentsInfoLoaded = false;
 let lastUserText = '';
 
-// Akıllı kaydırma: kullanıcı yukarı bakıyorsa zorla aşağı çekme
+// Smart scrolling: don't force-scroll down while the user is looking up
 const nearBottom = () => chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 140;
 
-// Baloncuklara saat damgası
+// Timestamp chip on bubbles
 const nowTime = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 const stampChip = () => {
   const s = document.createElement('span');
@@ -48,7 +48,7 @@ function addText(target, text) {
 function toolBlock(id, name, args) {
   const det = document.createElement('details');
   det.className = 'tool';
-  if (name === 'task') det.classList.add('ai'); // ajan araçları turkuaz
+  if (name === 'task') det.classList.add('ai'); // agent tools in turquoise
   det.open = true;
   const sum = document.createElement('summary');
   sum.textContent = `→ ${name}`;
@@ -72,11 +72,11 @@ function toolResult(id, ok, output) {
   det.appendChild(pre);
   const cb = document.createElement('button');
   cb.className = 't-copy';
-  cb.textContent = 'kopyala';
+  cb.textContent = 'copy';
   cb.onclick = () => {
     navigator.clipboard.writeText(output).then(() => {
-      cb.textContent = 'kopyalandı';
-      setTimeout(() => (cb.textContent = 'kopyala'), 1200);
+      cb.textContent = 'copied';
+      setTimeout(() => (cb.textContent = 'copy'), 1200);
     });
   };
   det.appendChild(cb);
@@ -95,32 +95,32 @@ function approvalCard({ id, name, args }) {
   const card = document.createElement('div');
   card.className = 'approval';
   const p = document.createElement('div');
-  p.innerHTML = '<b>Onay bekleniyor:</b> ';
+  p.innerHTML = '<b>Awaiting approval:</b> ';
   p.append(name);
   const pre = document.createElement('pre');
   pre.textContent = JSON.stringify(args, null, 2);
   const row = document.createElement('div');
   row.className = 'row';
   const yes = document.createElement('button');
-  yes.textContent = 'Onayla';
+  yes.textContent = 'Approve';
   yes.className = 'turquoise';
   const no = document.createElement('button');
-  no.textContent = 'Reddet';
+  no.textContent = 'Deny';
   no.className = 'ghost';
   row.append(yes, no);
   const remember = document.createElement('label');
   remember.className = 'remember';
   const rbox = document.createElement('input');
   rbox.type = 'checkbox';
-  remember.append(rbox, document.createTextNode('Bu oturumda bu araca izin ver'));
-  // 5 dakikalık onay penceresi geri sayımı
+  remember.append(rbox, document.createTextNode('Allow this tool for this session'));
+  // 5-minute approval window countdown
   let left = 300;
   const count = document.createElement('span');
   count.className = 'a-count';
   const tick = setInterval(() => {
     left -= 1;
     if (left <= 0) {
-      count.textContent = 'süre doldu';
+      count.textContent = 'timed out';
       clearInterval(tick);
       return;
     }
@@ -136,7 +136,7 @@ function approvalCard({ id, name, args }) {
     yes.disabled = true;
     no.disabled = true;
     rbox.disabled = true;
-    count.textContent = 'karar verildi';
+    count.textContent = 'decided';
     clearInterval(tick);
     card.classList.add(approved ? 'ok' : 'no');
     try {
@@ -211,22 +211,22 @@ function handleEvent(ev) {
     toolResult(ev.id, ev.ok, ev.output);
   } else if (ev.type === 'task_start') {
     agentRuns.push({ prompt: ev.prompt, status: 'running', summary: '' });
-    subNote(`▶ Alt ajan başladı: ${ev.prompt}`);
+    subNote(`▶ Sub-agent started: ${ev.prompt}`);
     renderAgents();
   } else if (ev.type === 'task_end') {
     const run = [...agentRuns].reverse().find((r) => r.prompt === ev.prompt && r.status === 'running');
     if (run) run.status = ev.done === false ? 'failed' : 'done';
-    subNote(`■ Alt ajan bitti: ${ev.prompt}`);
+    subNote(`■ Sub-agent finished: ${ev.prompt}`);
     renderAgents();
   } else if (ev.type === 'sub_event') {
     const e = ev.ev ?? {};
     const what =
       e.type === 'tool_call'
-        ? `araç → ${e.name}`
+        ? `tool → ${e.name}`
         : e.type === 'text'
           ? e.text
           : e.type === 'error'
-            ? `hata: ${e.text}`
+            ? `error: ${e.text}`
             : e.type;
     if (e.type === 'text') {
       const run = [...agentRuns].reverse().find((r) => r.prompt === ev.prompt);
@@ -235,12 +235,12 @@ function handleEvent(ev) {
     }
     subNote(`  ↳ ${ev.prompt} · ${what}`);
   } else if (ev.type === 'step') {
-    setStatus(`Ajan çalışıyor… adım ${ev.step}/${ev.maxSteps}`);
+    setStatus(`Agent running… step ${ev.step}/${ev.maxSteps}`);
   } else if (ev.type === 'approval_request') {
     resetStream();
     approvalCard(ev);
   } else if (ev.type === 'approval_result') {
-    // Sunucu tarafı sonuç (ör. 5 dk zaman aşımı) — kart hâlâ bekliyorsa kapat.
+    // Server-side result (e.g. 5-minute timeout) — close the card if it is still pending.
     const c = approvalCards.get(ev.id);
     if (c) {
       clearInterval(c.tick);
@@ -252,7 +252,7 @@ function handleEvent(ev) {
           const note = document.createElement('div');
           note.className = 'a-state';
           note.style.color = 'var(--err)';
-          note.textContent = '⏱ 5 dakika içinde onaylanmadı — otomatik reddedildi.';
+          note.textContent = '⏱ Not approved within 5 minutes — denied automatically.';
           c.card.appendChild(note);
         }
       }
@@ -262,24 +262,24 @@ function handleEvent(ev) {
     resetStream();
     const b = bubble('assistant');
     if (/fetch failed|ECONNREFUSED|ENOTFOUND|Model sunucusu \d{3}/i.test(ev.text)) {
-      // Modele ulaşılamadı: kibar kart + Ayarlar kısayolu
+      // Could not reach the model: friendly card + Settings shortcut
       const t = document.createElement('div');
       t.className = 'm-title';
-      t.textContent = 'Modele ulaşılamadı';
+      t.textContent = 'Could not reach the model';
       const d = document.createElement('div');
       d.style.color = 'var(--dim)';
       d.textContent = ev.text;
       const hint = document.createElement('div');
       hint.style.color = 'var(--dim)';
       hint.style.margin = '6px 0';
-      hint.textContent = 'Ayarlar\u2019dan API adresini ve model adını kontrol et (ör. Ollama: http://localhost:11434/v1).';
+      hint.textContent = 'Check the API URL and model name in Settings (e.g. Ollama: http://localhost:11434/v1).';
       const btn = document.createElement('button');
       btn.className = 'turquoise';
-      btn.textContent = 'Ayarları Aç';
+      btn.textContent = 'Open Settings';
       btn.onclick = () => $('#settings').classList.remove('hidden');
       const retry = document.createElement('button');
       retry.className = 'ghost';
-      retry.textContent = 'Yeniden Dene';
+      retry.textContent = 'Retry';
       retry.style.marginLeft = '8px';
       retry.onclick = () => {
         const lastUser = [...chatEl.querySelectorAll('.msg.user .txt')].at(-1)?.textContent ?? lastUserText;
@@ -295,7 +295,7 @@ function handleEvent(ev) {
       addText(b, `⚠ ${ev.text}`);
     }
   } else if (ev.type === 'done') {
-    // Akış bitti: birikmiş metni markdown olarak yeniden çiz (kod blokları vb.)
+    // Stream ended: re-render the accumulated text as markdown (code blocks etc.)
     if (streamTarget && streamText) {
       renderMd(streamTarget, streamText);
       streamTarget.appendChild(copyChip(() => streamText));
@@ -315,9 +315,9 @@ async function send() {
   busy = true;
   const sendBtn = $('#btn-send');
   sendBtn.disabled = false;
-  sendBtn.textContent = 'Durdur';
+  sendBtn.textContent = 'Stop';
   sendBtn.classList.add('btn-stop');
-  setStatus('Ajan çalışıyor…');
+  setStatus('Agent running…');
   addText(bubble('user'), text);
   lastTool = null;
   toolBlocks.clear();
@@ -348,11 +348,11 @@ async function send() {
       }
     }
   } catch (e) {
-    addText(bubble('assistant'), `⚠ Hata: ${e.message}`);
+    addText(bubble('assistant'), `⚠ Error: ${e.message}`);
   } finally {
     busy = false;
     sendBtn.disabled = false;
-    sendBtn.textContent = 'Gönder';
+    sendBtn.textContent = 'Send';
     sendBtn.classList.remove('btn-stop');
     setStatus('');
     inputEl.style.height = 'auto';
@@ -370,7 +370,7 @@ async function loadConfig() {
   $('#s-key').value = '';
 }
 
-// Gönder / Durdur: ajan çalışırken düğme durdurma görevi görür
+// Send / Stop: while the agent runs, the button acts as a stop button
 $('#btn-send').onclick = async () => {
   if (busy) {
     try {
@@ -394,21 +394,21 @@ $('#btn-clear').onclick = async () => {
     resetStream();
     renderEmpty();
   } catch (e) {
-    setStatus('Ajan çalışıyor; temizlenemez.');
+    setStatus('Agent running; cannot clear.');
     setTimeout(() => setStatus(''), 2500);
   }
 };
 $('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
-// Esc ile Ayarlar penceresini kapat
+// Close the Settings window with Esc
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') $('#settings').classList.add('hidden');
 });
-// Model rozetine tıklayınca Ayarlar açılır
+// Click the model badge to open Settings
 $('#model-badge').style.cursor = 'pointer';
-$('#model-badge').title = 'Model ayarlarını aç';
+$('#model-badge').title = 'Open model settings';
 $('#model-badge').onclick = () => $('#settings').classList.remove('hidden');
 
-// Hero bandını gizle/göster (tercih hatırlanır)
+// Hide/show hero band (preference is remembered)
 const heroEl = document.querySelector('.hero');
 const applyHero = () => {
   const off = localStorage.getItem('sciagent-hero') === 'off';
@@ -421,7 +421,7 @@ $('#btn-hero').onclick = () => {
 };
 applyHero();
 
-// Araç arama filtresi: | ile AYRI terminaller OR, boşlukla ayrılan kelimeler AND
+// Tool search filter: terms separated by | are OR'd, space-separated words are AND'd
 $('#tool-filter').addEventListener('input', () => {
   const q = $('#tool-filter').value.trim().toLowerCase();
   const terms = q.split('|').map((s) => s.trim()).filter(Boolean);
@@ -443,49 +443,49 @@ $('#tool-filter').addEventListener('input', () => {
   if (lastHead) lastHead.style.display = visible ? '' : 'none';
 });
 
-// Girdi alanı içeriğe göre büyüsün (en fazla ~6 satır)
+// Input grows with content (up to ~6 lines)
 const inputEl = $('#input');
 inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 150)}px`;
 });
 
-// Sohbeti Markdown olarak dışa aktar
-$('#btn-export').title = 'Sohbeti .md dosyası olarak indir';
+// Export chat as Markdown
+$('#btn-export').title = 'Download chat as .md file';
 $('#btn-export').onclick = async () => {
   try {
     const h = await api('/api/history');
-    const lines = ['# SciAgent Sohbeti', '', new Date().toLocaleString('tr-TR'), ''];
+    const lines = ['# SciAgent Chat', '', new Date().toLocaleString('tr-TR'), ''];
     for (const m of h.messages) {
-      if (m.role === 'user') lines.push(`## Kullanıcı\n\n${m.content}\n`);
+      if (m.role === 'user') lines.push(`## User\n\n${m.content}\n`);
       else if (m.role === 'assistant') {
         if (m.tool_calls?.length) {
           for (const tc of m.tool_calls) {
-            lines.push(`**→ araç:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
+            lines.push(`**→ tool:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
           }
         }
         if (m.content) lines.push(`**SciAgent**\n\n${m.content}\n`);
       } else if (m.role === 'tool') {
-        lines.push(`> sonuç: ${String(m.content).slice(0, 400)}\n`);
+        lines.push(`> result: ${String(m.content).slice(0, 400)}\n`);
       }
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    a.download = `sciagent-sohbet-${stamp}.md`;
+    a.download = `sciagent-chat-${stamp}.md`;
     a.click();
     URL.revokeObjectURL(a.href);
   } catch (e) {
-    alert('Dışa aktarılamadı: ' + e.message);
+    alert('Failed to export: ' + e.message);
   }
 };
 
-// Model bağlantı testi
+// Model connection test
 $('#s-test').onclick = async () => {
   const r = $('#s-test-result');
   r.classList.remove('hidden');
-  r.textContent = 'test ediliyor…';
+  r.textContent = 'testing…';
   try {
     const res = await api('/api/test-model', {
       method: 'POST',
@@ -496,7 +496,7 @@ $('#s-test').onclick = async () => {
         apiKey: $('#s-key').value,
       }),
     });
-    r.textContent = res.ok ? `✓ bağlantı başarılı (${res.ms} ms)` : `✕ başarısız: ${res.error}`;
+    r.textContent = res.ok ? `✓ connection ok (${res.ms} ms)` : `✕ failed: ${res.error}`;
   } catch (e) {
     r.textContent = '✕ ' + e.message;
   }
@@ -514,14 +514,14 @@ $('#s-save').onclick = async () => {
       }),
     });
     $('#settings').classList.add('hidden');
-    agentsInfoLoaded = false; // Ajanlar kartı yeni model bilgisiyle tazelensin
+    agentsInfoLoaded = false; // refresh the Agents card with the new model info
     await loadConfig();
   } catch (e) {
-    alert('Kaydedilemedi: ' + e.message);
+    alert('Failed to save: ' + e.message);
   }
 };
 
-// ===== Markdown (kod bloğu + kopyala) =====
+// ===== Markdown (code blocks + copy) =====
 function esc(s) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -533,7 +533,7 @@ function mdToHtml(src) {
     blocks.push({ lang, code });
     return `\u0000CODE${blocks.length - 1}\u0000`;
   });
-  // URL'leri tıklanabilir bağlantıya çevir (sondaki noktalama bağlantı dışında kalır)
+  // Turn URLs into clickable links (trailing punctuation stays outside the link)
   t = t.replace(/https?:\/\/[^\s<>"']+/g, (m0) => {
     let u = m0;
     const trail = u.match(/[)\].,;:!?'"]+$/);
@@ -552,7 +552,7 @@ function mdToHtml(src) {
   t = t.replace(/\n/g, '<br>');
   t = t.replace(/\u0000CODE(\d+)\u0000/g, (m, i) => {
     const b = blocks[Number(i)];
-    return `<div class="codebox"><div class="codebar"><span>${esc(b.lang || 'kod')}</span><button class="copy">kopyala</button></div><pre><code>${b.code}</code></pre></div>`;
+    return `<div class="codebox"><div class="codebar"><span>${esc(b.lang || 'code')}</span><button class="copy">copy</button></div><pre><code>${b.code}</code></pre></div>`;
   });
   return t;
 }
@@ -560,11 +560,11 @@ function mdToHtml(src) {
 function copyChip(getText) {
   const b = document.createElement('button');
   b.className = 'msg-copy';
-  b.textContent = 'kopyala';
+  b.textContent = 'copy';
   b.onclick = () => {
     navigator.clipboard.writeText(getText()).then(() => {
-      b.textContent = 'kopyalandı';
-      setTimeout(() => (b.textContent = 'kopyala'), 1200);
+      b.textContent = 'copied';
+      setTimeout(() => (b.textContent = 'copy'), 1200);
     });
   };
   return b;
@@ -583,12 +583,12 @@ chatEl.addEventListener('click', async (e) => {
   if (!code) return;
   try {
     await navigator.clipboard.writeText(code.textContent);
-    btn.textContent = 'kopyalandı';
-    setTimeout(() => (btn.textContent = 'kopyala'), 1500);
+    btn.textContent = 'copied';
+    setTimeout(() => (btn.textContent = 'copy'), 1500);
   } catch {}
 });
 
-// ===== Boş sohbet önerileri =====
+// ===== Empty chat suggestions =====
 function renderEmpty() {
   if (chatEl.querySelector('.msg, details.tool, #empty')) return;
   const d = document.createElement('div');
@@ -596,14 +596,14 @@ function renderEmpty() {
   d.className = 'empty';
   const t = document.createElement('div');
   t.className = 'e-title';
-  t.textContent = 'Bir görev yaz ya da bir öneri seç';
+  t.textContent = 'Type a task or pick a suggestion';
   const chips = document.createElement('div');
   chips.className = 'chips';
   const ideas = [
-    'data/ altındaki CSV dosyasını analiz et',
-    'Literatürde "protein katlanması" araması yap',
-    "1 eV kaç joule? Fizik sabitleriyle doğrula",
-    'Görevi paralel alt-ajanlara bölüp rapor hazırla',
+    'Analyze the CSV file under data/',
+    'Search the literature for "protein folding"',
+    "How many joules is 1 eV? Verify with physics constants",
+    'Split the task across parallel sub-agents and prepare a report',
   ];
   for (const idea of ideas) {
     const c = document.createElement('button');
@@ -621,7 +621,7 @@ function renderEmpty() {
   chatEl.appendChild(d);
 }
 
-// ===== Ajanlar görünümü =====
+// ===== Agents view =====
 async function renderAgents() {
   if (!agentsInfoLoaded) {
     try {
@@ -641,9 +641,9 @@ async function renderAgents() {
       };
       info.append(
         mk('Model', `${c.model.provider} · ${c.model.name}`, 'blue'),
-        mk('Çalışma alanı', c.workspaceRoot),
-        mk('Araç sayısı', String(c.tools.length), 'turquoise'),
-        mk('Durum', busy ? 'görev çalışıyor' : 'boşta', busy ? 'turquoise' : ''),
+        mk('Workspace', c.workspaceRoot),
+        mk('Tool count', String(c.tools.length), 'turquoise'),
+        mk('Status', busy ? 'running a task' : 'idle', busy ? 'turquoise' : ''),
       );
       agentsInfoLoaded = true;
     } catch {}
@@ -653,7 +653,7 @@ async function renderAgents() {
   if (!agentRuns.length) {
     const d = document.createElement('div');
     d.className = 'agent-card';
-    d.textContent = 'Bu oturumda alt-ajan görevi başlatılmadı. Sohbette paralel görev isteyerek task aracını kullandır.';
+    d.textContent = 'No sub-agent tasks started in this session. Ask for parallel tasks in the chat to use the task tool.';
     list.appendChild(d);
     return;
   }
@@ -667,7 +667,7 @@ async function renderAgents() {
     p.textContent = r.prompt;
     const st = document.createElement('div');
     st.className = 'a-state';
-    st.textContent = r.status === 'running' ? '● devam ediyor' : r.status === 'failed' ? '✕ hata' : '✓ tamamlandı';
+    st.textContent = r.status === 'running' ? '● running' : r.status === 'failed' ? '✕ failed' : '✓ done';
     head.append(p, st);
     card.appendChild(head);
     if (r.summary) {
@@ -680,7 +680,7 @@ async function renderAgents() {
   }
 }
 
-// ===== Sohbet geçmişi (sunucu kalıcılığından geri yükleme) =====
+// ===== Chat history (restored from server persistence) =====
 async function restoreHistory() {
   let h;
   try {
@@ -718,17 +718,17 @@ function safeParse(raw) {
   }
 }
 
-// ===== Grafikler görünümü =====
+// ===== Charts view =====
 const CHART_COLORS = ['#1677FF', '#00D5C8', '#66F0FF', '#F5FAFF', '#8FA3BD'];
 let chartData = null;
-let chartHidden = new Set(); // lejanttan gizlenen seriler
+let chartHidden = new Set(); // series hidden via the legend
 let chartTableOn = false;
 
 async function loadChart() {
   const p = $('#chart-path').value.trim();
   if (!p) return;
   const box = $('#chart-box');
-  box.innerHTML = '<p class="lead">yükleniyor…</p>';
+  box.innerHTML = '<p class="lead">loading…</p>';
   try {
     chartData = await api('/api/csv?path=' + encodeURIComponent(p));
     chartHidden = new Set();
@@ -739,7 +739,7 @@ async function loadChart() {
     $('#table-box').innerHTML = '';
     const d = document.createElement('p');
     d.className = 'lead';
-    d.textContent = 'Hata: ' + e.message;
+    d.textContent = 'Error: ' + e.message;
     box.appendChild(d);
   }
 }
@@ -760,7 +760,7 @@ function renderChartTable() {
 function renderChartEmpty() {
   $('#chart-legend').innerHTML = '';
   $('#chart-box').innerHTML =
-    '<div class="empty"><div class="e-title">Henüz grafik yok</div><div>Yukarıdaki alana bir CSV yolu yaz ya da örnek düğmesini kullan.</div></div>';
+    '<div class="empty"><div class="e-title">No chart yet</div><div>Type a CSV path above or use the example button.</div></div>';
   $('#table-box').innerHTML = '';
 }
 
@@ -772,7 +772,7 @@ function renderChart() {
   const all = Object.keys(data.numeric ?? {});
   const names = all.filter((k) => !chartHidden.has(k));
 
-  // Lejant: tıklanınca seri göster/gizle
+  // Legend: click to show/hide a series
   legend.innerHTML = '';
   all.forEach((k, si) => {
     const item = document.createElement('span');
@@ -780,7 +780,7 @@ function renderChart() {
     sw.style.background = CHART_COLORS[si % CHART_COLORS.length];
     item.append(sw, document.createTextNode(k));
     if (chartHidden.has(k)) item.classList.add('off');
-    item.title = 'göster/gizle';
+    item.title = 'show/hide';
     item.onclick = () => {
       chartHidden.has(k) ? chartHidden.delete(k) : chartHidden.add(k);
       renderChart();
@@ -789,11 +789,11 @@ function renderChart() {
   });
   const cnt = document.createElement('span');
   cnt.className = 'lg-count';
-  cnt.textContent = `${all.length} seri`;
+  cnt.textContent = `${all.length} series`;
   legend.appendChild(cnt);
 
   if (!names.length) {
-    box.innerHTML = '<p class="lead">Tüm seriler gizli — göstermek için lejanta tıkla.</p>';
+    box.innerHTML = '<p class="lead">All series hidden — click the legend to show.</p>';
     return;
   }
   const norm = $('#chart-norm')?.checked ?? false;
@@ -804,7 +804,7 @@ function renderChart() {
   const max = Math.max(...flatVals);
   const W = 880, H = 430, L = 64, R = 18, T = 18, B = 38;
   const xs = (i) => L + (W - L - R) * (n < 2 ? 0.5 : i / (n - 1));
-  // norm: her seri kendi min/max'ına göre ölçeklenir (farklı büyüklükteki seriler karşılaştırılabilir)
+  // norm: each series is scaled to its own min/max (comparable series of different magnitudes)
   const lo = (si) => (norm ? Math.min(...cols[si]) : min);
   const hi = (si) => (norm ? Math.max(...cols[si]) : max);
   const ys = (si, v) => T + (H - T - B) * (1 - (v - lo(si)) / (hi(si) - lo(si) || 1));
@@ -821,11 +821,11 @@ function renderChart() {
     const color = CHART_COLORS[si % CHART_COLORS.length];
     const pts = cols[si].map((v, i) => `${xs(i).toFixed(1)},${ys(si, v).toFixed(1)}`).join(' ');
     series += `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/>`;
-    // Tek noktalı serilerde çizgi görünmez olur → nokta işaretleyici çiz
+    // Single-point series would show no line → draw a dot marker
     if (cols[si].length === 1) {
       series += `<circle cx="${xs(0).toFixed(1)}" cy="${ys(si, cols[si][0]).toFixed(1)}" r="4" fill="${color}"/>`;
     }
-    // Hover ipuçları: nokta sayısı makul olduğundan fazlaysa örneklenerek eklenir
+    // Hover hints: sampled when there are more points than is reasonable
     const hintCount = cols[si].length;
     const hintStep = Math.max(1, Math.ceil(hintCount / 40));
     for (let i = 0; i < hintCount; i += hintStep) {
@@ -834,7 +834,7 @@ function renderChart() {
       series += `<circle cx="${cx}" cy="${cy}" r="9" fill="transparent" pointer-events="all"><title>${esc(k)}: ${cols[si][i]}</title></circle>`;
     }
   });
-  // X ekseni etiketleri: ilk metin sütunu varsa kullanılır
+  // X-axis labels: use the first text column if present
   let ticks = '';
   if (data.labelName && Array.isArray(data.labels) && data.labels.length) {
     const step = Math.max(1, Math.ceil(data.labels.length / 10));
@@ -844,12 +844,12 @@ function renderChart() {
       }
     });
   }
-  const yAxisNote = norm ? 'göreli (0–1, seri başına)' : '';
-  const xNote = data.labelName ? ` · x: ${esc(data.labelName)}` : ` · satır (0–${n - 1})`;
+  const yAxisNote = norm ? 'relative (0–1, per series)' : '';
+  const xNote = data.labelName ? ` · x: ${esc(data.labelName)}` : ` · row (0–${n - 1})`;
   box.innerHTML = `<svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img">${grid}${ticks}${series}<text x="${W - R - 150}" y="${H - 12}" fill="#8FA3BD" font-size="11">${xNote}${yAxisNote ? ' · ' + yAxisNote : ''}</text></svg>`;
 }
 
-// Son kullanılan grafik yolunu hatırla
+// Remember the last chart path
 const chartPathInput = $('#chart-path');
 chartPathInput.value = localStorage.getItem('sciagent-chart-path') ?? '';
 const loadChartSaved = async () => {
@@ -869,13 +869,13 @@ chartPathInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loadChartSaved();
 });
 
-// ===== Beceriler (GitHub SKILL.md) =====
+// ===== Skills (GitHub SKILL.md) =====
 async function loadAgentSkills() {
   const list = $('#skills-list');
   try {
     const s = await api('/api/agent-skills');
     const h = $('#skills-h');
-    if (h) h.textContent = `Beceriler (GitHub SKILL.md) — ${s.loaded.length} yüklü${s.errors.length ? `, ${s.errors.length} hatalı` : ''}`;
+    if (h) h.textContent = `Skills (GitHub SKILL.md) — ${s.loaded.length} loaded${s.errors.length ? `, ${s.errors.length} failed` : ''}`;
     list.innerHTML = '';
     for (const sk of s.loaded) {
       const d = document.createElement('div');
@@ -887,7 +887,7 @@ async function loadAgentSkills() {
       const del = document.createElement('button');
       del.className = 'ss-del skill-del';
       del.textContent = '×';
-      del.title = 'Beceriyi kaldır';
+      del.title = 'Remove skill';
       del.onclick = async () => {
         await api('/api/agent-skills/remove', { method: 'POST', body: JSON.stringify({ source: sk.source }) }).catch(() => {});
         loadAgentSkills();
@@ -905,7 +905,7 @@ async function loadAgentSkills() {
         const det = document.createElement('details');
         det.className = 'skill-body';
         const sum = document.createElement('summary');
-        sum.textContent = 'gövde';
+        sum.textContent = 'body';
         const pre = document.createElement('pre');
         pre.textContent = sk.body;
         det.append(sum, pre);
@@ -921,13 +921,13 @@ async function loadAgentSkills() {
       list.appendChild(d);
     }
     if (!s.loaded.length && !s.errors.length) {
-      list.innerHTML = '<div class="t-desc">Beceri yok — aşağıdan github: kaynağı ekleyin.</div>';
+      list.innerHTML = '<div class="t-desc">No skills — add a github: source below.</div>';
     }
   } catch (e) {
     list.innerHTML = '';
     const d = document.createElement('div');
     d.className = 't-desc';
-    d.textContent = 'Beceriler alınamadı: ' + e.message;
+    d.textContent = 'Failed to load skills: ' + e.message;
     list.appendChild(d);
   }
 }
@@ -940,16 +940,16 @@ $('#btn-skill-add').onclick = async () => {
     const r = await api('/api/agent-skills', { method: 'POST', body: JSON.stringify({ source: src }) });
     $('#skill-source').value = '';
     await loadAgentSkills();
-    if (!r.ok) setStatus(`Beceri yüklendi: ${r.skill?.name ?? src}`);
+    if (!r.ok) setStatus(`Skill loaded: ${r.skill?.name ?? src}`);
   } catch (e) {
-    setStatus('Beceri eklenemedi: ' + e.message);
+    setStatus('Failed to add skill: ' + e.message);
     setTimeout(() => setStatus(''), 3000);
   } finally {
     $('#btn-skill-add').disabled = false;
   }
 };
 
-// ===== Oturumlar (sol menü) =====
+// ===== Sessions (sidebar) =====
 function resetChatDom() {
   chatEl.innerHTML = '';
   lastTool = null;
@@ -972,7 +972,7 @@ function renderSessions(s) {
   for (const sess of s.sessions) {
     const item = document.createElement('div');
     item.className = 'ss-item' + (sess.id === s.active ? ' active' : '');
-    item.title = `${sess.title} — ${sess.count ?? 0} mesaj`;
+    item.title = `${sess.title} — ${sess.count ?? 0} messages`;
     const label = document.createElement('span');
     label.className = 'ss-label';
     label.textContent = sess.title || sess.id;
@@ -980,10 +980,10 @@ function renderSessions(s) {
     const del = document.createElement('button');
     del.className = 'ss-del';
     del.textContent = '×';
-    del.title = 'Oturumu sil';
+    del.title = 'Delete session';
     del.onclick = async (e) => {
       e.stopPropagation();
-      if (busy) return alert('Ajan çalışıyor; oturum silinemez.');
+      if (busy) return alert('Agent running; cannot delete a session.');
       await api('/api/sessions/delete', { method: 'POST', body: JSON.stringify({ id: sess.id }) }).catch(() => {});
       resetChatDom();
       await restoreHistory();
@@ -993,10 +993,10 @@ function renderSessions(s) {
     const ren = document.createElement('button');
     ren.className = 'ss-del';
     ren.textContent = '✎';
-    ren.title = 'Yeniden adlandır';
+    ren.title = 'Rename';
     ren.onclick = async (e) => {
       e.stopPropagation();
-      const t = prompt('Yeni başlık', sess.title);
+      const t = prompt('New title', sess.title);
       if (!t || !t.trim()) return;
       await api('/api/sessions/rename', { method: 'POST', body: JSON.stringify({ id: sess.id, title: t }) }).catch(() => {});
       loadSessions();
@@ -1004,7 +1004,7 @@ function renderSessions(s) {
     item.appendChild(ren);
     item.appendChild(del);
     item.onclick = async () => {
-      if (busy) return alert('Ajan çalışıyor; oturum değiştirilemez.');
+      if (busy) return alert('Agent running; cannot switch sessions.');
       if (sess.id === s.active) return;
       await api('/api/sessions/switch', { method: 'POST', body: JSON.stringify({ id: sess.id }) }).catch(() => {});
       resetChatDom();
@@ -1017,7 +1017,7 @@ function renderSessions(s) {
 }
 
 $('#ss-new').onclick = async () => {
-  if (busy) return alert('Ajan çalışıyor; yeni oturum açılamaz.');
+  if (busy) return alert('Agent running; cannot open a new session.');
   await api('/api/sessions', { method: 'POST', body: JSON.stringify({}) }).catch(() => {});
   resetChatDom();
   renderEmpty();
@@ -1029,9 +1029,9 @@ renderEmpty();
 loadConfig()
   .then(() => restoreHistory())
   .then(() => renderEmpty())
-  .catch((e) => setStatus('Yapılandırma yüklenemedi: ' + e.message));
+  .catch((e) => setStatus('Failed to load config: ' + e.message));
 
-// ===== Sol menü: görünüm geçişi + araç listesi =====
+// ===== Sidebar: view switching + tool list =====
 const views = { chat: $('#view-chat'), tools: $('#view-tools'), agents: $('#view-agents'), charts: $('#view-charts') };
 
 document.querySelectorAll('.nav-item').forEach((btn) => {
@@ -1053,7 +1053,7 @@ async function loadTools() {
   const list = $('#tools-list');
   list.innerHTML = '';
   const loading = document.createElement('li');
-  loading.textContent = 'yükleniyor…';
+  loading.textContent = 'loading…';
   loading.style.color = 'var(--dim)';
   list.appendChild(loading);
   try {
@@ -1061,7 +1061,7 @@ async function loadTools() {
     list.innerHTML = '';
     const groups = new Map();
     for (const t of c.tools) {
-      const title = t.group ?? 'Diğer';
+      const title = t.group ?? 'Other';
       if (!groups.has(title)) groups.set(title, []);
       groups.get(title).push(t);
     }
@@ -1081,7 +1081,7 @@ async function loadTools() {
         if (t.needsApproval) {
           const chip = document.createElement('span');
           chip.className = 't-chip';
-          chip.textContent = 'onay ister';
+          chip.textContent = 'needs approval';
           nameRow.appendChild(chip);
         }
         const desc = document.createElement('div');
@@ -1091,12 +1091,12 @@ async function loadTools() {
         list.appendChild(li);
       }
     }
-    // Liste geç yüklendiyse aktif filtreyi yeniden uygula
+    // If the list loaded late, re-apply the active filter
     $('#tool-filter').dispatchEvent(new Event('input'));
   } catch (e) {
     list.innerHTML = '';
     const li = document.createElement('li');
-    li.textContent = 'Araç listesi alınamadı: ' + e.message;
+    li.textContent = 'Failed to load tools: ' + e.message;
     list.appendChild(li);
   }
 }

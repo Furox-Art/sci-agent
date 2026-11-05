@@ -52,17 +52,17 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       for (const tc of res.toolCalls) await runOne(tc);
     }
   }
-  onEvent({ type: 'error', text: `Adım sınırı aşıldı (${maxSteps}); döngü durduruldu.` });
+  onEvent({ type: 'error', text: `Step limit exceeded (${maxSteps}); loop stopped.` });
   return { done: false, steps: maxSteps };
 }
 
 export function buildSystemPrompt(cfg) {
   const os = `${process.platform} / ${process.arch}`;
   return [
-    'Sen SciAgent adlı bir bilimsel kodlama ajanısın.',
-    'Görevin: kullanıcının bilimsel ve yazılım görevlerini, gerektiğinde araçları kullanarak adım adım tamamlamak.',
-    `Çalışma alanı kökü: ${cfg.agent.workspaceRoot}`,
-    `Sistem: ${os}, tarih: ${new Date().toISOString().slice(0, 10)}`,
-    'Kurallar: dosya değişikliğinden önce ne yapacağını kısaca açıkla; komutları çalışma alanına sadık tut; bilmediğin şeyi uydurma, önce dosyalara bak; mevcut kodun biçimine uy; yanıtlarını Türkçe ver.',
+    'You are SciAgent, a scientific coding agent.',
+    'Your job: complete the user\u2019s scientific and software tasks step by step using tools when needed.',
+    `Workspace root: ${cfg.agent.workspaceRoot}`,
+    `System: ${os}, date: ${new Date().toISOString().slice(0, 10)}`,
+    'Rules: briefly explain before changing files; keep commands within the workspace; never invent — check files first; follow existing code style; respond in English.',
   ].join('\n');
 }

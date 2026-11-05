@@ -25,11 +25,11 @@ function runProcess(exe, args, { cwd, timeout = DEFAULT_TIMEOUT_MS } = {}) {
     };
     child.stdout.on('data', grab);
     child.stderr.on('data', grab);
-    child.on('error', (e) => resolve({ ok: false, output: `Hata: ${e.message}`, code: -1 }));
+    child.on('error', (e) => resolve({ ok: false, output: `Error: ${e.message}`, code: -1 }));
     child.on('close', (code, sig) => {
-      if (out.length >= OUT_CAP) out += '\n...(çıktı kesildi)';
-      const tail = sig === 'SIGTERM' ? `\n(zaman aşımı: ${timeout} ms)` : '';
-      resolve({ ok: code === 0, output: `çıkış kodu: ${code ?? '?'}${tail}\n${out || '(çıktı yok)'}`, code });
+      if (out.length >= OUT_CAP) out += '\n...(output truncated)';
+      const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+      resolve({ ok: code === 0, output: `exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`, code });
     });
   });
 }
@@ -37,16 +37,16 @@ function runProcess(exe, args, { cwd, timeout = DEFAULT_TIMEOUT_MS } = {}) {
 export const plan_audit = {
   name: 'plan_audit',
   description:
-    'plan-auditor CLI: AI ajan planlarını bağımsız ve deterministik doğrular — mühürlü plan sözleşmeleri, SHA-256 hash zincirli kanıt günlüğü, STRIPS/PDDL erişilebilirlik denetimi, fail-closed tamamlanma kapısı. Gerçek alt komutlar (--help): supervisor (gözetim servisi denetimi), task (planları gözetim görevi olarak inceleme), plan (planları doğrula/mühürle/incele), evidence (aktif ve arşivlenmiş kanıtları doğrula), integrity (dış anahtarla kimliklenen bütünlük), request (host\u2019a ait değişmez istek sözleşmesi), agents (kalıcı çoklu ajan kayıt defteri), audit (aktif planlarda bütünleşik son kapı), doctor (ortam ve gözetim yeteneği raporu), run ve validate (deterministik çekirdeğe yönlendirme). Keşif için ["--help"]. Onay gerektirir.',
+    'plan-auditor CLI: independently and deterministically verifies AI agent plans — sealed plan contracts, SHA-256 hash-chained evidence log, STRIPS/PDDL reachability audit, fail-closed completion gate. Actual subcommands (--help): supervisor (supervision service audit), task (inspect plans as supervision tasks), plan (verify/seal/inspect plans), evidence (verify active and archived evidence), integrity (integrity identified with an external key), request (host\u2019s immutable request contract), agents (persistent multi-agent registry), audit (integrated final gate on active plans), doctor (environment and supervision capability report), run and validate (dispatch to the deterministic core). Explore with ["--help"]. Requires approval.',
   parameters: {
     type: 'object',
     properties: {
       args: {
         type: 'array',
         items: { type: 'string' },
-        description: 'plan-auditor CLI argümanları (ör. ["--help"], ["plan","--help"], ["doctor"], ["audit","."])',
+        description: 'plan-auditor CLI arguments (e.g. ["--help"], ["plan","--help"], ["doctor"], ["audit","."])',
       },
-      timeoutMs: { type: 'number', description: 'Zaman aşımı ms (varsayılan 120000, en fazla 600000)' },
+      timeoutMs: { type: 'number', description: 'Timeout in ms (default 120000, max 600000)' },
     },
     required: ['args'],
   },
@@ -55,22 +55,22 @@ export const plan_audit = {
   async execute({ args = [], timeoutMs = DEFAULT_TIMEOUT_MS }, { workspaceRoot }) {
     const py = resolvePython();
     if (!py) {
-      return 'Hata: Python bulunamadı. plan-auditor için Python 3.10+ gerekir; kurun veya SCI_AGENT_PYTHON ortam değişkeniyle yolu verin.';
+      return 'Error: Python not found. Python 3.10+ is required for plan-auditor; install it or provide the path via the SCI_AGENT_PYTHON environment variable.';
     }
     const timeout = Math.min(Number(timeoutMs) || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
-    // 1. yol: Python Scripts dizinindeki konsol betiği (PATH'e bağlı değil)
+    // Path 1: console script in the Python Scripts directory (not PATH-dependent)
     const exe = path.join(pythonScriptsDir(py), 'plan-auditor.exe');
     if (existsSync(exe)) {
       const res = await runProcess(exe, args, { cwd: workspaceRoot, timeout });
       return res.output;
     }
-    // 2. yol: modül girişimi (python -m supervisor.cli — paketin gerçek giriş noktası)
+    // Path 2: module attempt (python -m supervisor.cli — the package's real entry point)
     const res = await runProcess(py, ['-X', 'utf8', '-m', 'supervisor.cli', ...args], {
       cwd: workspaceRoot,
       timeout,
     });
     if (!res.ok && /No module named/.test(res.output)) {
-      return `Hata: 'plan-auditor' bulunamadı. Kurmak için: pip install plan-auditor\n${res.output}`;
+      return `Error: 'plan-auditor' not found. Install: pip install plan-auditor\n${res.output}`;
     }
     return res.output;
   },

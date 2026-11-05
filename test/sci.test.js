@@ -27,10 +27,10 @@ test('csv_stats temel istatistikleri hesaplar', async () => {
   });
   const s = await r.invoke('csv_stats', { path: 'veri.csv' });
   assert.ok(s.ok, s.output);
-  assert.match(s.output, /x: n=3, ortalama=2\.0000/);
-  assert.match(s.output, /y: n=3, ortalama=23\.3333/);
-  assert.match(s.output, /maks=40/);
-  assert.match(s.output, /etiket: sayısal veri yok/);
+  assert.match(s.output, /x: n=3, mean=2\.0000/);
+  assert.match(s.output, /y: n=3, mean=23\.3333/);
+  assert.match(s.output, /max=40/);
+  assert.match(s.output, /etiket: no numeric data/);
 });
 
 const pyExe = resolvePython();

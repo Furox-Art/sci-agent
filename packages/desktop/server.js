@@ -28,7 +28,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     messages: [{ role: 'system', content: buildSystemPrompt(cfg) }],
   };
 
-  // Oturum kalıcılığı: her oturum .sci-agent-sessions/<id>.json (CLI ile paylaşımlı, git'e girmez)
+  // Session persistence: each session is .sci-agent-sessions/<id>.json (shared with the CLI, excluded from git)
   const sessionsDir = path.join(cfg.agent.workspaceRoot, '.sci-agent-sessions');
   mkdirSync(sessionsDir, { recursive: true });
   const legacy = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
@@ -62,17 +62,17 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       return [];
     }
   };
-  // Geçiş: eski .sci-agent-history.json → "varsayılan" oturumu
+  // Migration: legacy .sci-agent-history.json → the "default" session
   if (!listSessions().length && existsSync(legacy)) {
     try {
       const msgs = JSON.parse(readFileSync(legacy, 'utf8'));
-      if (Array.isArray(msgs)) writeSession('default', 'varsayılan', msgs);
+      if (Array.isArray(msgs)) writeSession('default', 'default', msgs);
     } catch {}
   }
   const first = listSessions()[0];
   if (first?.messages) state.messages = first.messages;
   state.sessionId = first?.id ?? 'default';
-  state.sessionTitle = first?.title ?? 'varsayılan';
+  state.sessionTitle = first?.title ?? 'default';
   if (!first) writeSession(state.sessionId, state.sessionTitle, state.messages);
   const saveActive = () => writeSession(state.sessionId, state.sessionTitle, state.messages);
   const setActive = (id) => {
@@ -84,7 +84,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     return true;
   };
 
-  // GitHub becerileri: yapılandırmadaki kaynakları yükler (hatalar nazikçe raporlanır)
+  // GitHub skills: loads the sources from config (errors are reported gracefully)
   state.skills = [];
   state.skillErrors = [];
   let skillsLoading = false;
@@ -114,7 +114,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
     cur.skills = { sources };
     writeFileSync(file, JSON.stringify(cur, null, 2));
   };
-  ensureSkills(); // açılışta arka planda yükle
+  ensureSkills(); // load in the background at startup
 
   const emit = (ev) => {
     const res = state.res;
@@ -131,7 +131,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         const id = crypto.randomUUID();
         state.pending.set(id, resolve);
         emit({ type: 'approval_request', id, name, args });
-        // Bekleyen onay 5 dakika sonra otomatik reddedilir.
+        // Pending approval auto-denied after 5 minutes.
         setTimeout(() => {
           if (state.pending.has(id)) {
             state.pending.delete(id);
@@ -169,14 +169,14 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       if (url.pathname === '/api/clear' && req.method === 'POST') {
-        if (state.busy) return json(res, { error: 'Ajan çalışıyor; temizlenemez' }, 409);
+        if (state.busy) return json(res, { error: 'Agent running; cannot clear' }, 409);
         state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
         saveActive();
         return json(res, { ok: true });
       }
 
       if (url.pathname === '/api/stop' && req.method === 'POST') {
-        if (!state.abort) return json(res, { ok: false, error: 'Çalışan görev yok' }, 409);
+        if (!state.abort) return json(res, { ok: false, error: 'No running task' }, 409);
         state.abort.abort();
         return json(res, { ok: true });
       }
@@ -193,7 +193,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/agent-skills' && req.method === 'POST') {
         const b = await readBody(req);
         const source = String(b.source ?? '').trim();
-        if (!source.startsWith('github:')) return json(res, { error: 'Kaynak "github:kullanici/depo" biçiminde olmalı' }, 400);
+        if (!source.startsWith('github:')) return json(res, { error: 'Source must be in "github:user/repo" format' }, 400);
         try {
           const skill = await fetchSkill(source);
           if (!cfg.skills?.sources.includes(source)) {
@@ -221,9 +221,9 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/approve' && req.method === 'POST') {
         const b = await readBody(req);
         const resolve = state.pending.get(b.id);
-        if (!resolve) return json(res, { ok: false, error: 'Bekleyen onay yok' }, 404);
+        if (!resolve) return json(res, { ok: false, error: 'No pending approval' }, 404);
         state.pending.delete(b.id);
-        // "Bu oturumda bu araca izin ver": araç bu çalışmada bir daha onay sormaz.
+        // "Allow this tool for this session": the tool will not ask for approval again in this run.
         if (b.remember && b.approved && typeof b.tool === 'string' && !registry.autoApprove.includes(b.tool)) {
           registry.autoApprove.push(b.tool);
         }
@@ -245,10 +245,10 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       if (url.pathname === '/api/sessions' && req.method === 'POST') {
-        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum değiştirilemez' }, 409);
+        if (state.busy) return json(res, { error: 'Agent running; cannot switch sessions' }, 409);
         const b = await readBody(req).catch(() => ({}));
         const id = crypto.randomUUID();
-        const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim() : 'yeni oturum';
+        const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim() : 'new session';
         state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
         state.sessionId = id;
         state.sessionTitle = title;
@@ -257,17 +257,17 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       if (url.pathname === '/api/sessions/switch' && req.method === 'POST') {
-        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum değiştirilemez' }, 409);
+        if (state.busy) return json(res, { error: 'Agent running; cannot switch sessions' }, 409);
         const b = await readBody(req);
-        if (!setActive(String(b.id ?? ''))) return json(res, { error: 'Oturum bulunamadı' }, 404);
+        if (!setActive(String(b.id ?? ''))) return json(res, { error: 'Session not found' }, 404);
         return json(res, { ok: true, id: state.sessionId, title: state.sessionTitle });
       }
 
       if (url.pathname === '/api/sessions/rename' && req.method === 'POST') {
-        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum yeniden adlandırılamaz' }, 409);
+        if (state.busy) return json(res, { error: 'Agent running; cannot rename a session' }, 409);
         const b = await readBody(req);
         const s = readSession(String(b.id ?? ''));
-        if (!s) return json(res, { error: 'Oturum bulunamadı' }, 404);
+        if (!s) return json(res, { error: 'Session not found' }, 404);
         const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim().slice(0, 60) : s.title;
         writeSession(String(b.id), title, s.messages);
         if (state.sessionId === b.id) state.sessionTitle = title;
@@ -275,7 +275,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       if (url.pathname === '/api/sessions/delete' && req.method === 'POST') {
-        if (state.busy) return json(res, { error: 'Ajan çalışıyor; oturum silinemez' }, 409);
+        if (state.busy) return json(res, { error: 'Agent running; cannot delete a session' }, 409);
         const b = await readBody(req);
         const file = path.join(sessionsDir, `${String(b.id ?? '')}.json`);
         if (existsSync(file)) unlinkSync(file);
@@ -285,7 +285,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
           else {
             state.messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
             state.sessionId = crypto.randomUUID();
-            state.sessionTitle = 'yeni oturum';
+            state.sessionTitle = 'new session';
             writeSession(state.sessionId, state.sessionTitle, state.messages);
           }
         }
@@ -296,7 +296,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         return json(res, { messages: state.messages.filter((m) => m.role !== 'system') });
       }
 
-      // Model bağlantı testi (Ayarlar'daki "Bağlantıyı Test Et")
+      // Model connection test ("Test Connection" in Settings)
       if (url.pathname === '/api/test-model' && req.method === 'POST') {
         const b = await readBody(req);
         const testCfg = {
@@ -309,7 +309,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         const t0 = Date.now();
         try {
           const provider = createProvider(testCfg);
-          const out = await provider.chat({ messages: [{ role: 'user', content: 'Yalnızca "ok" yaz.' }] });
+          const out = await provider.chat({ messages: [{ role: 'user', content: 'Reply with only "ok".' }] });
           return json(res, { ok: true, ms: Date.now() - t0, sample: String(out.content ?? '').slice(0, 60) });
         } catch (e) {
           return json(res, { ok: false, ms: Date.now() - t0, error: String(e.message).slice(0, 300) });
@@ -318,14 +318,14 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
 
       if (url.pathname === '/api/csv' && req.method === 'GET') {
         const rel = url.searchParams.get('path') ?? '';
-        if (!rel.trim()) return json(res, { error: 'path gerekli' }, 400);
+        if (!rel.trim()) return json(res, { error: 'path required' }, 400);
         const abs = resolveSafe(cfg.agent.workspaceRoot, rel);
         const st = await stat(abs);
-        if (st.isDirectory()) return json(res, { error: 'Bu bir dizin; dosya bekleniyor' }, 400);
-        if (st.size > 2_000_000) return json(res, { error: 'Dosya çok büyük (>2 MB)' }, 400);
+        if (st.isDirectory()) return json(res, { error: 'This is a directory; expected a file' }, 400);
+        if (st.size > 2_000_000) return json(res, { error: 'File too large (>2 MB)' }, 400);
         const text = (await readFile(abs, 'utf8')).replace(/^\uFEFF/, '');
         const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
-        if (lines.length < 2) return json(res, { error: 'CSV en az başlık + 1 satır içermeli' }, 400);
+        if (lines.length < 2) return json(res, { error: 'CSV must have a header plus at least 1 row' }, 400);
         const columns = lines[0].split(',').map((h) => h.trim());
         const rows = lines.slice(1, 5001).map((l) => l.split(','));
         const numeric = {};
@@ -333,7 +333,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
           const nums = rows.map((r) => Number(r[i])).filter((v) => Number.isFinite(v));
           if (nums.length >= Math.max(1, Math.floor(rows.length * 0.6))) numeric[col] = nums;
         });
-        // X ekseni etiketleri: ilk sayısal olmayan (metin) sütun
+        // X-axis labels: first non-numeric (text) column
         let labelName = null;
         let labels = [];
         for (let i = 0; i < columns.length; i++) {
@@ -354,10 +354,10 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       if (url.pathname === '/api/chat' && req.method === 'POST') {
-        if (state.busy) return json(res, { error: 'Ajan şu an meşgul' }, 409);
+        if (state.busy) return json(res, { error: 'Agent is busy' }, 409);
         const b = await readBody(req);
         const message = String(b.message ?? '').trim();
-        if (!message) return json(res, { error: 'Boş mesaj' }, 400);
+        if (!message) return json(res, { error: 'Empty message' }, 400);
 
         state.busy = true;
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -369,23 +369,23 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
 
         emit({ type: 'start' });
         state.messages.push({ role: 'user', content: message });
-        // İlk mesaj oturum başlığı olur.
-        if (state.sessionTitle === 'yeni oturum' || !state.sessionTitle) {
+        // First message becomes the session title.
+        if (state.sessionTitle === 'new session' || !state.sessionTitle) {
           state.sessionTitle = message.slice(0, 40);
         }
         const ac = new AbortController();
         state.abort = ac;
         try {
           const provider = createProvider(cfg.model);
-          // eq-layer yönlendirmesi: model çağrısından önce niyet/duygu politikası çıkar;
-          // hata olursa /api/chat hiçbir koşulda patlamaz (systemExtra tanımsız kalır).
+          // eq-layer steering: derives the intent/emotion policy before the model call;
+          // on error /api/chat must never throw (systemExtra stays undefined).
           let systemExtra;
           const skillText = skillsSystemText(state.skills);
           try {
             const steer = await buildSteering({ messages: state.messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
             systemExtra = [skillText, steer?.steering].filter(Boolean).join('\n\n') || undefined;
             if (steer?.steering) {
-              emit({ type: 'info', text: `eq-layer yönlendirmesi: ${steer.source}` });
+              emit({ type: 'info', text: `eq-layer steering: ${steer.source}` });
             }
           } catch {
             systemExtra = skillText || undefined;
@@ -394,7 +394,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
           emit({ type: 'done' });
         } catch (e) {
           const aborted = e?.name === 'AbortError' || /abort/i.test(String(e?.message));
-          emit({ type: 'error', text: aborted ? 'Görev kullanıcı tarafından durduruldu.' : e.message });
+          emit({ type: 'error', text: aborted ? 'Task stopped by the user.' : e.message });
           emit({ type: 'done' });
         } finally {
           state.busy = false;
@@ -416,7 +416,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       }
 
       res.writeHead(404, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'bulunamadı' }));
+      res.end(JSON.stringify({ error: 'not found' }));
     } catch (e) {
       json(res, { error: e.message }, 500);
     }
@@ -439,20 +439,20 @@ function readBody(req) {
     let d = '';
     req.on('data', (c) => {
       d += c;
-      if (d.length > 5e6) reject(new Error('Gövde çok büyük'));
+      if (d.length > 5e6) reject(new Error('Body too large'));
     });
     req.on('end', () => {
       try {
         resolve(d ? JSON.parse(d) : {});
       } catch {
-        reject(new Error('Geçersiz JSON'));
+        reject(new Error('Invalid JSON'));
       }
     });
     req.on('error', reject);
   });
 }
 
-/** Yalnızca verilen alanları yapılandırma dosyasına yazar (dosya .gitignore'dadır). */
+/** Writes only the given fields to the config file (the file is gitignored). */
 function persistModel(workspaceRoot, updates) {
   if (!Object.keys(updates).length) return;
   const file = path.join(workspaceRoot, 'sci-agent.config.json');
@@ -467,5 +467,5 @@ function persistModel(workspaceRoot, updates) {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const port = Number(process.env.SCI_AGENT_PORT) || 8765;
   const { port: p } = await startServer({ port });
-  console.log(`SciAgent arayüzü: http://127.0.0.1:${p}`);
+  console.log(`SciAgent UI: http://127.0.0.1:${p}`);
 }

@@ -79,13 +79,13 @@ test('plan_audit boş args ile süreç patlamadan string döner', { skip: hasPla
   assert.match(s.output, /usage|Hata/);
 });
 
-test('plan_audit bilinmeyen alt komutta string ve Hata/usage döner', { skip: hasPlanAuditor ? false : 'plan-auditor kurulu değil' }, async () => {
+test('plan_audit returns a string and Error/usage on unknown subcommand', { skip: hasPlanAuditor ? false : 'plan-auditor kurulu değil' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-audit-'));
   const r = makeRegistry(root);
   const s = await r.invoke('plan_audit', { args: ['bu-komut-yok'] });
   // CLI bu durumda sıfırdan farklı çıkış koduyla biter (doğrulandı: 2); araç yine de
   // ok:true|false fark etmeksizin dize döndürmeli ve hatayı/usage'ı içermeli.
   assert.equal(typeof s.output, 'string');
-  assert.match(s.output, /Hata|usage/i);
-  assert.match(s.output, /çıkış kodu: (?!0\b)/, 'çıkış kodu bildirimi sıfırdan farklı olmalı');
+  assert.match(s.output, /Error|usage/i);
+  assert.match(s.output, /exit code: (?!0\b)/, 'exit code must be reported as non-zero');
 });

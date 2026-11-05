@@ -17,14 +17,14 @@ async function makeServer(t) {
 const jpost = (base, p, body) =>
   fetch(base + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
 
-test('health uç noktası çalışır', async (t) => {
+test('health endpoint works', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/health');
   assert.equal(r.status, 200);
   assert.equal((await r.json()).ok, true);
 });
 
-test('oturum oluştur / listele / geç / sil akışı', async (t) => {
+test('session create/list/switch/delete flow', async (t) => {
   const { base } = await makeServer(t);
   const s0 = await (await fetch(base + '/api/sessions')).json();
   assert.ok(s0.sessions.length >= 1);
@@ -43,7 +43,7 @@ test('oturum oluştur / listele / geç / sil akışı', async (t) => {
   assert.equal(s2.sessions.some((x) => x.id === created.id), false);
 });
 
-test('sohbet sonrası geçmiş kaydedilir ve okunur', async (t) => {
+test('history saved and readable after chat', async (t) => {
   const { base } = await makeServer(t);
   const res = await fetch(base + '/api/chat', {
     method: 'POST',
@@ -60,7 +60,7 @@ test('sohbet sonrası geçmiş kaydedilir ve okunur', async (t) => {
   assert.ok(roles.includes('assistant'));
 });
 
-test('mock sağlayıcı ile sohbet SSE olayları tam', async (t) => {
+test('chat SSE events complete with mock provider', async (t) => {
   const { base } = await makeServer(t);
   const res = await fetch(base + '/api/chat', {
     method: 'POST',
@@ -75,7 +75,7 @@ test('mock sağlayıcı ile sohbet SSE olayları tam', async (t) => {
   assert.equal(types.at(-1), 'done');
 });
 
-test('boş mesaj 400 döner', async (t) => {
+test('empty message returns 400', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/chat', {
     method: 'POST',
@@ -85,14 +85,14 @@ test('boş mesaj 400 döner', async (t) => {
   assert.equal(r.status, 400);
 });
 
-test('temizleme geçmişi sıfırlar', async (t) => {
+test('clear resets history', async (t) => {
   const { base } = await makeServer(t);
   const res = await fetch(base + '/api/chat', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ message: 'doldur' }),
   });
-  await res.text(); // SSE akışı bitene kadar bekle
+  await res.text(); // wait until the SSE stream ends
   let h = await (await fetch(base + '/api/history')).json();
   assert.ok(h.messages.length >= 2);
   const c = await (await jpost(base, '/api/clear')).json();
@@ -101,7 +101,7 @@ test('temizleme geçmişi sıfırlar', async (t) => {
   assert.equal(h.messages.length, 0);
 });
 
-test('tek satırlık CSV sayısal sütunla çalışır', async (t) => {
+test('single-row CSV works with numeric column', async (t) => {
   const { base, root } = await makeServer(t);
   await fs.writeFile(path.join(root, 'tek.csv'), 'deger\n42\n', 'utf8');
   const d = await (await fetch(base + '/api/csv?path=' + encodeURIComponent('tek.csv'))).json();
@@ -109,7 +109,7 @@ test('tek satırlık CSV sayısal sütunla çalışır', async (t) => {
   assert.equal(d.rowCount, 1);
 });
 
-test('csv uç noktası sayısal sütun ve etiket döndürür', async (t) => {
+test('csv endpoint returns numeric column and labels', async (t) => {
   const { base, root } = await makeServer(t);
   await fs.writeFile(path.join(root, 'veri.csv'), 'donem,deger\nOca,10\nSub,20\nMar,30\n', 'utf8');
   const r = await fetch(base + '/api/csv?path=' + encodeURIComponent('veri.csv'));
@@ -120,19 +120,19 @@ test('csv uç noktası sayısal sütun ve etiket döndürür', async (t) => {
   assert.deepEqual(d.labels, ['Oca', 'Sub', 'Mar']);
 });
 
-test('csv eksik yol 400 döner', async (t) => {
+test('csv missing path returns 400', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/csv');
   assert.equal(r.status, 400);
 });
 
-test('csv dizin yolu 400 döner', async (t) => {
+test('csv directory path returns 400', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/csv?path=' + encodeURIComponent('.'));
   assert.equal(r.status, 400);
 });
 
-test('bilinmeyen API 404 döner', async (t) => {
+test('unknown API returns 404', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/yok');
   assert.equal(r.status, 404);

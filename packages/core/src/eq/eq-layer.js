@@ -169,7 +169,7 @@ export async function buildSteering({ messages, workspaceRoot } = {}) {
       else if ((await tryCli(inputJson)) !== null) t = 'cli';
       else {
         t = null;
-        warn('eq-layer bulunamadı/çalışmadı; yönlendirme katmanı bu oturumda devre dışı.');
+        warn('eq-layer not found/failed; steering layer disabled for this session.');
       }
       transport = t;
     }

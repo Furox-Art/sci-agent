@@ -16,8 +16,8 @@ function parseArgs(raw) {
 export class OpenAICompatProvider {
   // Yapılandırmada model adı `name` alanında taşınır; `model` takma adı da kabul edilir.
   constructor({ baseUrl, apiKey = '', model, name, temperature = 0.2, stream = true, fetchImpl = fetch } = {}) {
-    if (!baseUrl) throw new Error('model.baseUrl gerekli');
-    if (!model && !name) throw new Error('model.name gerekli');
+    if (!baseUrl) throw new Error('model.baseUrl required');
+    if (!model && !name) throw new Error('model.name required');
     this.baseUrl = String(baseUrl).replace(/\/+$/, '');
     this.apiKey = apiKey;
     this.model = model ?? name;
@@ -64,7 +64,7 @@ export class OpenAICompatProvider {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      const err = new Error(`Model sunucusu ${res.status} döndü: ${text.slice(0, 500)}`);
+      const err = new Error(`Model server returned ${res.status}: ${text.slice(0, 500)}`);
       err.fallback = stream; // akış denemesiyse akışsız tekrar denenebilir
       throw err;
     }

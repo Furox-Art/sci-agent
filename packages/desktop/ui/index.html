@@ -1,127 +1,127 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SciAgent — Bilimsel Kodlama Ajanı</title>
+  <title>SciAgent — Scientific Coding Agent</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <aside id="side">
     <div class="side-brand"><span class="logo">⚛</span> <span>SciAgent</span></div>
     <nav class="side-nav">
-      <button class="nav-item active" data-view="chat"><span class="ico">💬</span> Sohbet</button>
-      <button class="nav-item" data-view="tools"><span class="ico">🔬</span> Araçlar</button>
-      <button class="nav-item" data-view="charts"><span class="ico">📊</span> Grafikler</button>
-      <button class="nav-item" data-view="agents"><span class="ico ai">🤖</span> Ajanlar</button>
-      <button class="nav-item" data-view="settings" id="nav-settings"><span class="ico">⚙️</span> Ayarlar</button>
+      <button class="nav-item active" data-view="chat"><span class="ico">💬</span> Chat</button>
+      <button class="nav-item" data-view="tools"><span class="ico">🔬</span> Tools</button>
+      <button class="nav-item" data-view="charts"><span class="ico">📊</span> Charts</button>
+      <button class="nav-item" data-view="agents"><span class="ico ai">🤖</span> Agents</button>
+      <button class="nav-item" data-view="settings" id="nav-settings"><span class="ico">⚙️</span> Settings</button>
     </nav>
     <div class="side-sessions">
-      <div class="ss-head"><span>OTURUMLAR</span><button id="ss-new" title="Yeni oturum">+</button></div>
+      <div class="ss-head"><span>SESSIONS</span><button id="ss-new" title="New session">+</button></div>
       <div id="ss-list"></div>
     </div>
-    <div class="side-foot">v0.7 · bilimsel ajan</div>
+    <div class="side-foot">v0.7 · scientific agent</div>
   </aside>
 
   <div class="wrap">
     <header>
-      <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">bilimsel kodlama ajanı</span></div>
+      <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">scientific coding agent</span></div>
       <div class="head-actions">
-        <span id="model-badge" class="badge">yükleniyor…</span>
-        <button id="btn-hero" class="ghost" title="Hero bandını gizle/göster">▴</button>
-        <button id="btn-export" class="ghost">Dışa Aktar</button>
-        <button id="btn-clear" class="ghost">Temizle</button>
-        <button id="btn-settings" class="ghost">Ayarlar</button>
+        <span id="model-badge" class="badge">loading…</span>
+        <button id="btn-hero" class="ghost" title="Hide/show hero band">▴</button>
+        <button id="btn-export" class="ghost">Export</button>
+        <button id="btn-clear" class="ghost">Clear</button>
+        <button id="btn-settings" class="ghost">Settings</button>
       </div>
     </header>
 
     <section id="view-chat" class="view">
-      <!-- HERO BANDI — başlangıç (geri alma: bu bloğu sil) -->
+      <!-- HERO BAND — start (revert: delete this block) -->
       <section class="hero" aria-label="SciAgent hero">
         <img class="hero-hands" src="assets/hands.png"
-             alt="Sol insan eli ve sağ krom el, parmak uçları merkezde neredeyse değiyor" />
+             alt="A human hand and a chrome hand, fingertips nearly touching at the center" />
       </section>
-      <!-- HERO BANDI — bitiş -->
+      <!-- HERO BAND — end -->
 
       <main id="chat"></main>
       <div id="status" class="status hidden"></div>
 
       <footer>
-        <textarea id="input" rows="1" placeholder="Görevini yaz… (Enter: gönder, Shift+Enter: yeni satır)"></textarea>
-        <button id="btn-send" class="turquoise">Gönder</button>
+        <textarea id="input" rows="1" placeholder="Type your task… (Enter: send, Shift+Enter: newline)"></textarea>
+        <button id="btn-send" class="turquoise">Send</button>
       </footer>
     </section>
 
     <section id="view-tools" class="view hidden">
       <div class="tools-wrap">
-        <h2>Araçlar</h2>
-        <p class="lead">Ajanın kullanabildiği araçlar. Bilimsel araçlar elektrik mavisi, yapay zekâ/ajan araçları turkuaz ile gösterilir.</p>
-        <input id="tool-filter" class="tool-filter" type="text" placeholder="araç ara…" />
+        <h2>Tools</h2>
+        <p class="lead">Tools available to the agent. Scientific tools in electric blue, AI/agent tools in turquoise.</p>
+        <input id="tool-filter" class="tool-filter" type="text" placeholder="search tools…" />
         <ul id="tools-list"></ul>
-      </div>
-    </section>
-
-    <section id="view-agents" class="view hidden">
-      <div class="tools-wrap">
-        <h2>Ajanlar</h2>
-        <p class="lead">Yapay zekâ ajanının durumu ve bu oturumdaki alt-ajan görevleri.</p>
-        <div id="agents-info"></div>
-        <h3 class="sub-h">Görev kartları</h3>
-        <div id="agents-list"></div>
-        <h3 class="sub-h" id="skills-h">Beceriler (GitHub SKILL.md)</h3>
-        <div id="skills-list"></div>
-        <div class="skill-add">
-          <input id="skill-source" type="text" placeholder="github:kullanici/depo[/alt/yol]" />
-          <button id="btn-skill-add" class="turquoise">Ekle</button>
-        </div>
       </div>
     </section>
 
     <section id="view-charts" class="view hidden">
       <div class="tools-wrap">
-        <h2>Grafikler</h2>
-        <p class="lead">Çalışma alanındaki bir CSV dosyasını görselleştir. Ana seri elektrik mavisi, ikinci seri turkuaz, yardımcılar açık cyandır.</p>
+        <h2>Charts</h2>
+        <p class="lead">Visualize a CSV from the workspace. Primary series electric blue, second turquoise, helpers light cyan.</p>
         <div class="chart-bar">
-          <input id="chart-path" type="text" placeholder="ör. examples/veri.csv" />
-          <button id="btn-chart" class="turquoise">Yükle</button>
-          <label class="chart-norm"><input id="chart-norm" type="checkbox" /> seri başına ölçekle</label>
+          <input id="chart-path" type="text" placeholder="e.g. examples/veri.csv" />
+          <button id="btn-chart" class="turquoise">Load</button>
+          <label class="chart-norm"><input id="chart-norm" type="checkbox" /> scale per series</label>
         </div>
         <div id="chart-legend" class="chart-legend"></div>
         <div id="chart-box"></div>
         <div class="chart-actions">
-          <button id="btn-table" class="ghost">Veri tablosu</button>
-          <button id="chart-example" class="ghost">örnek yükle: examples/veri.csv</button>
+          <button id="btn-table" class="ghost">Data table</button>
+          <button id="chart-example" class="ghost">load example: examples/veri.csv</button>
         </div>
         <div id="table-box"></div>
+      </div>
+    </section>
+
+    <section id="view-agents" class="view hidden">
+      <div class="tools-wrap">
+        <h2>Agents</h2>
+        <p class="lead">AI agent status and sub-agent tasks of this session.</p>
+        <div id="agents-info"></div>
+        <h3 class="sub-h">Task cards</h3>
+        <div id="agents-list"></div>
+        <h3 class="sub-h" id="skills-h">Skills (GitHub SKILL.md)</h3>
+        <div id="skills-list"></div>
+        <div class="skill-add">
+          <input id="skill-source" type="text" placeholder="github:user/repo[/sub/path]" />
+          <button id="btn-skill-add" class="turquoise">Add</button>
+        </div>
       </div>
     </section>
   </div>
 
   <div id="settings" class="modal hidden">
     <div class="modal-card">
-      <h2>Model Ayarları</h2>
-      <label>Sağlayıcı
+      <h2>Model Settings</h2>
+      <label>Provider
         <select id="s-provider">
-          <option value="openai-compatible">OpenAI uyumlu API</option>
-          <option value="mock">Mock (test)</option>
+          <option value="openai-compatible">OpenAI-compatible API</option>
+          <option value="mock">Mock (testing)</option>
         </select>
       </label>
-      <label>API adresi (OpenAI uyumlu)
+      <label>API endpoint (OpenAI-compatible)
         <input id="s-baseurl" type="text" placeholder="http://localhost:11434/v1" />
       </label>
-      <label>Model adı
-        <input id="s-name" type="text" placeholder="bilimsel-model" />
+      <label>Model name
+        <input id="s-name" type="text" placeholder="scientific-model" />
       </label>
-      <label>API anahtarı (boş bırakılırsa değişmez)
+      <label>API key (left empty = unchanged)
         <input id="s-key" type="password" placeholder="••••••" />
       </label>
       <div class="test-row">
-        <button id="s-test" class="ghost">Bağlantıyı Test Et</button>
+        <button id="s-test" class="ghost">Test connection</button>
         <span id="s-test-result" class="badge hidden"></span>
       </div>
       <div class="modal-actions">
-        <button id="s-cancel" class="ghost">Vazgeç</button>
-        <button id="s-save" class="turquoise">Kaydet</button>
+        <button id="s-cancel" class="ghost">Cancel</button>
+        <button id="s-save" class="turquoise">Save</button>
       </div>
     </div>
   </div>

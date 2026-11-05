@@ -14,18 +14,18 @@ async function makeRegistry() {
 // extract the numeric result from '<expr> = <value>' output
 function valueOf(output) {
   const i = output.lastIndexOf(' = ');
-  assert.ok(i > 0, `beklenmeyen çıktı: ${output}`);
+  assert.ok(i > 0, `unexpected output: ${output}`);
   return Number(output.slice(i + 3).trim());
 }
 
 // extract the target value from '<value> <from> = <result> <to>' output
 function targetValueOf(output) {
   const i = output.lastIndexOf(' = ');
-  assert.ok(i > 0, `beklenmeyen çıktı: ${output}`);
+  assert.ok(i > 0, `unexpected output: ${output}`);
   return Number(output.slice(i + 3).trim().split(/\s+/)[0]);
 }
 
-test('araç şekli: üç araç tanımlı, onaysız ve paralel çalışabilir', () => {
+test('tool shape: three tools defined, approval-free and parallel', () => {
   for (const t of [math_eval, unit_convert, physical_constants]) {
     assert.equal(typeof t.name, 'string');
     assert.ok(t.description.length > 20);
@@ -36,7 +36,7 @@ test('araç şekli: üç araç tanımlı, onaysız ve paralel çalışabilir', (
   }
 });
 
-test('math_eval parantez ve üs işlemleri', async () => {
+test('math_eval parentheses and exponent', async () => {
   const r = await makeRegistry();
   const s = await r.invoke('math_eval', { expression: '2*(3+4)^2' });
   assert.ok(s.ok, s.output);
@@ -49,7 +49,7 @@ test('math_eval parantez ve üs işlemleri', async () => {
   assert.equal(valueOf(u.output), 512); // right-associative power
 });
 
-test('math_eval fonksiyonlar ve sabitler', async () => {
+test('math_eval functions and constants', async () => {
   const r = await makeRegistry();
   const cases = [
     ['sqrt(2)', 1.4142135623730951],
@@ -70,7 +70,7 @@ test('math_eval fonksiyonlar ve sabitler', async () => {
   }
 });
 
-test('math_eval unary eksi ve modulo', async () => {
+test('math_eval unary minus and modulo', async () => {
   const r = await makeRegistry();
   const cases = [
     ['-2^2', -4], // unary minus binds looser than ^
@@ -85,7 +85,7 @@ test('math_eval unary eksi ve modulo', async () => {
   }
 });
 
-test('math_eval float gürültüsü 12 basamağa yuvarlanır', async () => {
+test('math_eval float noise rounds to 12 digits', async () => {
   const r = await makeRegistry();
   for (const expr of ['0.1+0.2', '0.1*3']) {
     const s = await r.invoke('math_eval', { expression: expr });
@@ -94,16 +94,16 @@ test('math_eval float gürültüsü 12 basamağa yuvarlanır', async () => {
   }
 });
 
-test('math_eval geçersiz ifadeler hata verir', async () => {
+test('math_eval invalid expressions error', async () => {
   const r = await makeRegistry();
   for (const expression of ['', '2+', '((1)', 'foo(1)', '2 pi', '2+@', '1/0', 'sqrt(-1)']) {
     const s = await r.invoke('math_eval', { expression });
-    assert.equal(s.ok, false, `${expression}: beklenmedik başarı`);
-    assert.match(s.output, /^Hata: /);
+    assert.equal(s.ok, false, `${expression}: unexpected success`);
+    assert.match(s.output, /^Error: /);
   }
 });
 
-test('unit_convert uzunluk ve takma adlar', async () => {
+test('unit_convert length and aliases', async () => {
   const r = await makeRegistry();
   const cases = [
     [{ value: 1, from: 'mi', to: 'km' }, 1.609344],
@@ -119,7 +119,7 @@ test('unit_convert uzunluk ve takma adlar', async () => {
   }
 });
 
-test('unit_convert zaman, enerji ve basınç', async () => {
+test('unit_convert time, energy and pressure', async () => {
   const r = await makeRegistry();
   const cases = [
     [{ value: 2, from: 'dk', to: 's' }, 120],
@@ -135,7 +135,7 @@ test('unit_convert zaman, enerji ve basınç', async () => {
   }
 });
 
-test('unit_convert sıcaklık (ofsetli dönüşüm)', async () => {
+test('unit_convert temperature (offset conversion)', async () => {
   const r = await makeRegistry();
   const cases = [
     [{ value: 100, from: 'C', to: 'F' }, 212],
@@ -151,7 +151,7 @@ test('unit_convert sıcaklık (ofsetli dönüşüm)', async () => {
   }
 });
 
-test('unit_convert açı', async () => {
+test('unit_convert angle', async () => {
   const r = await makeRegistry();
   const s = await r.invoke('unit_convert', { value: 180, from: 'deg', to: 'rad' });
   assert.ok(s.ok, s.output);
@@ -164,20 +164,20 @@ test('unit_convert açı', async () => {
   assert.ok(Math.abs(targetValueOf(u.output) - 180 / Math.PI) < 1e-6, u.output);
 });
 
-test('unit_convert hatalar: kategori karışması, bilinmeyen birim, geçersiz değer', async () => {
+test('unit_convert errors: category mismatch, unknown unit, invalid value', async () => {
   const r = await makeRegistry();
   const a = await r.invoke('unit_convert', { value: 1, from: 'm', to: 'kg' });
   assert.equal(a.ok, false);
-  assert.match(a.output, /kategorileri uyuşmuyor/);
+  assert.match(a.output, /categories do not match/i);
   const b = await r.invoke('unit_convert', { value: 1, from: 'parsec', to: 'km' });
   assert.equal(b.ok, false);
-  assert.match(b.output, /Bilinmeyen birim/);
+  assert.match(b.output, /Unknown unit/i);
   const c = await r.invoke('unit_convert', { value: 'abc', from: 'm', to: 'km' });
   assert.equal(c.ok, false);
-  assert.match(c.output, /sayısal değer/);
+  assert.match(c.output, /valid numeric value/i);
 });
 
-test('physical_constants tek sabit: c, h ve G/g büyük-küçük harf ayrımı', async () => {
+test('physical_constants single constant: c, h and G/g case sensitivity', async () => {
   const r = await makeRegistry();
   const c = await r.invoke('physical_constants', { name: 'c' });
   assert.ok(c.ok, c.output);
@@ -194,7 +194,7 @@ test('physical_constants tek sabit: c, h ve G/g büyük-küçük harf ayrımı',
   assert.match(g.output, /9\.80665/);
 });
 
-test('physical_constants harf duyarsız arama ve takma adlar', async () => {
+test('physical_constants case-insensitive search and aliases', async () => {
   const r = await makeRegistry();
   const na = await r.invoke('physical_constants', { name: 'NA' });
   assert.ok(na.ok, na.output);
@@ -210,21 +210,21 @@ test('physical_constants harf duyarsız arama ve takma adlar', async () => {
   assert.match(kb.output, /1\.380649e-23/);
 });
 
-test('physical_constants liste modu 20+ satır döndürür', async () => {
+test('physical_constants list mode returns 20+ rows', async () => {
   const r = await makeRegistry();
   for (const args of [{}, { name: 'liste' }]) {
     const s = await r.invoke('physical_constants', args);
     assert.ok(s.ok, s.output);
     const lines = s.output.split('\n').filter((l) => l.trim() !== '');
-    assert.ok(lines.length >= 20, `${lines.length} satır`);
-    assert.match(s.output, /c — vacuumda ışık hızı: 299792458 m\/s/);
+    assert.ok(lines.length >= 20, `${lines.length} rows`);
+    assert.match(s.output, /c — speed of light in vacuum: 299792458 m\/s/i);
   }
 });
 
-test('physical_constants bilinmeyen ad hata verir ve isimleri önerir', async () => {
+test('physical_constants unknown name errors and suggests names', async () => {
   const r = await makeRegistry();
   const s = await r.invoke('physical_constants', { name: 'olmayan' });
   assert.equal(s.ok, false);
-  assert.match(s.output, /Bilinmeyen sabit/);
-  assert.match(s.output, /Kullanılabilir isimler/);
+  assert.match(s.output, /Unknown constant/i);
+  assert.match(s.output, /Available names/i);
 });

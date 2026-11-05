@@ -57,23 +57,23 @@ test('ToolRegistry entegrasyonu: şemalar listeleniyor', async () => {
   assert.ok(list.every((l) => l.needsApproval === false));
 });
 
-test('doğrulama yolu: eksik argüman throw etmez, "Hata" ile başlayan string döner', async () => {
+test('doğrulama yolu: eksik argüman throw etmez, returns a string starting with Error', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_verify', {});
   assert.equal(typeof r1.ok, 'boolean');
   assert.equal(r1.ok, false);
   assert.equal(typeof r1.output, 'string');
-  assert.ok(r1.output.startsWith('Hata'), `beklenmeyen çıktı: ${r1.output}`);
+  assert.ok(r1.output.startsWith('Error'), `unexpected output: ${r1.output}`);
 
   const r2 = await registry.invoke('lit_search', { query: '   ' });
   assert.equal(r2.ok, false);
   assert.equal(typeof r2.output, 'string');
-  assert.ok(r2.output.startsWith('Hata'), `beklenmeyen çıktı: ${r2.output}`);
+  assert.ok(r2.output.startsWith('Error'), `unexpected output: ${r2.output}`);
 
   const r3 = await registry.invoke('lit_quote', { pmcid: '', quote: '' });
   assert.equal(r3.ok, false);
   assert.equal(typeof r3.output, 'string');
-  assert.ok(r3.output.startsWith('Hata'), `beklenmeyen çıktı: ${r3.output}`);
+  assert.ok(r3.output.startsWith('Error'), `unexpected output: ${r3.output}`);
 });
 
 // --- Live tests: only meaningful with the package + network; type-based asserts ---

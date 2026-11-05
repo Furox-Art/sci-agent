@@ -5,13 +5,13 @@ const OUT_CAP = 50_000;
 
 export const run_command = {
   name: 'run_command',
-  description: 'Çalışma alanında bir kabuk komutu çalıştırır ve çıktısını döndürür. Onay gerektirir.',
+  description: 'Runs a shell command in the workspace and returns its output. Requires approval.',
   parameters: {
     type: 'object',
     properties: {
-      command: { type: 'string', description: 'Çalıştırılacak komut' },
-      cwd: { type: 'string', description: 'Komutun çalışacağı dizin (varsayılan kök)' },
-      timeoutMs: { type: 'number', description: 'Zaman aşımı ms (varsayılan 120000, en fazla 600000)' },
+      command: { type: 'string', description: 'Command to run' },
+      cwd: { type: 'string', description: 'Directory the command runs in (default root)' },
+      timeoutMs: { type: 'number', description: 'Timeout in ms (default 120000, max 600000)' },
     },
     required: ['command'],
   },
@@ -27,11 +27,11 @@ export const run_command = {
       };
       child.stdout.on('data', grab);
       child.stderr.on('data', grab);
-      child.on('error', (e) => resolve(`Hata: ${e.message}`));
+      child.on('error', (e) => resolve(`Error: ${e.message}`));
       child.on('close', (code, sig) => {
-        if (out.length >= OUT_CAP) out += '\n...(çıktı kesildi)';
-        const tail = sig === 'SIGTERM' ? `\n(zaman aşımı: ${timeout} ms)` : '';
-        resolve(`çıkış kodu: ${code ?? '?'}${tail}\n${out || '(çıktı yok)'}`);
+        if (out.length >= OUT_CAP) out += '\n...(output truncated)';
+        const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+        resolve(`exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`);
       });
     });
   },

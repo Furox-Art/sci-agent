@@ -22,11 +22,11 @@ function runProcess(exe, args, { cwd, timeout = 120_000 } = {}) {
     };
     child.stdout.on('data', grab);
     child.stderr.on('data', grab);
-    child.on('error', (e) => resolve({ ok: false, output: `Hata: ${e.message}`, code: -1 }));
+    child.on('error', (e) => resolve({ ok: false, output: `Error: ${e.message}`, code: -1 }));
     child.on('close', (code, sig) => {
-      if (out.length >= OUT_CAP) out += '\n...(çıktı kesildi)';
-      const tail = sig === 'SIGTERM' ? `\n(zaman aşımı: ${timeout} ms)` : '';
-      resolve({ ok: code === 0, output: `çıkış kodu: ${code ?? '?'}${tail}\n${out || '(çıktı yok)'}`, code });
+      if (out.length >= OUT_CAP) out += '\n...(output truncated)';
+      const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+      resolve({ ok: code === 0, output: `exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`, code });
     });
   });
 }
@@ -39,18 +39,18 @@ const PRELUDE = [
   '        __import__(_m); loaded.append(_m)',
   '    except Exception:',
   '        pass',
-  'print("YÜKLÜ PAKETLER:", ",".join(loaded) if loaded else "(hiçbiri)")',
+  'print("LOADED PACKAGES:", ",".join(loaded) if loaded else "(none)")',
 ].join('\n');
 
 export const furox_compute = {
   name: 'furox_compute',
   description:
-    'Kullanıcının bilimsel Python yığınıyla (numpy, scipy, pandas, cds2, axiomize — kurulu olanlar otomatik yüklenir) kod çalıştırır; sayısal bilimsel hesaplamalar için tercih edilen araç. Onay gerektirir.',
+    'Runs code with the installed scientific Python stack (numpy, scipy, pandas, cds2, axiomize — installed packages are auto-imported); the preferred tool for numerical scientific computations. Requires approval.',
   parameters: {
     type: 'object',
     properties: {
-      code: { type: 'string', description: 'Çalıştırılacak Python kodu' },
-      timeoutMs: { type: 'number', description: 'Zaman aşımı ms (varsayılan 120000, en fazla 600000)' },
+      code: { type: 'string', description: 'Python code to run' },
+      timeoutMs: { type: 'number', description: 'Timeout in ms (default 120000, max 600000)' },
     },
     required: ['code'],
   },
@@ -58,7 +58,7 @@ export const furox_compute = {
   parallel: true,
   async execute({ code, timeoutMs = 120_000 }, { workspaceRoot }) {
     const py = resolvePython();
-    if (!py) return 'Hata: Python bulunamadı. Kurun veya SCI_AGENT_PYTHON ile yolu verin.';
+    if (!py) return 'Error: Python not found. Install it or provide the path via SCI_AGENT_PYTHON.';
     const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
     const res = await runProcess(py, ['-I', '-X', 'utf8', '-c', `${PRELUDE}\n${code}`], { cwd: workspaceRoot, timeout });
     return res.output;
@@ -68,12 +68,12 @@ export const furox_compute = {
 function cliTool({ name, script, installHint, description }) {
   return {
     name,
-    description: `${description} Onay gerektirir.`,
+    description: `${description} Requires approval.`,
     parameters: {
       type: 'object',
       properties: {
-        args: { type: 'array', items: { type: 'string' }, description: `CLI argümanları (ör. ["capabilities"])` },
-        timeoutMs: { type: 'number', description: 'Zaman aşımı ms (varsayılan 120000, en fazla 600000)' },
+        args: { type: 'array', items: { type: 'string' }, description: `CLI arguments (e.g. ["capabilities"])` },
+        timeoutMs: { type: 'number', description: 'Timeout in ms (default 120000, max 600000)' },
       },
       required: ['args'],
     },
@@ -81,18 +81,18 @@ function cliTool({ name, script, installHint, description }) {
     parallel: true,
     async execute({ args = [], timeoutMs = 120_000 }, { workspaceRoot }) {
       const py = resolvePython();
-      if (!py) return `Hata: Python bulunamadı. ${installHint}`;
+      if (!py) return `Error: Python not found. ${installHint}`;
       const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
       const exe = path.join(pythonScriptsDir(py), `${script}.exe`);
       if (existsSync(exe)) {
         const res = await runProcess(exe, args, { cwd: workspaceRoot, timeout });
         return res.output;
       }
-      // exe yoksa modül girişimini dene (python -m <script>)
+      // If the exe is missing, try the module entry (python -m <script>)
       const res = await runProcess(py, ['-X', 'utf8', '-m', script, ...args], { cwd: workspaceRoot, timeout });
       return res.ok || !res.output.includes('No module named')
         ? res.output
-        : `Hata: '${script}' bulunamadı. ${installHint}\n${res.output}`;
+        : `Error: '${script}' not found. ${installHint}\n${res.output}`;
     },
   };
 }
@@ -100,75 +100,75 @@ function cliTool({ name, script, installHint, description }) {
 export const axiomize_cli = cliTool({
   name: 'axiomize_cli',
   script: 'axiomize',
-  installHint: "Kurmak için: pip install axiomize",
+  installHint: "Install: pip install axiomize",
   description:
-    'axiomize CLI: sürümlü bilimsel modelleme IR\u2019i, zorunlu birimler, boyut/sayısal doğrulama, kalibrasyon, belirsizlik analizi; SBML/CellML/Modelica dışa aktarım (ör. ["capabilities"], ["solve"], ["fit"], ["model","--action","numerical-verify"]).',
+    'axiomize CLI: versioned scientific modeling IR, mandatory units, dimension/numerical validation, calibration, uncertainty analysis; SBML/CellML/Modelica export (e.g. ["capabilities"], ["solve"], ["fit"], ["model","--action","numerical-verify"]).',
 });
 
 export const cds2_cli = cliTool({
   name: 'cds2_cli',
   script: 'cds2',
-  installHint: 'Kurmak için: pip install scientific-computing-system-2.0',
+  installHint: 'Install: pip install scientific-computing-system-2.0',
   description:
-    'cds2 CLI (scientific-computing-system-2.0): lineer cebir, ODE/PDE çözücüler, kadratür, Monte Carlo, istatistik, sinyal işleme, kuantum simülasyonu, belirsizlik nicemleme (keşif için ["--help"]).',
+    'cds2 CLI (scientific-computing-system-2.0): linear algebra, ODE/PDE solvers, quadrature, Monte Carlo, statistics, signal processing, quantum simulation, uncertainty quantification (explore with ["--help"]).',
 });
 
 export const cds1_cli = cliTool({
   name: 'cds1_cli',
   script: 'cds',
-  installHint: 'Kurmak için: pip install scientific-computing-system',
+  installHint: 'Install: pip install scientific-computing-system',
   description:
-    'cds CLI (scientific-computing-system v1, saf Python): calc/stats/integrate/units/constants/plot/sample/hypothesis/prompt/modules (keşif için ["--help"]).',
+    'cds CLI (scientific-computing-system v1, pure Python): calc/stats/integrate/units/constants/plot/sample/hypothesis/prompt/modules (explore with ["--help"]).',
 });
 
 export const repocraft_cli = cliTool({
   name: 'repocraft_cli',
   script: 'repocraft',
-  installHint: 'Kurmak için: pip install repocraft',
+  installHint: 'Install: pip install repocraft',
   description:
-    'repocraft CLI: doğrulanmış spesifikasyondan deterministik Python proje iskeleti oluşturma (validate/render/make/recipes/ask/craft; keşif için ["--help"]).',
+    'repocraft CLI: deterministic Python project scaffolding from a validated specification (validate/render/make/recipes/ask/craft; explore with ["--help"]).',
 });
 
 export const nomosguard_cli = cliTool({
   name: 'nomosguard_cli',
   script: 'nomosguard',
-  installHint: 'Kurmak için: pip install nomosguard',
+  installHint: 'Install: pip install nomosguard',
   description:
-    'nomosguard CLI: deterministik güvenlik akıl yürütme çekirdeği — hash zincirli kanıt defteri, fail-closed politika kapısı (alt komutlar için ["--help"]).',
+    'nomosguard CLI: deterministic safety reasoning core — hash-chained evidence ledger, fail-closed policy gate (["--help"] for subcommands).',
 });
 
 export const sra_cli = cliTool({
   name: 'sra_cli',
   script: 'sra',
-  installHint: 'Kurmak için: pip install scientific-reasoning-auditor',
+  installHint: 'Install: pip install scientific-reasoning-auditor',
   description:
-    'sra CLI (scientific-reasoning-auditor): bilimsel makale akıl yürütme denetimi — audit/review-template/review-model/verify-stats (keşif için ["--help"]).',
+    'sra CLI (scientific-reasoning-auditor): scientific paper reasoning audit — audit/review-template/review-model/verify-stats (explore with ["--help"]).',
 });
 
 export const polyguard_cli = cliTool({
   name: 'polyguard_cli',
   script: 'polyguard',
-  installHint: 'Kurmak için: pip install polyglot-code-guard',
+  installHint: 'Install: pip install polyglot-code-guard',
   description:
-    'polyguard CLI (polyglot-code-guard): AI üretimi kod için fail-closed doğrulama — proje test takımlarını çalıştırır, kanıt olmadan geçmez (ör. ["verify","--path","."]).',
+    'polyguard CLI (polyglot-code-guard): fail-closed verification for AI-generated code — runs the project test suites, does not pass without evidence (e.g. ["verify","--path","."]).',
 });
 
 export const polyglot_cli = cliTool({
   name: 'polyglot_cli',
   script: 'polyglot-python',
-  installHint: 'Kurmak için: pip install polyglot-python',
+  installHint: 'Install: pip install polyglot-python',
   description:
-    'polyglot-python CLI: kendi dilinde Python yaz — deterministik anahtar kelime transpiler (run/translate/check/locales; TR dahil 8 dil; keşif için ["--help"]).',
+    'polyglot-python CLI: write Python in your own language — deterministic keyword transpiler (run/translate/check/locales; 8 languages incl. TR; explore with ["--help"]).',
 });
 
 export const eq_route = {
   name: 'eq_route',
   description:
-    'eq-layer routing: verilen kullanıcı mesajı için niyet/duygu/repair analizi ve yanıt yönlendirme önerisi üretir (kullanıcının eq-layer paketi; portable yol).',
+    'eq-layer routing: intent/emotion/repair analysis and a response routing suggestion for the given user message (the user\u2019s eq-layer package; portable path).',
   parameters: {
     type: 'object',
     properties: {
-      message: { type: 'string', description: 'Yönlendirilecek kullanıcı mesajı' },
+      message: { type: 'string', description: 'User message to route' },
     },
     required: ['message'],
   },
@@ -176,8 +176,8 @@ export const eq_route = {
   parallel: true,
   async execute({ message }) {
     const r = await buildSteering({ messages: [{ role: 'user', content: message }] });
-    if (!r) return 'eq-layer kullanılamadı (kurulu değil veya SCI_AGENT_EQ_DISABLE=1).';
-    return `kaynak: ${r.source}\n${r.steering}`;
+    if (!r) return 'eq-layer unavailable (not installed or SCI_AGENT_EQ_DISABLE=1).';
+    return `source: ${r.source}\n${r.steering}`;
   },
 };
 
