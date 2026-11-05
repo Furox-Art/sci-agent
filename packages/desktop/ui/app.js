@@ -872,7 +872,6 @@ function renderChart() {
     grid += `<text x="10" y="${y + 4}" fill="#8FA3BD" font-size="11">${norm ? val.toFixed(2) : Number(val.toPrecision(5))}</text>`;
   }
   let series = '';
-  const chartType = $('#chart-type')?.value ?? 'line';
   const ns = names.length;
   if (chartType === 'bar') {
     // Grouped bars: each row gets a slot; series bars side by side inside the slot
