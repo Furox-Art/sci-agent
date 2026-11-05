@@ -317,15 +317,41 @@ textarea:focus { outline: 1px solid var(--blue); }
   #side {
     width: 100%;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     border-right: 0;
     border-bottom: 1px solid rgba(22, 119, 255, 0.35);
     padding: 8px 10px;
   }
   .side-brand { padding: 0 10px 0 4px; }
-  .side-nav { flex-direction: row; gap: 6px; }
+  .side-nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .side-sessions { display: none; } /* mobilde oturum listesi gizlenir */
   .side-foot { display: none; }
   .hero { height: 220px; }
+}
+
+/* Telefonlar (≤640px): kompakt üst menü + daralan içerik */
+@media (max-width: 640px) {
+  #side { padding: 6px 8px; gap: 4px; }
+  .side-brand { font-size: 13px; padding: 0 6px 0 2px; }
+  .side-nav { gap: 2px; }
+  .nav-item { padding: 6px 7px; font-size: 12.5px; gap: 5px; }
+  .nav-item .ico { width: 16px; }
+  header { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+  .brand { font-size: 14px; }
+  .brand .sub { display: none; } /* dar ekranda başlık alt metni gizlenir */
+  .head-actions { gap: 6px; }
+  .head-actions button { padding: 6px 10px; }
+  .hero { height: 180px; }
+  main { padding: 10px 12px; }
+  .msg,
+  details.tool,
+  .approval { max-width: 100%; }
+  footer { padding: 8px 10px; }
+  .chart-bar { flex-wrap: wrap; }
+  .chart-bar input { max-width: 100%; min-width: 0; }
+  .modal-card { width: 92%; }
+  .tools-wrap { padding: 14px 12px; }
 }
 
 /* ===== AJANLAR GÖRÜNÜMÜ ===== */
@@ -386,7 +412,7 @@ textarea:focus { outline: 1px solid var(--blue); }
   font: inherit;
   font-size: 13px;
 }
-.empty .chip:hover { border-color: var(--blue); color: var(--blue); }
+.empty .chip:hover { border-color: var(--turquoise); color: var(--blue); }
 
 /* Çalışırken ince nabız (yalnızca durum satırı görünürken) */
 .status::before {
@@ -404,15 +430,17 @@ textarea:focus { outline: 1px solid var(--blue); }
   50% { opacity: 1; }
 }
 
-/* Markdown / kod blokları */
-.msg .codebox {
+/* Markdown / kod blokları (sohbet + beceri gövdesi) */
+.msg .codebox,
+.skill-body .codebox {
   background: #051129;
   border: 1px solid var(--line);
   border-radius: 8px;
   margin: 8px 0;
   overflow: hidden;
 }
-.msg .codebar {
+.msg .codebar,
+.skill-body .codebar {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -423,7 +451,8 @@ textarea:focus { outline: 1px solid var(--blue); }
   font-family: ui-monospace, Consolas, monospace;
   font-size: 11px;
 }
-.msg .codebar .copy {
+.msg .codebar .copy,
+.skill-body .codebar .copy {
   background: transparent;
   border: 1px solid var(--line);
   color: var(--dim);
@@ -431,8 +460,10 @@ textarea:focus { outline: 1px solid var(--blue); }
   padding: 2px 8px;
   border-radius: 6px;
 }
-.msg .codebar .copy:hover { color: var(--cyan); border-color: var(--cyan); }
-.msg .codebox pre {
+.msg .codebar .copy:hover,
+.skill-body .codebar .copy:hover { color: var(--cyan); border-color: var(--cyan); }
+.msg .codebox pre,
+.skill-body .codebox pre {
   margin: 0;
   padding: 10px 12px;
   overflow-x: auto;
@@ -440,7 +471,8 @@ textarea:focus { outline: 1px solid var(--blue); }
   font-size: 12.5px;
   color: var(--cyan);
 }
-.msg code.inline {
+.msg code.inline,
+.skill-body code.inline {
   font-family: ui-monospace, Consolas, monospace;
   background: #051129;
   border: 1px solid var(--line);
@@ -595,19 +627,24 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 .skill-item .skill-del { float: right; }
 .skill-body { margin-top: 6px; }
 .skill-body summary { cursor: pointer; color: var(--cyan); font-size: 12px; }
-.skill-body pre {
-  font-family: ui-monospace, Consolas, monospace;
-  white-space: pre-wrap;
-  max-height: 220px;
-  overflow: auto;
+/* Beceri gövdesi markdown içeriği (skill-md) — başlık/liste/kod/tablo destekli */
+.skill-body .skill-md {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--txt);
   background: #051129;
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 8px;
+  padding: 8px 10px;
   margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--txt);
+  max-height: 260px;
+  overflow: auto;
+  word-break: break-word;
 }
+.skill-body .skill-md h2 { font-size: 14px; margin: 10px 0 2px; color: var(--cyan); }
+.skill-body .skill-md h3 { font-size: 13px; margin: 8px 0 2px; color: var(--cyan); }
+.skill-body .skill-md a { color: var(--cyan); }
+.skill-body .skill-md > :first-child { margin-top: 0; }
 .skill-add { display: flex; gap: 8px; margin-top: 8px; }
 .skill-add input {
   flex: 1;
@@ -669,3 +706,96 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
   color: var(--txt);
 }
 .data-table tr:last-child td { border-bottom: 0; }
+
+/* Markdown tabloları (mdToHtml → GFM pipe) — sohbet ve beceri gövdesi */
+.md-table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  margin: 8px 0;
+}
+.md-table th {
+  background: var(--panel2);
+  color: var(--blue);
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  white-space: normal;
+}
+.md-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(28, 58, 94, 0.5);
+  color: var(--txt);
+  vertical-align: top;
+  white-space: normal;
+}
+.md-table tr:last-child td { border-bottom: 0; }
+
+/* Markdown tablo */
+.md-table { margin: 8px 0; overflow-x: auto; }
+.md-table table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.md-table th {
+  background: var(--panel2);
+  color: var(--blue);
+  border: 1px solid var(--line);
+  padding: 5px 10px;
+  text-align: left;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+.md-table td { border: 1px solid rgba(28, 58, 94, 0.5); padding: 4px 10px; color: var(--txt); }
+
+/* Mobil responsive (≤640px) */
+@media (max-width: 640px) {
+  body { flex-direction: column; height: auto; min-height: 100vh; }
+  #side { width: 100%; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
+  .side-nav { flex-direction: row; flex-wrap: wrap; }
+  .nav-item { padding: 6px 10px; font-size: 13px; }
+  .side-sessions { margin-top: 8px; border-top: 0; padding-top: 0; }
+  .hero { height: 180px; }
+  main { padding: 12px; }
+  .msg, details.tool, .approval { width: 100%; max-width: 100%; }
+  footer { flex-direction: column; }
+  #btn-send { width: 100%; }
+  .modal-card { width: 92%; }
+  .chart-bar { flex-direction: column; }
+  .chart-norm { margin-top: 4px; }
+}
+
+/* Markdown tablo */
+.md-table { margin: 8px 0; overflow-x: auto; }
+.md-table table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.md-table th {
+  background: var(--panel2);
+  color: var(--blue);
+  border: 1px solid var(--line);
+  padding: 5px 10px;
+  text-align: left;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+.md-table td { border: 1px solid rgba(28, 58, 94, 0.5); padding: 4px 10px; color: var(--txt); }
+
+/* Mobil responsive (≤640px) */
+@media (max-width: 640px) {
+  body { flex-direction: column; height: auto; min-height: 100vh; }
+  #side { width: 100%; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
+  .side-nav { flex-direction: row; flex-wrap: wrap; }
+  .nav-item { padding: 6px 10px; font-size: 13px; }
+  .side-sessions { margin-top: 8px; border-top: 0; padding-top: 0; }
+  .hero { height: 180px; }
+  main { padding: 12px; }
+  .msg, details.tool, .approval { width: 100%; max-width: 100%; }
+  footer { flex-direction: column; }
+  #btn-send { width: 100%; }
+  .modal-card { width: 92%; }
+  .chart-bar { flex-direction: column; }
+  .chart-norm { margin-top: 4px; }
+}

@@ -533,6 +533,44 @@ function mdToHtml(src) {
     blocks.push({ lang, code });
     return `\u0000CODE${blocks.length - 1}\u0000`;
   });
+  // GFM pipe tables → <table class="md-table">
+  // Runs AFTER code-block placeholders (fences stay intact) and BEFORE inline code.
+  {
+    const cellify = (l) => {
+      let s = l.trim();
+      if (s.startsWith('|')) s = s.slice(1);
+      if (s.endsWith('|') && !s.endsWith('\\|')) s = s.slice(0, -1);
+      return s.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+    };
+    const isRow = (l) => l.includes('|');
+    const isSep = (l) => {
+      const c = cellify(l);
+      return c.length > 0 && c.every((x) => /^:?-+:?$/.test(x));
+    };
+    const lines = t.split('\n');
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      // Table start: a row line followed by a |---|---| separator line
+      if (isRow(lines[i]) && i + 1 < lines.length && isSep(lines[i + 1])) {
+        const th = cellify(lines[i]).map((c) => `<th>${c}</th>`).join('');
+        let j = i + 2;
+        const rows = [];
+        while (j < lines.length && isRow(lines[j]) && !isSep(lines[j])) {
+          rows.push(cellify(lines[j]));
+          j += 1;
+        }
+        const tb = rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('');
+        out.push(`<table class="md-table"><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table>`);
+        if (j < lines.length && lines[j].trim() === '') j += 1; // swallow one blank line after the table
+        i = j;
+      } else {
+        out.push(lines[i]);
+        i += 1;
+      }
+    }
+    t = out.join('\n');
+  }
   // Turn URLs into clickable links (trailing punctuation stays outside the link)
   t = t.replace(/https?:\/\/[^\s<>"']+/g, (m0) => {
     let u = m0;
@@ -543,6 +581,17 @@ function mdToHtml(src) {
       u = u.slice(0, u.length - tail.length);
     }
     return `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>${tail}`;
+  });
+  // GFM pipe tabloları: | a | b |\n|---|---|\n| 1 | 2 |  →  <table>
+  t = t.replace(/(^\|.*\|\n)\|?[\s:|-]+\|?\n((?:^\|.*\|\n?)*)/gm, (m0, head, body) => {
+    const cells = (row) => row.split('|').slice(1, -1).map((c) => c.trim());
+    const ths = cells(head).map((h) => `<th>${h}</th>`).join('');
+    const trs = body
+      .split('\n')
+      .filter((l) => l.trim().startsWith('|'))
+      .map((l) => `<tr>${cells(l).map((c) => `<td>${c}</td>`).join('')}</tr>`)
+      .join('');
+    return `<div class="md-table"><table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
   });
   t = t.replace(/`([^`\n]+)`/g, '<code class="inline">$1</code>');
   t = t.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
@@ -576,7 +625,7 @@ function renderMd(el, text) {
   el.appendChild(copyChip(() => text));
 }
 
-chatEl.addEventListener('click', async (e) => {
+async function codeCopyClick(e) {
   const btn = e.target.closest('.copy');
   if (!btn) return;
   const code = btn.closest('.codebox')?.querySelector('code');
@@ -586,7 +635,11 @@ chatEl.addEventListener('click', async (e) => {
     btn.textContent = 'copied';
     setTimeout(() => (btn.textContent = 'copy'), 1500);
   } catch {}
-});
+}
+
+chatEl.addEventListener('click', codeCopyClick);
+// Code copy buttons inside skill markdown bodies (Agents view)
+$('#skills-list').addEventListener('click', codeCopyClick);
 
 // ===== Empty chat suggestions =====
 function renderEmpty() {
@@ -906,9 +959,11 @@ async function loadAgentSkills() {
         det.className = 'skill-body';
         const sum = document.createElement('summary');
         sum.textContent = 'body';
-        const pre = document.createElement('pre');
-        pre.textContent = sk.body;
-        det.append(sum, pre);
+        // SKILL.md bodies are markdown → render like chat messages (mdToHtml escapes first, XSS safe)
+        const md = document.createElement('div');
+        md.className = 'skill-md';
+        md.innerHTML = mdToHtml(sk.body);
+        det.append(sum, md);
         d.append(det);
       }
       list.appendChild(d);

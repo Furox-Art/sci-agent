@@ -4,6 +4,7 @@ import { stats_calc, matrix_ops } from './science/sci-data.js';
 import { molar_mass } from './science/sci-chem.js';
 import { sciFuroxTools } from './science/sci-furox.js';
 import { lit_search, lit_verify, lit_quote } from './science/sci-lit.js';
+import { lit_audit, lit_screen, lit_ledger } from './science/sci-lit-extra.js';
 import { plan_audit } from './science/sci-audit.js';
 
 /**
@@ -59,10 +60,10 @@ const BUILTINS = {
   'sci-lit': {
     name: 'sci-lit',
     description:
-      'Literature evidence tools (literature-evidence-mcp): OpenAlex/Europe PMC/Crossref search, citation matching, retraction checking, full-text quote verification',
-    tools: [lit_search, lit_verify, lit_quote],
+      'Literature evidence tools (literature-evidence-mcp): OpenAlex/Europe PMC/Crossref search, citation matching, retraction checking, full-text quote verification, methodology audit, PRISMA-style screening, hash-chained evidence ledger',
+    tools: [lit_search, lit_verify, lit_quote, lit_audit, lit_screen, lit_ledger],
     systemPrompt:
-      'Literature mode: never fabricate literature claims from memory; search with lit_search, run DOI/retraction checks with lit_verify when citing, verify the full-text match with lit_quote when showing a quote. If an external API fails, state that explicitly.',
+      'Literature mode: never fabricate literature claims from memory; search with lit_search, run DOI/retraction checks with lit_verify when citing, verify the full-text match with lit_quote when showing a quote. For methodology reviews use lit_audit, for systematic screening use lit_screen, and to verify a hash-chained evidence file use lit_ledger. If an external API fails, state that explicitly.',
   },
   'sci-audit': {
     name: 'sci-audit',
