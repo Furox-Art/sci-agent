@@ -410,7 +410,8 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
         const abs = path.resolve(UI_DIR, rel);
         if (abs.startsWith(UI_DIR) && existsSync(abs)) {
-          res.writeHead(200, { 'content-type': MIME[path.extname(abs)] ?? 'application/octet-stream' });
+          // Static files are never cached: UI updates reflect instantly (dev convenience)
+          res.writeHead(200, { 'content-type': MIME[path.extname(abs)] ?? 'application/octet-stream', 'cache-control': 'no-store' });
           return res.end(await readFile(abs));
         }
       }

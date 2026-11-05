@@ -850,10 +850,12 @@ function renderChart() {
     return;
   }
   const norm = $('#chart-norm')?.checked ?? false;
+  const chartType = $('#chart-type')?.value ?? 'line';
   const cols = names.map((k) => data.numeric[k]);
   const n = Math.max(...cols.map((c) => c.length));
   const flatVals = cols.flat();
-  const min = Math.min(...flatVals);
+  // Bar mode: bars must start at 0 (a truncated baseline distorts proportions)
+  const min = chartType === 'bar' && !norm ? Math.min(0, Math.min(...flatVals)) : Math.min(...flatVals);
   const max = Math.max(...flatVals);
   const W = 880, H = 430, L = 64, R = 18, T = 18, B = 38;
   const xs = (i) => L + (W - L - R) * (n < 2 ? 0.5 : i / (n - 1));
