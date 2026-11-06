@@ -2,6 +2,20 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.2 — 2026-11-06
+
+### Security (local app hardening)
+- **Session id path traversal fixed** — `/api/sessions/{switch,rename,delete}` accepted ids like `../keep`, allowing reads/writes/deletes of arbitrary `.json` files outside the sessions directory; ids are now validated (`[A-Za-z0-9_-]{1,100}`), invalid ones get 400/404
+- **Localhost CSRF / DNS-rebinding fixed** — a malicious website could no-cors-POST `/api/config` and retarget the model endpoint (exfiltrating conversations on the next calls); the server now rejects non-local `Host` headers (403) and requires `application/json` on POSTs (415), which browsers cannot send cross-origin without CORS
+- `/api/csv` escape attempts now return 400 (no path leakage), missing files 404; invalid JSON 400; oversized bodies 413; static serving uses a `path.relative` containment check; skill sources are shape-validated before any network call
+- Markdown renderer extracted to `ui/md.js` (single source for UI and tests, identical output); renderer crash guard for malformed model placeholders
+
+### Tests
+- +19 tests (renderer escaping, XSS vectors, traversal, CSRF, validation codes): **153 total, 0 fail**
+
+### Electron (0.10.1 follow-up, same batch)
+- Application menu (Reload/DevTools/About), single-instance lock (second launch focuses the window instead of racing the server port), startup errors show a native dialog instead of a white window, server handle closed on quit
+
 ## 0.10.1 — 2026-11-06
 
 ### Fixed

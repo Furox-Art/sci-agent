@@ -31,6 +31,14 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
   // Session persistence: each session is .sci-agent-sessions/<id>.json (shared with the CLI, excluded from git)
   const sessionsDir = path.join(cfg.agent.workspaceRoot, '.sci-agent-sessions');
   mkdirSync(sessionsDir, { recursive: true });
+  // Session ids are server-generated (crypto.randomUUID() or 'default'). Enforce the
+  // shape so a crafted id ("../../x") cannot make readSession/writeSession/delete turn
+  // into arbitrary <name>.json reads, overwrites or deletions outside sessionsDir.
+  const SESSION_ID_RE = /^[A-Za-z0-9_-]{1,100}$/;
+  const safeSessionId = (id) => {
+    const s = String(id ?? '');
+    return SESSION_ID_RE.test(s) ? s : null;
+  };
   const legacy = path.join(cfg.agent.workspaceRoot, '.sci-agent-history.json');
   const readSession = (id) => {
     try {
@@ -146,6 +154,21 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     try {
+      // Localhost hardening:
+      // - Host check blocks DNS-rebinding (a rebound domain resolves to 127.0.0.1 but
+      //   sends its own hostname in Host, and its responses would be readable same-origin).
+      // - JSON content-type requirement blocks cross-origin "no-cors" POSTs (HTML forms
+      //   and no-preflight fetch can only send text/plain / urlencoded / multipart).
+      if (!/^(127\.0\.0\.1|localhost|\[::1\]|::1)(:\d+)?$/i.test(String(req.headers.host ?? ''))) {
+        return json(res, { error: 'Forbidden host' }, 403);
+      }
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        const ct = String(req.headers['content-type'] ?? '');
+        if (!ct.toLowerCase().includes('application/json')) {
+          return json(res, { error: 'content-type must be application/json' }, 415);
+        }
+      }
+
       if (url.pathname === '/api/health') return json(res, { ok: true, version: VERSION });
 
       if (url.pathname === '/api/config' && req.method === 'GET') {
@@ -194,6 +217,13 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
         const b = await readBody(req);
         const source = String(b.source ?? '').trim();
         if (!source.startsWith('github:')) return json(res, { error: 'Source must be in "github:user/repo" format' }, 400);
+        // fetchSkill always fetches https://raw.githubusercontent.com/<owner>/<repo>/HEAD/...
+        // (no local file reads), but keep the constructed remote URL sane: validate the
+        // owner/repo shape and reject "." / ".." path segments in the source.
+        const srcPath = source.slice('github:'.length);
+        if (!/^[\w.-]+\/[\w.-]+(\/[\w./-]*)?$/.test(srcPath) || srcPath.split('/').some((seg) => seg === '.' || seg === '..')) {
+          return json(res, { error: 'Source must be in "github:user/repo" format' }, 400);
+        }
         try {
           const skill = await fetchSkill(source);
           if (!cfg.skills?.sources.includes(source)) {
@@ -259,27 +289,31 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/sessions/switch' && req.method === 'POST') {
         if (state.busy) return json(res, { error: 'Agent running; cannot switch sessions' }, 409);
         const b = await readBody(req);
-        if (!setActive(String(b.id ?? ''))) return json(res, { error: 'Session not found' }, 404);
+        const sid = safeSessionId(b.id);
+        if (!sid || !setActive(sid)) return json(res, { error: 'Session not found' }, 404);
         return json(res, { ok: true, id: state.sessionId, title: state.sessionTitle });
       }
 
       if (url.pathname === '/api/sessions/rename' && req.method === 'POST') {
         if (state.busy) return json(res, { error: 'Agent running; cannot rename a session' }, 409);
         const b = await readBody(req);
-        const s = readSession(String(b.id ?? ''));
-        if (!s) return json(res, { error: 'Session not found' }, 404);
+        const sid = safeSessionId(b.id);
+        const s = sid && readSession(sid);
+        if (!sid || !s) return json(res, { error: 'Session not found' }, 404);
         const title = typeof b.title === 'string' && b.title.trim() ? b.title.trim().slice(0, 60) : s.title;
-        writeSession(String(b.id), title, s.messages);
-        if (state.sessionId === b.id) state.sessionTitle = title;
+        writeSession(sid, title, s.messages);
+        if (state.sessionId === sid) state.sessionTitle = title;
         return json(res, { ok: true, title });
       }
 
       if (url.pathname === '/api/sessions/delete' && req.method === 'POST') {
         if (state.busy) return json(res, { error: 'Agent running; cannot delete a session' }, 409);
         const b = await readBody(req);
-        const file = path.join(sessionsDir, `${String(b.id ?? '')}.json`);
+        const sid = safeSessionId(b.id);
+        if (!sid) return json(res, { error: 'Invalid session id' }, 400);
+        const file = path.join(sessionsDir, `${sid}.json`);
         if (existsSync(file)) unlinkSync(file);
-        if (state.sessionId === b.id) {
+        if (state.sessionId === sid) {
           const rest = listSessions();
           if (rest.length) setActive(rest[0].id);
           else {
@@ -319,8 +353,18 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (url.pathname === '/api/csv' && req.method === 'GET') {
         const rel = url.searchParams.get('path') ?? '';
         if (!rel.trim()) return json(res, { error: 'path required' }, 400);
-        const abs = resolveSafe(cfg.agent.workspaceRoot, rel);
-        const st = await stat(abs);
+        let abs;
+        try {
+          abs = resolveSafe(cfg.agent.workspaceRoot, rel);
+        } catch {
+          return json(res, { error: 'Access outside the workspace is blocked' }, 400);
+        }
+        let st;
+        try {
+          st = await stat(abs);
+        } catch {
+          return json(res, { error: 'File not found' }, 404);
+        }
         if (st.isDirectory()) return json(res, { error: 'This is a directory; expected a file' }, 400);
         if (st.size > 2_000_000) return json(res, { error: 'File too large (>2 MB)' }, 400);
         const text = (await readFile(abs, 'utf8')).replace(/^\uFEFF/, '');
@@ -409,7 +453,10 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       if (req.method === 'GET') {
         const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
         const abs = path.resolve(UI_DIR, rel);
-        if (abs.startsWith(UI_DIR) && existsSync(abs)) {
+        // path.relative check (not a startsWith prefix test): "ui" would also match a
+        // sibling directory like "ui-extra", and the relative form handles it exactly.
+        const relToUi = path.relative(UI_DIR, abs);
+        if (!relToUi.startsWith('..') && !path.isAbsolute(relToUi) && existsSync(abs)) {
           // Static files are never cached: UI updates reflect instantly (dev convenience)
           res.writeHead(200, { 'content-type': MIME[path.extname(abs)] ?? 'application/octet-stream', 'cache-control': 'no-store' });
           return res.end(await readFile(abs));
@@ -419,7 +466,7 @@ export async function startServer({ port = 8765, host = '127.0.0.1', workspace =
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'not found' }));
     } catch (e) {
-      json(res, { error: e.message }, 500);
+      json(res, { error: e.message }, e.statusCode ?? 500);
     }
   });
 
@@ -440,13 +487,13 @@ function readBody(req) {
     let d = '';
     req.on('data', (c) => {
       d += c;
-      if (d.length > 5e6) reject(new Error('Body too large'));
+      if (d.length > 5e6) reject(Object.assign(new Error('Body too large'), { statusCode: 413 }));
     });
     req.on('end', () => {
       try {
         resolve(d ? JSON.parse(d) : {});
       } catch {
-        reject(new Error('Invalid JSON'));
+        reject(Object.assign(new Error('Invalid JSON'), { statusCode: 400 }));
       }
     });
     req.on('error', reject);

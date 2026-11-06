@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { startServer, resolveWorkspace } from '../packages/desktop/server.js';
@@ -146,4 +147,119 @@ test('unknown API returns 404', async (t) => {
   const { base } = await makeServer(t);
   const r = await fetch(base + '/api/yok');
   assert.equal(r.status, 404);
+});
+
+// ===== Security audit fixes =====
+
+test('session id traversal is rejected (no arbitrary .json read/write/delete)', async (t) => {
+  const { base, root } = await makeServer(t);
+  const victim = path.join(root, 'keep.json');
+  await fs.writeFile(victim, '{"keep":true}', 'utf8');
+
+  const del = await jpost(base, '/api/sessions/delete', { id: '../keep' });
+  assert.equal(del.status, 400);
+  assert.equal(await fs.readFile(victim, 'utf8'), '{"keep":true}', 'delete must not escape .sci-agent-sessions');
+
+  const sw = await jpost(base, '/api/sessions/switch', { id: '../../keep' });
+  assert.equal(sw.status, 404);
+
+  const rn = await jpost(base, '/api/sessions/rename', { id: '../keep', title: 'pwn' });
+  assert.equal(rn.status, 404);
+  assert.equal(await fs.readFile(victim, 'utf8'), '{"keep":true}', 'rename must not write outside .sci-agent-sessions');
+});
+
+test('csv path traversal and absolute paths are blocked with 400', async (t) => {
+  const { base, root } = await makeServer(t);
+  const outside = path.join(path.dirname(root), 'dis.csv');
+  await fs.writeFile(outside, 'a,b\n1,2\n', 'utf8');
+  t.after(() => fs.rm(outside, { force: true }));
+
+  for (const p of ['../dis.csv', outside, 'sub/../../dis.csv']) {
+    const r = await fetch(base + '/api/csv?path=' + encodeURIComponent(p));
+    assert.equal(r.status, 400, p);
+  }
+});
+
+test('csv missing file returns 404', async (t) => {
+  const { base } = await makeServer(t);
+  const r = await fetch(base + '/api/csv?path=' + encodeURIComponent('yok.csv'));
+  assert.equal(r.status, 404);
+});
+
+test('config POST writes only the four model fields', async (t) => {
+  const { base, root } = await makeServer(t);
+  const r = await jpost(base, '/api/config', {
+    provider: 'mock',
+    baseUrl: 'http://127.0.0.1:9/v1',
+    name: 'test-model',
+    apiKey: 'secret',
+    workspaceRoot: '/attacker',
+    tools: [],
+    model: { provider: 'evil' },
+  });
+  assert.equal(r.status, 200);
+
+  const cfg = await (await fetch(base + '/api/config')).json();
+  assert.equal(cfg.model.provider, 'mock');
+  assert.equal(cfg.model.name, 'test-model');
+  assert.equal(cfg.workspaceRoot, root, 'workspaceRoot is not writable via the payload');
+
+  const disk = JSON.parse(await fs.readFile(path.join(root, 'sci-agent.config.json'), 'utf8'));
+  assert.deepEqual(Object.keys(disk.model ?? {}).sort(), ['apiKey', 'baseUrl', 'name', 'provider']);
+  assert.ok(!('workspaceRoot' in disk));
+  assert.ok(!('tools' in disk));
+});
+
+test('agent-skills source validation rejects malformed/traversal sources', async (t) => {
+  const { base } = await makeServer(t);
+  for (const bad of ['github:../../x', 'github:..%2F..%2Fx', 'not-github:x', 'github:', 'github:a b/c', 'github:a/']) {
+    const r = await jpost(base, '/api/agent-skills', { source: bad });
+    assert.equal(r.status, 400, bad);
+  }
+});
+
+test('static server serves ui files but not dot-segment/percent-encoded escapes', async (t) => {
+  const { base } = await makeServer(t);
+  assert.equal((await fetch(base + '/app.js')).status, 200);
+  assert.equal((await fetch(base + '/md.js')).status, 200);
+  for (const p of ['/..%2f..%2fpackage.json', '/%2e%2e/package.json', '/..\\..\\package.json', '/../package.json']) {
+    const r = await fetch(base + p);
+    assert.notEqual(r.status, 200, p);
+  }
+});
+
+test('cross-origin no-cors POST (non-JSON content-type) is rejected with 415', async (t) => {
+  const { base } = await makeServer(t);
+  const r = await fetch(base + '/api/clear', {
+    method: 'POST',
+    headers: { 'content-type': 'text/plain' },
+    body: JSON.stringify({}),
+  });
+  assert.equal(r.status, 415);
+
+  const r2 = await fetch(base + '/api/clear', { method: 'POST', body: '{}' });
+  assert.equal(r2.status, 415);
+});
+
+test('DNS-rebinding Host header is rejected with 403', async (t) => {
+  const { base } = await makeServer(t);
+  const status = await new Promise((resolve, reject) => {
+    const rq = http.request(new URL(base + '/api/health'), { headers: { Host: 'evil.example' } }, (rs) => {
+      rs.resume();
+      rs.on('end', () => resolve(rs.statusCode));
+    });
+    rq.on('error', reject);
+    rq.end();
+  });
+  assert.equal(status, 403);
+});
+
+test('invalid JSON body returns 400 (not 500)', async (t) => {
+  const { base } = await makeServer(t);
+  const r = await fetch(base + '/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{nope',
+  });
+  assert.equal(r.status, 400);
 });
