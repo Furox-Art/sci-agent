@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startRepl } from '../packages/cli/src/repl.js';
-import { listPlugins, getPlugin } from '@sci/core';
+import { listPlugins, getPlugin, createRegistry, loadConfig } from '@sci/core';
 
 test('repl module imports cleanly without a TTY', () => {
   assert.equal(typeof startRepl, 'function');
@@ -64,4 +64,76 @@ test('/help, /plugins and /skills work through the real REPL (piped stdin, no TT
   assert.equal(listedTools, totalTools, 'per-plugin counts add up to the total');
   // /skills with empty config: hint references the real add command
   assert.match(out, new RegExp(`^${pre}No skills loaded — add one with \\/skills add github:user\\/repo\\[\\/sub\\/path\\]$`, 'm'));
+});
+
+test('--version, -v and --help exit 0 with the root package.json version (spawnSync)', async () => {
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const bin = path.join(root, 'packages', 'cli', 'bin', 'sci-agent.js');
+  const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
+  for (const flag of ['--version', '-v']) {
+    const r = spawnSync(process.execPath, [bin, flag], { encoding: 'utf8', timeout: 60000 });
+    assert.equal(r.status, 0, `${flag} exits 0 (stderr: ${r.stderr})`);
+    assert.equal(r.stdout.trim(), `SciAgent v${pkg.version}`, `${flag} prints the root package.json version`);
+  }
+  const h = spawnSync(process.execPath, [bin, '--help'], { encoding: 'utf8', timeout: 60000 });
+  assert.equal(h.status, 0, '--help exits 0');
+  assert.match(h.stdout, /SciAgent v/, '--help shows the version banner');
+  assert.match(h.stdout, /--version/, '--help lists --version');
+  assert.match(h.stdout, /--prompt/, '--help lists --prompt');
+  assert.match(h.stdout, /--workspace/, '--help lists --workspace');
+});
+
+test('/tools [filter] narrows the listing like the desktop tool search (piped stdin, no TTY)', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-tools-'));
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  await fs.writeFile(
+    path.join(root, 'sci-agent.config.json'),
+    JSON.stringify({ model: { provider: 'mock' }, skills: { sources: [] } }),
+  );
+  // Same registry the REPL builds: used to compute the expected filter results.
+  const tools = createRegistry({ cfg: loadConfig(root), approve: async () => true }).list();
+  const expectedNames = (q) => {
+    // Desktop UI semantics: terms separated by | are OR'd, space-separated words are AND'd.
+    const terms = String(q).toLowerCase().split('|').map((s) => s.trim()).filter(Boolean);
+    return tools
+      .filter((t) => {
+        const text = `${t.name} ${t.description}`.toLowerCase();
+        return terms.some((term) => term.split(/\s+/).every((w) => text.includes(w)));
+      })
+      .map((t) => t.name)
+      .sort();
+  };
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'cli', 'bin', 'sci-agent.js');
+  // /clear between /tools invocations splits the output into per-command sections.
+  const r = spawnSync(process.execPath, [bin, '--workspace', root], {
+    input: '/help\n/tools\n/clear\n/tools write file\n/clear\n/tools write | file\n/clear\n/tools LIT\n/clear\n/tools zzzznope\n/exit\n',
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  assert.equal(r.status, 0, `repl exited cleanly (stderr: ${r.stderr})`);
+  const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
+  const [unfiltered, andSection, orSection, litSection, nomatchSection] = out
+    .split('Chat cleared (history file was also reset).');
+  // Tool lines are "  name[ (requires approval)] — description".
+  const namesIn = (section) =>
+    [...section.matchAll(/^  (.+?) — (.+)$/gm)].map((m) => m[1].replace(' (requires approval)', '').trim()).sort();
+
+  // /help documents the filter argument
+  assert.match(out, /^ {2}\/clear {4}clear chat {8}\/tools {2}tool list \[filter\]$/m);
+  // No argument: unchanged behavior — every registry tool is listed.
+  assert.deepEqual(namesIn(unfiltered), tools.map((t) => t.name).sort());
+  // Space-separated words are AND'd: only write_file matches both "write" and "file".
+  assert.deepEqual(namesIn(andSection), ['write_file']);
+  // | separates OR terms; the union is exactly the tools matching either word.
+  assert.deepEqual(namesIn(orSection), expectedNames('write | file'));
+  assert.deepEqual(namesIn(orSection), expectedNames('write').concat(expectedNames('file')).filter((v, i, a) => a.indexOf(v) === i).sort());
+  // Case-insensitive, matches name or description (literature tools).
+  assert.deepEqual(namesIn(litSection), expectedNames('LIT'));
+  assert.ok(namesIn(litSection).length >= 10, 'literature tools match');
+  assert.equal(namesIn(litSection).includes('python_eval'), false, 'non-matching tools are hidden');
+  // No match: friendly message, no tool lines.
+  assert.match(nomatchSection, /^No tools match "zzzznope"\.$/m);
+  assert.deepEqual(namesIn(nomatchSection), []);
 });

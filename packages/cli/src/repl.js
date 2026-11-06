@@ -1,6 +1,7 @@
 import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
@@ -13,7 +14,7 @@ const trunc = (s, n = 400) => (String(s).length > n ? `${String(s).slice(0, n)}�
 const HELP = [
   'Commands:',
   '  /help     help              /model  model info',
-  '  /tools    tool list         /clear  clear chat',
+  '  /clear    clear chat        /tools  tool list [filter]',
   '  /plugins  plugin list       /skills loaded skills',
   '  /sessions [no|del no|ren no title]  list / switch / delete / rename sessions',
   '  /save     save chat as .md',
@@ -234,7 +235,10 @@ export async function startRepl(argv = []) {
     console.log();
   }
 
-  console.log(bold('SciAgent v0.7 — scientific coding agent'));
+  const version = JSON.parse(
+    readFileSync(fileURLToPath(new URL('../../../package.json', import.meta.url)), 'utf8'),
+  ).version;
+  console.log(bold(`SciAgent v${version} — scientific coding agent`));
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
   console.log(`Workspace: ${cfg.agent.workspaceRoot} | Tools: ${registry.tools.length}`);
   console.log(dim(HELP));
@@ -268,8 +272,18 @@ export async function startRepl(argv = []) {
       if (input === '/help') console.log(HELP);
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(set)' : '' }, null, 2));
-      } else if (input === '/tools') {
-        const groups = groupTools(registry.list());
+      } else if (input === '/tools' || input.startsWith('/tools ')) {
+        // Optional filter, same semantics as the desktop tool search: terms separated
+        // by | are OR'd, space-separated words are AND'd (case-insensitive substrings).
+        const filter = input.slice('/tools'.length).trim().toLowerCase();
+        const terms = filter.split('|').map((s) => s.trim()).filter(Boolean);
+        const matches = (t) => {
+          if (!terms.length) return true;
+          const text = `${t.name} ${t.description}`.toLowerCase();
+          return terms.some((term) => term.split(/\s+/).every((w) => text.includes(w)));
+        };
+        const groups = groupTools(registry.list().filter(matches));
+        if (!groups.size) console.log(dim(`No tools match "${filter}".`));
         for (const [title, tools] of groups) {
           console.log(bold(`${title} (${tools.length})`));
           for (const t of tools) {

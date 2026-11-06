@@ -152,14 +152,41 @@ function approvalCard({ id, name, args }) {
   no.onclick = () => decide(false);
 }
 
+// Header toast: #status lives inside the chat view, so when a status message is
+// set while another view is active, also surface it as a transient toast that
+// auto-hides after 3s (same timeout pattern as the #status clear timers).
+// Show/hide is done by toggling .hidden — no animation, so prefers-reduced-motion is respected.
+let toastTimer = null;
+function showToast(text) {
+  const toast = $('#toast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastTimer = null;
+    toast.classList.add('hidden');
+  }, 3000);
+}
+function hideToast() {
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+  $('#toast')?.classList.add('hidden');
+}
+
 function setStatus(t) {
   const s = $('#status');
   if (!t) {
     s.classList.add('hidden');
+    hideToast();
     return;
   }
   s.classList.remove('hidden');
   s.textContent = t;
+  // Chat view is hidden → the inline #status is invisible; show the header toast instead.
+  if ($('#view-chat').classList.contains('hidden')) showToast(t);
 }
 
 let streamTarget = null;
@@ -1102,6 +1129,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     }
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
     for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== v);
+    hideToast(); // the toast belongs to the previous view — clear it on view switch
     if (v === 'tools') loadTools();
     if (v === 'agents') { renderAgents(); loadAgentSkills(); }
     if (v === 'charts' && !chartData) renderChartEmpty();
