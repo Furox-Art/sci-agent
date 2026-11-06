@@ -850,12 +850,14 @@ function renderChart() {
     return;
   }
   const norm = $('#chart-norm')?.checked ?? false;
+  const zero = $('#chart-zero')?.checked ?? false;
   const chartType = $('#chart-type')?.value ?? 'line';
   const cols = names.map((k) => data.numeric[k]);
   const n = Math.max(...cols.map((c) => c.length));
   const flatVals = cols.flat();
-  // Bar mode: bars must start at 0 (a truncated baseline distorts proportions)
-  const min = chartType === 'bar' && !norm ? Math.min(0, Math.min(...flatVals)) : Math.min(...flatVals);
+  // Bar mode: bars must start at 0 (a truncated baseline distorts proportions).
+  // chart-zero: force the y-axis minimum to 0 in both line and bar modes.
+  const min = !norm && (zero || chartType === 'bar') ? Math.min(0, Math.min(...flatVals)) : Math.min(...flatVals);
   const max = Math.max(...flatVals);
   const W = 880, H = 430, L = 64, R = 18, T = 18, B = 38;
   const xs = (i) => L + (W - L - R) * (n < 2 ? 0.5 : i / (n - 1));
@@ -931,6 +933,22 @@ $('#btn-chart').onclick = loadChartSaved;
 $('#btn-table').onclick = () => {
   chartTableOn = !chartTableOn;
   renderChartTable();
+};
+// Download the rendered chart as an .svg file
+$('#btn-chart-svg').onclick = () => {
+  const svg = $('#chart-box')?.querySelector('svg');
+  if (!svg) {
+    setStatus('No chart to download — load a CSV first.');
+    setTimeout(() => setStatus(''), 3000);
+    return;
+  }
+  const src = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([src], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sciagent-chart.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
 };
 $('#chart-example').onclick = () => {
   $('#chart-path').value = 'examples/veri.csv';

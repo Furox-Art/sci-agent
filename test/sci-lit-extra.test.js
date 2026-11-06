@@ -4,9 +4,9 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ToolRegistry } from '@sci/core';
-import { lit_audit, lit_screen, lit_ledger } from '../packages/core/src/science/sci-lit-extra.js';
+import { lit_audit, lit_screen, lit_ledger, lit_bib, lit_quote_text, lit_evidence } from '../packages/core/src/science/sci-lit-extra.js';
 
-const TOOLS = [lit_audit, lit_screen, lit_ledger];
+const TOOLS = [lit_audit, lit_screen, lit_ledger, lit_bib, lit_quote_text, lit_evidence];
 
 async function makeRegistry() {
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-lit-extra-'));
@@ -15,7 +15,7 @@ async function makeRegistry() {
 
 // --- Structure tests: run in every environment (no Python/network needed) ---
 
-test('araç şekli: üç araç tanımlı, onaysız ve paralel çalışabilir', () => {
+test('araç şekli: altı araç tanımlı, onaysız ve paralel çalışabilir', () => {
   for (const t of TOOLS) {
     assert.equal(typeof t.name, 'string');
     assert.ok(t.name.length > 0);
@@ -28,7 +28,7 @@ test('araç şekli: üç araç tanımlı, onaysız ve paralel çalışabilir', (
   }
   assert.deepEqual(
     TOOLS.map((t) => t.name),
-    ['lit_audit', 'lit_screen', 'lit_ledger'],
+    ['lit_audit', 'lit_screen', 'lit_ledger', 'lit_bib', 'lit_quote_text', 'lit_evidence'],
   );
 });
 
@@ -49,6 +49,15 @@ test('şemalar: geçerli JSON Schema ve JSON-aşılabilir', () => {
   assert.equal(lit_screen.parameters.properties.max_results.type, 'number');
   assert.ok(!lit_ledger.parameters.required, 'lit_ledger için required yok');
   assert.equal(lit_ledger.parameters.properties.path.type, 'string');
+  assert.deepEqual(lit_bib.parameters.required, ['papers']);
+  assert.equal(lit_bib.parameters.properties.papers.type, 'array');
+  assert.equal(lit_bib.parameters.properties.papers.items.type, 'object');
+  assert.deepEqual(lit_bib.parameters.properties.output_format.enum, ['bibtex', 'ris', 'csl-json']);
+  assert.deepEqual(lit_quote_text.parameters.required, ['quote', 'source_text', 'source_id']);
+  assert.equal(lit_quote_text.parameters.properties.source_text.type, 'string');
+  assert.deepEqual(lit_evidence.parameters.required, ['kind', 'payload']);
+  assert.equal(lit_evidence.parameters.properties.kind.type, 'string');
+  assert.equal(lit_evidence.parameters.properties.payload.type, 'object');
   // Parameter descriptions must be present and non-trivial.
   for (const t of TOOLS) {
     for (const [key, prop] of Object.entries(t.parameters.properties)) {
@@ -107,6 +116,53 @@ test('geçersiz değerler: throw değil, nazik İngilizce hata metni (ok:true)',
   assert.ok(r3.output.startsWith('Error:'), `unexpected output: ${r3.output}`);
 });
 
+test('yeni araçlar doğrulama: boş/yanlış tip argümanlar nazik hata metni (ok:true)', async () => {
+  const registry = await makeRegistry();
+  const r1 = await registry.invoke('lit_bib', { papers: [] });
+  assert.equal(r1.ok, true);
+  assert.ok(r1.output.startsWith('Error:'), `unexpected output: ${r1.output}`);
+
+  const r2 = await registry.invoke('lit_bib', { papers: 'not-an-array' });
+  assert.equal(r2.ok, true);
+  assert.ok(r2.output.startsWith('Error:'));
+
+  const r3 = await registry.invoke('lit_bib', { papers: [{ title: 'X' }], output_format: 'xml' });
+  assert.equal(r3.ok, true);
+  assert.ok(r3.output.startsWith('Error:'), `unexpected output: ${r3.output}`);
+  assert.ok(/bibtex|ris|csl-json/.test(r3.output), 'desteklenen formatlar listelenmeli');
+
+  const r4 = await registry.invoke('lit_evidence', { kind: 'Bad Kind', payload: { a: 1 } });
+  assert.equal(r4.ok, true);
+  assert.ok(r4.output.startsWith('Error:'));
+
+  const r5 = await registry.invoke('lit_evidence', { kind: 'good_kind', payload: 'not-an-object' });
+  assert.equal(r5.ok, true);
+  assert.ok(r5.output.startsWith('Error:'));
+
+  const r6 = await registry.invoke('lit_evidence', { kind: 'x', payload: { a: 1 } });
+  assert.equal(r6.ok, true);
+  assert.ok(r6.output.startsWith('Error:'), 'çok kısa kind reddedilmeli');
+});
+
+test('lit_quote_text uzunluk limitleri: sınır aşımı nazik hata metni (ok:true)', async () => {
+  const registry = await makeRegistry();
+  const r = await registry.invoke('lit_quote_text', {
+    quote: 'a'.repeat(1001),
+    source_text: 'some source text',
+    source_id: 'src',
+  });
+  assert.equal(r.ok, true, 'limit aşımı throw etmemeli');
+  assert.ok(r.output.startsWith('Error:'), `unexpected output: ${r.output}`);
+
+  const r2 = await registry.invoke('lit_quote_text', {
+    quote: 'ok quote',
+    source_text: 'x'.repeat(250_001),
+    source_id: 'src',
+  });
+  assert.equal(r2.ok, true);
+  assert.ok(r2.output.startsWith('Error:'));
+});
+
 test('lit_ledger yol çözümleme: workspaceRoot altındaki göreli yol kullanılır', async (t) => {
   // Bridge çağrısı gerektirir; paket yoksa skip. Ağ gerekmez (yalnızca yerel dosya).
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-ledger-ws-'));
@@ -123,6 +179,90 @@ test('lit_ledger yol çözümleme: workspaceRoot altındaki göreli yol kullanı
   if (!r.output.startsWith('Error:')) {
     assert.ok(/VALID_EMPTY/.test(r.output), `VALID_EMPTY beklenirdi: ${r.output}`);
     assert.ok(r.output.includes('missing-ledger.jsonl'), 'çözümlenen yol çıktıda görünmeli');
+  }
+});
+
+// --- Offline deterministic tests: need the package but no network ---
+
+test('lit_quote_text literal eşleşme: çevrimdışı deterministik sonuç', async (t) => {
+  const registry = await makeRegistry();
+  const r = await registry.invoke('lit_quote_text', {
+    quote: 'randomization was performed',
+    source_text: 'Patients were enrolled; randomization was performed by computer.',
+    source_id: 'test-source',
+  });
+  assert.equal(typeof r.ok, 'boolean');
+  assert.equal(typeof r.output, 'string');
+  assert.ok(r.output.length > 0);
+  if (/package was not found|Python interpreter not found/.test(r.output)) {
+    t.skip('literature-evidence-mcp kurulu değil; çevrimdışı eşleşme testi atlandı');
+    return;
+  }
+  assert.ok(/TEXTUAL_MATCH_ONLY/.test(r.output), `eşleşme beklenirdi: ${r.output}`);
+  assert.ok(/characters 24-51/.test(r.output), `offset beklenirdi: ${r.output}`);
+
+  const miss = await registry.invoke('lit_quote_text', {
+    quote: 'double-blinded placebo surgery',
+    source_text: 'Patients were enrolled; randomization was performed by computer.',
+    source_id: 'test-source',
+  });
+  assert.ok(/NOT_VERIFIED/.test(miss.output), `NOT_VERIFIED beklenirdi: ${miss.output}`);
+});
+
+test('lit_bib bibtex çıktısı: çevrimdışı deterministik biçimlendirme', async (t) => {
+  const registry = await makeRegistry();
+  const r = await registry.invoke('lit_bib', {
+    papers: [
+      {
+        title: 'CRISPR off-target effects',
+        authors: ['A. Author', 'B. Author'],
+        year: 2021,
+        journal: 'Nature Methods',
+        doi: '10.1038/s41592-021-01093-5',
+      },
+    ],
+    output_format: 'bibtex',
+  });
+  assert.equal(typeof r.ok, 'boolean');
+  assert.equal(typeof r.output, 'string');
+  assert.ok(r.output.length > 0);
+  if (/package was not found|Python interpreter not found/.test(r.output)) {
+    t.skip('literature-evidence-mcp kurulu değil; bibliography testi atlandı');
+    return;
+  }
+  assert.ok(/Bibliography export \(bibtex, 1 records/.test(r.output), `başlık beklenirdi: ${r.output.slice(0, 300)}`);
+  assert.ok(/@article\{lem1,/.test(r.output), `bibtex girdisi beklenirdi: ${r.output.slice(0, 400)}`);
+  assert.ok(r.output.includes('title = {CRISPR off-target effects}'), 'başlık çıktıda görünmeli');
+  assert.ok(r.output.includes('journal = {Nature Methods}'), 'dergi adı çıktıda görünmeli');
+});
+
+test('lit_evidence ekleme + lit_ledger doğrulama: hash zinciri tmp defterde VALID', async (t) => {
+  const ledgerPath = path.join(os.tmpdir(), `sci-evtest-${Date.now()}-${process.pid}.jsonl`);
+  const oldEnv = process.env.EVIDENCE_LEDGER_PATH;
+  process.env.EVIDENCE_LEDGER_PATH = ledgerPath;
+  try {
+    const registry = await makeRegistry();
+    const r = await registry.invoke('lit_evidence', { kind: 'search_receipt', payload: { query: 'CRISPR', hits: 3 } });
+    assert.equal(typeof r.ok, 'boolean');
+    assert.equal(typeof r.output, 'string');
+    assert.ok(r.output.length > 0);
+    if (/package was not found|Python interpreter not found/.test(r.output)) {
+      t.skip('literature-evidence-mcp kurulu değil; defter ekleme testi atlandı');
+      return;
+    }
+    assert.ok(/RECORDED/.test(r.output), `RECORDED beklenirdi: ${r.output}`);
+    assert.ok(r.output.includes('Entry number: 1'), `ilk girdi beklenirdi: ${r.output}`);
+    assert.ok(r.output.includes('lit_ledger'), 'lit_ledger işaret edilmeli');
+
+    // Aynı zinciri bağımsız lit_ledger çağrısıyla doğrula (mutlak yol).
+    const v = await registry.invoke('lit_ledger', { path: ledgerPath });
+    assert.ok(/VALID/.test(v.output), `VALID zincir beklenirdi: ${v.output}`);
+    assert.ok(v.output.includes('Entries verified: 1'), `1 girdi beklenirdi: ${v.output}`);
+  } finally {
+    if (oldEnv === undefined) delete process.env.EVIDENCE_LEDGER_PATH;
+    else process.env.EVIDENCE_LEDGER_PATH = oldEnv;
+    await fs.rm(ledgerPath, { force: true });
+    await fs.rm(`${ledgerPath}.lock`, { force: true });
   }
 });
 

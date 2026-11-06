@@ -465,8 +465,18 @@ function persistModel(workspaceRoot, updates) {
   writeFileSync(file, JSON.stringify(cur, null, 2));
 }
 
+// Workspace resolution: --workspace <dir> wins, then SCI_AGENT_WORKSPACE, then cwd
+// (mirrors the CLI so tools like /api/csv see the repo the user actually means).
+export function resolveWorkspace({ argv = process.argv.slice(2), env = process.env } = {}) {
+  const wi = argv.indexOf('--workspace');
+  if (wi !== -1 && argv[wi + 1]) return path.resolve(argv[wi + 1]);
+  if (env.SCI_AGENT_WORKSPACE) return path.resolve(env.SCI_AGENT_WORKSPACE);
+  return process.cwd();
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const port = Number(process.env.SCI_AGENT_PORT) || 8765;
-  const { port: p } = await startServer({ port });
-  console.log(`SciAgent UI: http://127.0.0.1:${p}`);
+  const workspace = resolveWorkspace();
+  const { port: p } = await startServer({ port, workspace });
+  console.log(`SciAgent UI: http://127.0.0.1:${p} (workspace: ${workspace})`);
 }

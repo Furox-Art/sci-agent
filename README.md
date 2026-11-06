@@ -133,6 +133,15 @@ CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`
 | `lit_search` | hayır | Literatür araması: OpenAlex + Europe PMC + Crossref eşzamanlı |
 | `lit_verify` | hayır | Atıf eşleşme + retraksiyon/düzeltme kontrolü (DOI/başlık) |
 | `lit_quote` | hayır | Tam metin alıntı eşleşmesi (PMCID + sha256 kanıtlı) |
+| `lit_audit` | hayır | Metodoloji denetimi: Europe PMC JATS tam metninde raporlama eklerinin paragraf eşleşmesi (alıntı izlenebilirliği) |
+| `lit_screen` | hayır | PRISMA tarzı otomatik ön eleme: anahtar kelime + dahil etme ölçütleriyle include/exclude (tek geçiş, geçici karar) |
+| `lit_ledger` | hayır | Hash-zincirli kanıt defteri (JSONL) bütünlük doğrulaması (yerel, ağsız) |
+| `lit_fulltext` | hayır | OA tam metin okuma (Europe PMC): `read_fulltext(pmcid, max_chars)` |
+| `lit_cite_graph` | hayır | OpenAlex atıf grafiği: `expand_citation_chain` ile ileri/geri zincirleme |
+| `lit_data_code` | hayır | Crossref veri/yazılım bağlantıları: makalenin veri ve kod erişilebilirliği |
+| `lit_bib` | hayır | Kaynakça dışa aktarma: BibTeX / RIS / CSL-JSON (çevrimdışı) |
+| `lit_quote_text` | hayır | Verilen metinde birebir alıntı doğrulama (çevrimdışı) |
+| `lit_evidence` | hayır | Hash-zincirli kanıt defterine kayıt ekleme (lit_ledger'ın yazı tarafı, çevrimdışı) |
 | `plan_audit` | evet | plan-auditor CLI: mühürlü plan, kanıt zinciri, tamamlanma kapısı |
 | `cds1_cli` | evet | cds CLI (scientific-computing-system v1, saf Python): calc/stats/integrate/units/constants/plot/sample/hypothesis/prompt/modules |
 | `repocraft_cli` | evet | repocraft CLI: doğrulanmış spesifikasyondan deterministik Python proje iskeleti |
@@ -142,20 +151,32 @@ CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`
 | `polyglot_cli` | evet | polyglot-python CLI: kendi dilinde Python — TR dahil 8 dil transpiler (run/translate/check/locales) |
 | `eq_route` | hayır | eq-layer routing: mesaj için niyet/duygu/repair analizi ve yönlendirme önerisi |
 
+Kayıtlı toplam **38 araç** (7 çekirdek + 31 eklenti aracı); CLI ve masaüstü aynı altı gruba ayırır (`packages/core/src/tools/grouping.js`):
+
+- **File & code** — core file and shell operations: read, write, edit, list, search, run.
+- **AI agents** — parallel sub-agents via `task`, each with its own context.
+- **Scientific computation** — math expressions, unit conversion, physical constants, statistics, matrices, molar mass, CSV stats, Python eval.
+- **Scientific package bridges** — CLI bridges to the user's open scientific packages (axiomize, cds/cds2, repocraft, nomosguard, sra, polyguard, polyglot-python) plus eq-layer routing.
+- **Literature (evidence chain)** — OpenAlex/Europe PMC/Crossref search, citation and retraction checks, full-text reading, citation-graph traversal, data/code availability, quote verification, methodology audit, PRISMA-style screening, bibliography export, hash-chained evidence ledger.
+- **Plan verification** — sealed-plan audit with a SHA-256 evidence chain and fail-closed completion gate.
+
 **Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
 
-**Kullanıcının açık depolarından entegrasyon** (9 depo bağlı):
+**Kullanıcının açık depolarından entegrasyon** (12 depo bağlı):
 - [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) → `sci-furox` köprü araçları (pip)
 - [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) → `sci-quantum` akıl yürütme protokolü (prompt)
 - [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) → `sci-lit` literatür kanıt araçları (pip)
 - [plan-auditor](https://github.com/Furox-Art/plan-auditor) → `sci-audit` plan doğrulama köprüsü (pip)
+- [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system) → `cds1_cli` cds CLI v1 köprüsü (pip)
 - [scientific-reasoning-auditor](https://github.com/Furox-Art/scientific-reasoning-auditor) → `sra_cli` makale denetimi köprüsü (pip)
 - [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) → `polyguard_cli` kod doğrulama köprüsü (pip) + SKILL.md becerisi
 - [polyglot-python](https://github.com/Furox-Art/polyglot-python) → `polyglot_cli` transpiler köprüsü (pip)
+- [repocraft](https://github.com/Furox-Art/repocraft) → `repocraft_cli` deterministik proje iskeleti köprüsü (pip)
+- [nomosguard](https://github.com/Furox-Art/nomosguard) → `nomosguard_cli` güvenlik akıl yürütme köprüsü (pip)
 - [eq-layer](https://github.com/Furox-Art/eq-layer) → **otomatik ön-işleme**: her kullanıcı mesajında niyet/duygu routing'i çalışır, yönlendirme o turun sistem istemine eklenir (kalıcı geçmiş değişmez; `SCI_AGENT_EQ_DISABLE=1` ile kapatılır). Bilinçli olarak eklenmeyenler: scientific-toolkit-mcp (bağımlılık çakışması riski). Kurulum:
 
 ```bash
-pip install numpy scipy pandas axiomize scientific-computing-system-2.0 literature-evidence-mcp plan-auditor polyglot-code-guard polyglot-python scientific-reasoning-auditor repocraft nomosguard "eq-layer[ml]"
+pip install numpy scipy pandas axiomize scientific-computing-system scientific-computing-system-2.0 literature-evidence-mcp plan-auditor polyglot-code-guard polyglot-python scientific-reasoning-auditor repocraft nomosguard "eq-layer[ml]"
 ```
 
 ## Beceri Sistemi
@@ -163,7 +184,7 @@ pip install numpy scipy pandas axiomize scientific-computing-system-2.0 literatu
 SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın sistem istemine ekler — Claude Code beceri modeliyle aynı fikir, kaynakları kendi depolarından.
 
 - **Kaynak biçimi:** `github:kullanici/depo[/alt/yol]` (genel depolarda çalışır, anahtar gerekmez)
-- **Varsayılan yüklü:** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) becerisi
+- **Varsayılan yüklü (3 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard)
 - **Uygulama:** Ajanlar görünümü → Beceriler kartından ekle/kaldır
 - **CLI:** `/skills` (listele) · `/skills add github:kullanici/depo` (ekle; `sci-agent.config.json` dosyasına kalıcı yazılır)
 - Yeni beceri eklemek için tek gereken: deponun kökünde (veya belirttiğin alt yolda) geçerli frontmatter'lı bir `SKILL.md`
@@ -175,20 +196,32 @@ SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın s
 1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
 2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
 
-Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) bu kancanın çalışan örnekleridir: 15 bilimsel/kanıt aracı + bilimsel davranış ve akıl yürütme istemleri.
+Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) bu kancanın çalışan örnekleridir: 31 bilimsel/kanıt aracı + bilimsel davranış ve akıl yürütme istemleri.
+
+## Verify it yourself
+
+Bu README'deki sayıları repo kökünde tek komutlarla doğrulayabilirsin:
+
+```bash
+# Eklenti adları (beklenen: 8 eklenti)
+node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPlugins().map(p => p.name).join('\n')))"
+
+# Kayıtlı araç sayısı (beklenen: 38)
+node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
+
+# Varsayılan beceri kaynakları (beklenen: 3 github: kaynağı)
+node -e "import('./packages/core/src/index.js').then(m => console.log(m.DEFAULT_CONFIG.skills.sources))"
+
+# Test süiti (beklenen: 116 geçer, 0 başarısız, 0 atlanan)
+node --test "test/**/*.test.js"
+```
 
 ## Yol haritası
 
-- [x] Akış (streaming) yanıt desteği
-- [x] Bul-değiştir düzenleme aracı (`edit_file`)
-- [x] Paralel alt-ajanlar (`task`) ve eklenti mimarisi
-- [x] Bilimsel araç seti: matematik-fizik (`sci-extra`), veri analizi (`sci-data`), kimya (`sci-chem`)
-- [x] Kullanıcı depolarından köprü: axiomize + cds2 (`sci-furox`), quantum-reasoning (`sci-quantum`)
-- [x] literature-evidence-mcp (`sci-lit`) ve plan-auditor (`sci-audit`) entegrasyonu
-- [x] eq-layer otomatik yönlendirme katmanı (mesaj öncesi niyet/politika routing'i)
-- [x] Çoklu oturum (uygulama + CLI paylaşımlı) ve sohbet geçmişi
-- [x] Grafikler görünümü (CSV → çok serili çizgi grafiği), Ajanlar görev kartları
-- [x] GitHub beceri sistemi: SKILL.md yükleyici (quantum-reasoning + eq-layer varsayılan)
+- [ ] Özel bilimsel model hookup'ı: model kullanıcı tarafından sağlanacak — sağlayıcı bağlama ve gerçek uç noktayla uçtan uca deneme
+- [ ] Daha fazla literatür köprüsü
+- [ ] Paketleme: installer / tek komutla kurulum
+- [ ] WSL ve masaüstü paketleme cilası
 
 ## Lisans
 
@@ -196,4 +229,4 @@ Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sc
 
 ## Durum
 
-v0.7 — çoklu oturum (CLI ile paylaşımlı), Grafikler görünümü, Ajanlar görev kartları, GitHub beceri sistemi (SKILL.md), markdown/kod render, sohbet dışa aktarma, model bağlantı testi ve araç arama filtresi eklendi. 90 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.8 — çoklu oturum (CLI ile paylaşımlı), Grafikler görünümü (Line/Bar, start-at-zero, SVG indirme), Ajanlar görev kartları, GitHub beceri sistemi (SKILL.md), markdown/kod render, sohbet dışa aktarma, model bağlantı testi, araç arama filtresi, `/plugins` CLI komutu ve `--workspace` sunucu desteği eklendi. 116 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

@@ -3,14 +3,16 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { resolvePython } from './pybridge.js';
 
 /**
- * Extra literature evidence bridge: methodology audit, PRISMA-style screening
- * and hash-chained evidence ledger verification via the user's installed
+ * Extra literature evidence bridge: methodology audit, PRISMA-style screening,
+ * hash-chained evidence ledger (append + verify), offline quote check on
+ * caller-supplied text and BibTeX/RIS/CSL-JSON export via the user's installed
  * `literature-evidence-mcp` Python package (>= 0.5.1).
  *
  * Same call pattern as sci-lit.js: the package exposes directly callable
  * functions in `literature_evidence_mcp.server` (audit_pmc_methodology,
- * search_literature + screen_methodology, EvidenceLedger.verify /
- * verify_evidence_ledger), so no MCP stdio client is needed. Each call spawns
+ * search_literature + screen_methodology, export_bibliography, verify_quote,
+ * export_evidence, EvidenceLedger.verify / verify_evidence_ledger), so no MCP
+ * stdio client is needed. Each call spawns
  * `python -X utf8 -I -c <driver>` with JSON on stdin and a sentinel-prefixed
  * JSON result on stdout. Every failure (missing Python, missing package,
  * network outage, provider rate limit, timeout) resolves to a gentle message
@@ -109,6 +111,12 @@ def _main():
             res = _screen(srv, req)
         elif op == "ledger":
             res = _ledger(srv, req)
+        elif op == "bib":
+            res = srv.export_bibliography(list(req["papers"]), str(req.get("output_format", "bibtex")))
+        elif op == "localquote":
+            res = srv.verify_quote(str(req["quote_text"]), str(req["source_text"]), str(req["source_id"]))
+        elif op == "evidence":
+            res = srv.export_evidence(str(req["kind"]), dict(req["payload"]))
         else:
             raise ValueError("unknown op: %r" % (op,))
         if asyncio.iscoroutine(res):
@@ -289,6 +297,52 @@ function providerSummary(providerStatus) {
   return parts.length ? `Provider status: ${parts.join(', ')}` : '';
 }
 
+// Render the export_bibliography (BibTeX/RIS/CSL-JSON) result dict.
+function bibLines(data) {
+  const content = typeof data?.content === 'string' ? data.content : '';
+  const lines = [
+    `Bibliography export (${data?.format ?? 'bibtex'}, ${Number(data?.record_count) || 0} records, caller-supplied unverified metadata)`,
+  ];
+  const recs = Array.isArray(data?.records) ? data.records : [];
+  const invalid = recs.filter((r) => r?.doi_status === 'INVALID_DOI_OMITTED');
+  if (invalid.length) lines.push(`Note: ${invalid.length} record(s) had invalid DOIs and were exported without a DOI.`);
+  if (content) {
+    lines.push('--- Export ---');
+    lines.push(content);
+  } else {
+    lines.push('(no export content returned)');
+  }
+  lines.push(
+    'Warning: this formats metadata only; no DOI resolution, deduplication, study-quality review or scientific verification was performed.',
+  );
+  return lines;
+}
+
+// Render the verify_quote (literal match on caller-supplied text) result dict.
+function localQuoteLines(data) {
+  const lines = [`Literal quote check in supplied text (source: ${data?.source_id ?? '?'}): ${data?.status ?? 'unknown'}`];
+  if (data?.text_match === true) {
+    lines.push(`Match found at characters ${data?.offset_start ?? '?'}-${data?.offset_end ?? '?'}.`);
+  } else {
+    lines.push('No literal match found in the supplied text.');
+  }
+  if (typeof data?.source_text_sha256 === 'string') {
+    lines.push(`Source text sha256: ${data.source_text_sha256.slice(0, 16)}…`);
+  }
+  lines.push('Warning: a literal text occurrence does not verify the claim or its scientific validity.');
+  return lines;
+}
+
+// Render the export_evidence (hash-chained ledger append) result dict.
+function evidenceLines(data) {
+  const lines = [`Evidence record appended to the hash-chained ledger: ${data?.status ?? 'unknown'}`];
+  if (Number.isFinite(data?.entry_number)) lines.push(`Entry number: ${data.entry_number}`);
+  if (typeof data?.hash === 'string') lines.push(`Entry hash: ${data.hash.slice(0, 16)}…`);
+  if (typeof data?.path === 'string') lines.push(`Ledger file: ${data.path}`);
+  lines.push('Verify the chain afterwards with lit_ledger. Limitation: wholesale replacement of the ledger file cannot be detected.');
+  return lines;
+}
+
 // Render the EvidenceLedger.verify() result dict.
 function ledgerLines(data) {
   const status = data?.status ?? 'unknown';
@@ -437,5 +491,130 @@ export const lit_ledger = {
     const r = await runBridge('ledger', p ? { path: p } : {});
     if (!r.ok) return gentle(r.error);
     return ledgerLines(r.data).join('\n');
+  },
+};
+
+export const lit_bib = {
+  name: 'lit_bib',
+  description:
+    'Formats caller-supplied paper metadata (title, authors, journal, year, DOI — e.g. records from lit_search) as BibTeX, RIS or CSL-JSON for reference lists. Offline deterministic formatting; no DOI resolution, deduplication or verification is performed, and metadata is treated as unverified caller input.',
+  parameters: {
+    type: 'object',
+    properties: {
+      papers: {
+        type: 'array',
+        description:
+          '1-100 metadata records, each {title (required), authors (list of names), journal, year (four-digit), doi}; e.g. the papers array returned by lit_search',
+        items: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Paper title (required)' },
+            authors: { type: 'array', items: { type: 'string' }, description: 'Author names' },
+            journal: { type: 'string', description: 'Journal name' },
+            year: { type: 'number', description: 'Four-digit publication year' },
+            doi: { type: 'string', description: 'DOI string' },
+          },
+          required: ['title'],
+        },
+      },
+      output_format: {
+        type: 'string',
+        enum: ['bibtex', 'ris', 'csl-json'],
+        description: 'Output format (default bibtex)',
+      },
+    },
+    required: ['papers'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ papers, output_format } = {}) {
+    if (!Array.isArray(papers) || !papers.length) {
+      return 'Error: papers must be a non-empty array of metadata objects {title, authors?, journal?, year?, doi?}.';
+    }
+    if (papers.length > 100) {
+      return 'Error: too many papers (max 100 per export).';
+    }
+    if (papers.some((p) => p === null || typeof p !== 'object' || Array.isArray(p))) {
+      return 'Error: each paper must be a metadata object with at least a title.';
+    }
+    const fmt = str(output_format) || 'bibtex';
+    if (!['bibtex', 'ris', 'csl-json'].includes(fmt)) {
+      return 'Error: output_format must be bibtex, ris or csl-json.';
+    }
+    const r = await runBridge('bib', { papers, output_format: fmt });
+    if (!r.ok) return gentle(r.error);
+    return bibLines(r.data).join('\n');
+  },
+};
+
+export const lit_quote_text = {
+  name: 'lit_quote_text',
+  description:
+    'Checks whether a quote appears verbatim in caller-supplied text (a user document, text fetched yourself or lit_fulltext output) and returns the match offsets. Offline literal string check; unlike lit_quote it fetches no source, so the caller is responsible for the provenance of the text. A literal match is not a judgment of scientific validity.',
+  parameters: {
+    type: 'object',
+    properties: {
+      quote: { type: 'string', description: 'Verbatim quote to check (1-1000 characters)' },
+      source_text: { type: 'string', description: 'Text to search in (1-250000 characters)' },
+      source_id: { type: 'string', description: 'Label identifying the supplied text (e.g. the PMCID or file name)' },
+    },
+    required: ['quote', 'source_text', 'source_id'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ quote, source_text, source_id } = {}) {
+    const qt = str(quote);
+    const st = typeof source_text === 'string' ? source_text : '';
+    const sid = str(source_id);
+    if (!qt || !st || !sid) throw new Error('quote, source_text and source_id are required');
+    if (qt.length > 1000) return 'Error: quote must be at most 1000 characters.';
+    if (st.length > 250_000) return 'Error: source_text must be at most 250000 characters.';
+    if (sid.length > 300) return 'Error: source_id must be at most 300 characters.';
+    const r = await runBridge('localquote', { quote_text: qt, source_text: st, source_id: sid });
+    if (!r.ok) return gentle(r.error);
+    return localQuoteLines(r.data).join('\n');
+  },
+};
+
+export const lit_evidence = {
+  name: 'lit_evidence',
+  description:
+    'Appends one evidence record (a kind label plus a JSON payload, e.g. a search receipt or a verification result) to the local hash-chained JSONL evidence ledger; the entry hash chains onto the previous head. Local-only (no network); verify the file afterwards with lit_ledger. By default uses the EVIDENCE_LEDGER_PATH environment variable or evidence-ledger.jsonl in the working directory.',
+  parameters: {
+    type: 'object',
+    properties: {
+      kind: {
+        type: 'string',
+        description: 'Record type label: 2-48 lowercase letters/underscores (e.g. search_receipt, citation_check)',
+      },
+      payload: {
+        type: 'object',
+        description: 'JSON payload of the evidence record (max 100 KB when serialized)',
+      },
+    },
+    required: ['kind', 'payload'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ kind, payload } = {}) {
+    const k = str(kind);
+    if (!k || !/^[a-z_]{2,48}$/.test(k)) {
+      return 'Error: kind must be 2-48 lowercase letters/underscores (e.g. search_receipt).';
+    }
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+      return 'Error: payload must be a JSON object.';
+    }
+    let body;
+    try {
+      body = JSON.stringify(payload);
+    } catch {
+      return 'Error: payload must be JSON-serializable.';
+    }
+    if (body.length > 100_000) {
+      return 'Error: payload exceeds the 100 KB ledger record limit.';
+    }
+    const r = await runBridge('evidence', { kind: k, payload });
+    if (!r.ok) return gentle(r.error);
+    return evidenceLines(r.data).join('\n');
   },
 };

@@ -3,9 +3,19 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServer } from '../packages/desktop/server.js';
+import { startServer, resolveWorkspace } from '../packages/desktop/server.js';
 
 process.env.SCI_AGENT_PROVIDER = 'mock';
+
+test('resolveWorkspace: --workspace arg beats env, env beats cwd', () => {
+  const cwd = process.cwd();
+  const a = resolveWorkspace({ argv: ['--workspace', 'C:\\tmp\\ws'], env: { SCI_AGENT_WORKSPACE: 'C:\\tmp\\env' } });
+  assert.equal(a, path.resolve('C:\\tmp\\ws'));
+  const b = resolveWorkspace({ argv: [], env: { SCI_AGENT_WORKSPACE: 'C:\\tmp\\env' } });
+  assert.equal(b, path.resolve('C:\\tmp\\env'));
+  const c = resolveWorkspace({ argv: [], env: {} });
+  assert.equal(c, cwd);
+});
 
 async function makeServer(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-srv-'));

@@ -1,7 +1,7 @@
 import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -14,6 +14,7 @@ const HELP = [
   'Commands:',
   '  /help     help              /model  model info',
   '  /tools    tool list         /clear  clear chat',
+  '  /plugins  plugin list       /skills loaded skills',
   '  /sessions [no|del no|ren no title]  list / switch / delete / rename sessions',
   '  /save     save chat as .md',
   '  /test     test model connection',
@@ -275,6 +276,21 @@ export async function startRepl(argv = []) {
             console.log(`  ${t.name === 'task' ? cyan(t.name) : t.name}${t.needsApproval ? dim(' (requires approval)') : ''} — ${t.description}`);
           }
         }
+      } else if (input === '/plugins') {
+        // Registered plugins with per-plugin tool counts; registry itself comes from
+        // createRegistry({ cfg, approve }) at startup (same source /tools uses).
+        try {
+          const plugins = listPlugins();
+          let total = 0;
+          for (const p of plugins) {
+            const n = (getPlugin(p.name)?.tools ?? []).length;
+            total += n;
+            console.log(`${p.name} — ${p.description} ${dim(`(${n} tools)`)}`);
+          }
+          console.log(dim(`Total: ${plugins.length} plugins, ${total} tools`));
+        } catch (e) {
+          console.log(red(`Error: ${e.message}`));
+        }
       } else if (input.startsWith('/sessions')) {
         const parts = input.split(/\s+/);
         const arg = parts[1];
@@ -336,13 +352,18 @@ export async function startRepl(argv = []) {
         } else {
           busy = true;
           try {
-            console.log(dim('Loading skills…'));
-            for (const source of cfg.skills?.sources ?? []) {
-              try {
-                const sk = await fetchSkill(source);
-                console.log(`${cyan(sk.name)} ${dim(`(${source})`)}\n  ${trunc(sk.description || sk.body, 160)}`);
-              } catch (e) {
-                console.log(red(`✕ ${source}: ${trunc(e.message, 140)}`));
+            const sources = cfg.skills?.sources ?? [];
+            if (!sources.length) {
+              console.log(dim('No skills loaded — add one with /skills add github:user/repo[/sub/path]'));
+            } else {
+              console.log(dim('Loading skills…'));
+              for (const source of sources) {
+                try {
+                  const sk = await fetchSkill(source);
+                  console.log(`${cyan(sk.name)} ${dim(`(${source})`)}\n  ${trunc(sk.description || sk.body, 160)}`);
+                } catch (e) {
+                  console.log(red(`✕ ${source}: ${trunc(e.message, 140)}`));
+                }
               }
             }
           } finally {

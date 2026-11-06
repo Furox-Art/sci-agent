@@ -20,7 +20,7 @@
       <div class="ss-head"><span>SESSIONS</span><button id="ss-new" title="New session">+</button></div>
       <div id="ss-list"></div>
     </div>
-    <div class="side-foot">v0.7 · scientific agent</div>
+    <div class="side-foot">v0.8 · scientific agent</div>
   </aside>
 
   <div class="wrap">
@@ -73,10 +73,12 @@
           </select>
           <button id="btn-chart" class="turquoise">Load</button>
           <label class="chart-norm"><input id="chart-norm" type="checkbox" /> scale per series</label>
+          <label class="chart-zero"><input id="chart-zero" type="checkbox" /> start at zero</label>
         </div>
         <div id="chart-legend" class="chart-legend"></div>
         <div id="chart-box"></div>
         <div class="chart-actions">
+          <button id="btn-chart-svg" class="ghost">Download SVG</button>
           <button id="btn-table" class="ghost">Data table</button>
           <button id="chart-example" class="ghost">load example: examples/veri.csv</button>
         </div>

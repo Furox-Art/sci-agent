@@ -7,7 +7,8 @@ import { resolvePython } from './pybridge.js';
  *
  * Call path: the package exposes directly callable async functions in
  * `literature_evidence_mcp.server` (search_literature, verify_citation,
- * check_retraction, verify_source_quote), so no MCP stdio client is needed.
+ * check_retraction, verify_source_quote, read_fulltext, expand_citation_chain,
+ * find_data_and_code), so no MCP stdio client is needed.
  * Each call spawns `python -X utf8 -I -c <driver>` with JSON on stdin and a
  * sentinel-prefixed JSON result on stdout. Every failure (missing Python,
  * missing package, network outage, provider rate limit, timeout) resolves to a
@@ -39,6 +40,14 @@ def _main():
             coro = srv.check_retraction(str(req["doi"]))
         elif op == "quote":
             coro = srv.verify_source_quote(str(req["pmcid"]), str(req["quote"]))
+        elif op == "fulltext":
+            coro = srv.read_fulltext(str(req["pmcid"]), int(req.get("max_chars", 30000)))
+        elif op == "citegraph":
+            coro = srv.expand_citation_chain(
+                str(req["seed_doi"]), int(req.get("max_depth", 1)),
+                int(req.get("max_per_direction", 5)), str(req.get("directions", "both")))
+        elif op == "datacode":
+            coro = srv.find_data_and_code(str(req["doi"]))
         else:
             raise ValueError("unknown op: %r" % (op,))
         data = asyncio.run(asyncio.wait_for(coro, timeout=float(req.get("timeout", ${PY_INNER_TIMEOUT_S}))))
@@ -200,6 +209,80 @@ function quoteLines(data) {
   return lines;
 }
 
+// Render the read_fulltext result dict; the retrieved text is the payload.
+function fulltextLines(data) {
+  const lines = [
+    `Full text (Europe PMC OA XML): ${data?.pmcid ?? '(unknown pmcid)'}`,
+    `Title: ${typeof data?.title === 'string' && data.title.trim() ? data.title.trim() : '(no title)'}`,
+    `Status: ${data?.status ?? 'unknown'} | Paragraphs: ${Number.isFinite(data?.paragraph_count) ? data.paragraph_count : '?'} | Truncated: ${data?.truncated === true ? 'yes' : 'no'}`,
+  ];
+  if (typeof data?.sha256_xml === 'string') lines.push(`Source XML sha256: ${data.sha256_xml.slice(0, 16)}…`);
+  const content = typeof data?.content === 'string' ? data.content : '';
+  if (content) {
+    const shown = content.length > 12000 ? `${content.slice(0, 12000)}…` : content;
+    lines.push('--- Full text (section: paragraph text) ---');
+    lines.push(shown);
+    if (content.length > 12000) {
+      lines.push(`(display truncated; showing first 12000 of ${content.length} characters)`);
+    }
+  } else {
+    lines.push('(no text content returned: max_chars is smaller than the first paragraph chunk; increase max_chars)');
+  }
+  if (data?.truncated === true) {
+    lines.push('Caution: retrieval was truncated by the character limit; paragraphs after the cut are missing.');
+  }
+  lines.push(
+    'Note: paragraph ids (pN) address this retrieved XML only, not PDF pages; content is unverified provider text.',
+  );
+  return lines;
+}
+
+// Render the expand_citation_chain (provider-asserted citation graph) result dict.
+function citeGraphLines(data) {
+  const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
+  const edges = Array.isArray(data?.edges) ? data.edges : [];
+  const lines = [
+    `Citation graph (OpenAlex, provider-asserted links): ${data?.status ?? 'unknown'}`,
+    `Seed DOI: ${data?.seed_doi ?? '?'} | Nodes: ${nodes.length} | Edges: ${edges.length} | Requests: ${Number(data?.requests_used) || 0}/${Number(data?.request_limit) || 12}`,
+  ];
+  for (const n of nodes.slice(0, 30)) {
+    const year = Number.isFinite(n?.year) ? `[${n.year}] ` : '';
+    const doi = typeof n?.doi === 'string' && n.doi ? ` | DOI: ${n.doi}` : '';
+    const title = typeof n?.title === 'string' && n.title ? n.title.slice(0, 120) : '(no title)';
+    lines.push(`  ${n?.id ?? '?'}: ${year}${title}${doi}`);
+  }
+  if (Array.isArray(data?.provider_errors) && data.provider_errors.length) {
+    lines.push(`Provider errors: ${JSON.stringify(data.provider_errors).slice(0, 400)}`);
+  }
+  if (data?.status === 'PARTIAL') {
+    lines.push('Caution: the traversal was partial (request budget, node cap or provider errors); missing links do not mean nonexistent works.');
+  }
+  lines.push('Warning: edges are provider-asserted bibliographic links, not verified citation or content relationships; coverage is non-exhaustive.');
+  return lines;
+}
+
+// Render the find_data_and_code (Crossref data/software links) result dict.
+function dataCodeLines(data) {
+  const links = Array.isArray(data?.links) ? data.links : [];
+  const relations = data?.relations && typeof data.relations === 'object' ? data.relations : {};
+  const lines = [
+    `Data/code links (Crossref metadata, not fetched): DOI ${data?.doi ?? '?'} | Status: ${data?.status ?? 'unknown'}`,
+  ];
+  if (links.length) {
+    for (const l of links.slice(0, 20)) {
+      const ct = typeof l?.content_type === 'string' && l.content_type ? ` (${l.content_type})` : '';
+      lines.push(`  Link: ${l?.url ?? '?'}${ct}`);
+    }
+  } else {
+    lines.push('No registered links found in Crossref metadata (absence is not proof none exist).');
+  }
+  if (Object.keys(relations).length) {
+    lines.push(`Relations (dataset/software/supplement): ${JSON.stringify(relations).slice(0, 600)}`);
+  }
+  lines.push('Warning: links are unverified publisher metadata and may require licensing/access.');
+  return lines;
+}
+
 export const lit_search = {
   name: 'lit_search',
   description:
@@ -317,5 +400,100 @@ export const lit_quote = {
     const r = await runBridge('quote', { pmcid: pm, quote: qt });
     if (!r.ok) return gentle(r.error);
     return [`PMCID: ${pm}`, ...quoteLines(r.data)].join('\n');
+  },
+};
+
+export const lit_fulltext = {
+  name: 'lit_fulltext',
+  description:
+    "Fetches the open-access full text of a Europe PMC article by PMCID and returns its sections and paragraphs (with a source XML hash and a truncation flag). Use it to actually read the paper before quoting; quote verification then works with lit_quote. Only open-access articles with full-text XML are available. Requires the literature-evidence-mcp package (uses the network); returns a gentle error message if unreachable.",
+  parameters: {
+    type: 'object',
+    properties: {
+      pmcid: { type: 'string', description: 'Europe PMC/PMC id of an open-access article (e.g. PMC8765432)' },
+      max_chars: {
+        type: 'number',
+        description: 'Max characters of retrieved text (1000-30000, default 30000)',
+      },
+    },
+    required: ['pmcid'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ pmcid, max_chars } = {}) {
+    const pm = str(pmcid).toUpperCase();
+    if (!pm) throw new Error('pmcid required (e.g. PMC8765432)');
+    if (!/^PMC[0-9]{1,15}$/.test(pm)) {
+      return 'Error: invalid PMCID; expected a Europe PMC id such as PMC8765432.';
+    }
+    const chars = Math.min(30000, Math.max(1000, Math.floor(Number(max_chars) || 30000)));
+    const r = await runBridge('fulltext', { pmcid: pm, max_chars: chars });
+    if (!r.ok) return gentle(r.error);
+    return fulltextLines(r.data).join('\n');
+  },
+};
+
+export const lit_cite_graph = {
+  name: 'lit_cite_graph',
+  description:
+    'Traverses the OpenAlex citation graph around a seed DOI: returns up to 30 works with provider-asserted "cites" edges in forward (who cites it), backward (what it references) or both directions, at most 2 levels deep and 12 network requests. Edges are bibliographic provider links, not verified relationships, and coverage is non-exhaustive (one page per direction). Requires the literature-evidence-mcp package (uses the network); returns a gentle error message if unreachable.',
+  parameters: {
+    type: 'object',
+    properties: {
+      seed_doi: { type: 'string', description: 'DOI of the seed work (e.g. 10.1038/nature12373)' },
+      max_depth: {
+        type: 'number',
+        description: 'Traversal depth: 1 or 2 (default 1)',
+      },
+      max_per_direction: {
+        type: 'number',
+        description: 'Max linked works per node per direction (1-10, default 5)',
+      },
+      directions: {
+        type: 'string',
+        enum: ['forward', 'backward', 'both'],
+        description: 'Which citation directions to traverse (default both)',
+      },
+    },
+    required: ['seed_doi'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ seed_doi, max_depth, max_per_direction, directions } = {}) {
+    const doi = str(seed_doi);
+    if (!doi) throw new Error('seed_doi required (e.g. 10.1038/nature12373)');
+    const depth = Math.min(2, Math.max(1, Math.floor(Number(max_depth) || 1)));
+    const perDir = Math.min(10, Math.max(1, Math.floor(Number(max_per_direction) || 5)));
+    const dir = str(directions) || 'both';
+    if (!['forward', 'backward', 'both'].includes(dir)) {
+      return 'Error: directions must be forward, backward or both.';
+    }
+    const r = await runBridge('citegraph', {
+      seed_doi: doi, max_depth: depth, max_per_direction: perDir, directions: dir,
+    });
+    if (!r.ok) return gentle(r.error);
+    return citeGraphLines(r.data).join('\n');
+  },
+};
+
+export const lit_data_code = {
+  name: 'lit_data_code',
+  description:
+    "Lists a paper's registered data, software and supplement links (Crossref link URLs and dataset/software/supplement relations) for a DOI, to check reproducibility assets. Links are listed but not fetched and may require licensing/access; absence in Crossref metadata is not proof none exist. Requires the literature-evidence-mcp package (uses the network); returns a gentle error message if unreachable.",
+  parameters: {
+    type: 'object',
+    properties: {
+      doi: { type: 'string', description: 'DOI (e.g. 10.1038/nature12373)' },
+    },
+    required: ['doi'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ doi } = {}) {
+    const d = str(doi);
+    if (!d) throw new Error('doi required (e.g. 10.1038/nature12373)');
+    const r = await runBridge('datacode', { doi: d });
+    if (!r.ok) return gentle(r.error);
+    return dataCodeLines(r.data).join('\n');
   },
 };
