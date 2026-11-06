@@ -17,10 +17,10 @@
       <button class="nav-item" data-view="settings" id="nav-settings"><span class="ico">⚙️</span> Settings</button>
     </nav>
     <div class="side-sessions">
-      <div class="ss-head"><span>SESSIONS</span><button id="ss-new" title="New session">+</button></div>
+      <div class="ss-head"><span>SESSIONS</span><button id="ss-new" title="New session" aria-label="New session">+</button></div>
       <div id="ss-list"></div>
     </div>
-    <div class="side-foot">v0.9 · scientific agent</div>
+    <div class="side-foot">v0.10 · scientific agent</div>
   </aside>
 
   <div class="wrap">
@@ -28,7 +28,7 @@
       <div class="brand"><span class="logo">⚛</span> SciAgent <span class="sub">scientific coding agent</span></div>
       <div class="head-actions">
         <span id="model-badge" class="badge">loading…</span>
-        <button id="btn-hero" class="ghost" title="Hide/show hero band">▴</button>
+        <button id="btn-hero" class="ghost" title="Hide/show hero band" aria-label="Hide or show hero band">▴</button>
         <button id="btn-export" class="ghost">Export</button>
         <button id="btn-clear" class="ghost">Clear</button>
         <button id="btn-settings" class="ghost">Settings</button>
@@ -44,7 +44,7 @@
       <!-- HERO BAND — end -->
 
       <main id="chat"></main>
-      <div id="status" class="status hidden"></div>
+      <div id="status" class="status hidden" role="status" aria-live="polite"></div>
 
       <footer>
         <textarea id="input" rows="1" placeholder="Type your task… (Enter: send, Shift+Enter: newline)"></textarea>
@@ -103,9 +103,9 @@
     </section>
   </div>
 
-  <div id="settings" class="modal hidden">
+  <div id="settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
     <div class="modal-card">
-      <h2>Model Settings</h2>
+      <h2 id="settings-title">Model Settings</h2>
       <label>Provider
         <select id="s-provider">
           <option value="openai-compatible">OpenAI-compatible API</option>

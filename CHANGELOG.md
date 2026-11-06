@@ -2,6 +2,20 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.0 — 2026-11-06
+
+**Tools: 42 (7 core + 35 plugin) · Tests: 134 · Plugins: 8 · Skills: 3**
+
+### Added
+- **Electron installer** — `npm run dist` in `packages/desktop` builds a Windows NSIS installer via electron-builder (`packages/desktop/electron-builder.yml`): appId `com.furoxart.sciagent`, icon, `SciAgent-<version>-win-x64.exe`. Packaged layout verified (eq-layer sources via `extraResources`, root version via `extraFiles`); the packaged `SciAgent.exe` was smoke-tested. Unsigned (SmartScreen may warn).
+- **`lit_bm25_rank`** — offline BM25 shortlisting of supplied abstracts by query (`rank_bm25` optional; missing package returns a clean install-hint error, never a crash). Literature group now 16 tools.
+- **Accessibility pass** (web UI):
+  - Settings modal: `role="dialog"`, `aria-modal`, labelled title, focus moves to the modal on open and returns to the opener on close (Esc included)
+  - Icon-only buttons get `aria-label` (new session, hero toggle, session delete/rename, skill remove)
+  - `#status` is now a polite live region that announces before painting
+  - Session rows are keyboard-operable (`tabindex` + `role="button"` + Enter/Space)
+  - Global `:focus-visible` outline, `.msg-copy` visible on keyboard focus, `prefers-reduced-motion` respected
+
 ## 0.9.0 — 2026-11-06
 
 **Tools: 41 (7 core + 34 plugin) · Tests: 130 · Plugins: 8 · Skills: 3**

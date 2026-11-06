@@ -811,3 +811,23 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
 .skill-md h1, .skill-md h2, .skill-md h3 { color: var(--cyan); font-size: 13px; margin: 8px 0 4px; }
 .skill-md pre { background: transparent; border: 0; padding: 4px 0; }
 .skill-md code.inline { background: transparent; border: 0; padding: 0; }
+
+/* ===== Erişilebilirlik ===== */
+/* Klavye odağı: turkuaz kontur, asla kaldırılmaz */
+:focus-visible {
+  outline: 2px solid var(--turquoise);
+  outline-offset: 2px;
+}
+/* Kopyalama düğmesi hover dışında klavye odağında da görünür */
+.msg:focus-within .msg-copy { opacity: 1; }
+
+/* Hareket azaltma tercihi: animasyon/geçişleri nötrle */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -158,8 +158,8 @@ function setStatus(t) {
     s.classList.add('hidden');
     return;
   }
-  s.textContent = t;
   s.classList.remove('hidden');
+  s.textContent = t;
 }
 
 let streamTarget = null;
@@ -276,7 +276,7 @@ function handleEvent(ev) {
       const btn = document.createElement('button');
       btn.className = 'turquoise';
       btn.textContent = 'Open Settings';
-      btn.onclick = () => $('#settings').classList.remove('hidden');
+      btn.onclick = () => openSettings();
       const retry = document.createElement('button');
       retry.className = 'ghost';
       retry.textContent = 'Retry';
@@ -398,15 +398,27 @@ $('#btn-clear').onclick = async () => {
     setTimeout(() => setStatus(''), 2500);
   }
 };
-$('#btn-settings').onclick = () => $('#settings').classList.remove('hidden');
+// Settings modal: remember the opener, move focus in, restore focus on close
+let settingsOpener = null;
+function openSettings() {
+  settingsOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  $('#settings').classList.remove('hidden');
+  $('#s-provider').focus();
+}
+function closeSettings() {
+  $('#settings').classList.add('hidden');
+  settingsOpener?.focus();
+  settingsOpener = null;
+}
+$('#btn-settings').onclick = openSettings;
 // Close the Settings window with Esc
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') $('#settings').classList.add('hidden');
+  if (e.key === 'Escape' && !$('#settings').classList.contains('hidden')) closeSettings();
 });
 // Click the model badge to open Settings
 $('#model-badge').style.cursor = 'pointer';
 $('#model-badge').title = 'Open model settings';
-$('#model-badge').onclick = () => $('#settings').classList.remove('hidden');
+$('#model-badge').onclick = openSettings;
 
 // Hide/show hero band (preference is remembered)
 const heroEl = document.querySelector('.hero');
@@ -501,7 +513,7 @@ $('#s-test').onclick = async () => {
     r.textContent = '✕ ' + e.message;
   }
 };
-$('#s-cancel').onclick = () => $('#settings').classList.add('hidden');
+$('#s-cancel').onclick = closeSettings;
 $('#s-save').onclick = async () => {
   try {
     await api('/api/config', {
@@ -513,7 +525,7 @@ $('#s-save').onclick = async () => {
         apiKey: $('#s-key').value,
       }),
     });
-    $('#settings').classList.add('hidden');
+    closeSettings();
     agentsInfoLoaded = false; // refresh the Agents card with the new model info
     await loadConfig();
   } catch (e) {
@@ -977,6 +989,7 @@ async function loadAgentSkills() {
       del.className = 'ss-del skill-del';
       del.textContent = '×';
       del.title = 'Remove skill';
+      del.setAttribute('aria-label', `Remove skill ${sk.name}`);
       del.onclick = async () => {
         await api('/api/agent-skills/remove', { method: 'POST', body: JSON.stringify({ source: sk.source }) }).catch(() => {});
         loadAgentSkills();
@@ -1064,6 +1077,9 @@ function renderSessions(s) {
     const item = document.createElement('div');
     item.className = 'ss-item' + (sess.id === s.active ? ' active' : '');
     item.title = `${sess.title} — ${sess.count ?? 0} messages`;
+    // Keyboard access for the clickable session row
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
     const label = document.createElement('span');
     label.className = 'ss-label';
     label.textContent = sess.title || sess.id;
@@ -1072,6 +1088,7 @@ function renderSessions(s) {
     del.className = 'ss-del';
     del.textContent = '×';
     del.title = 'Delete session';
+    del.setAttribute('aria-label', 'Delete session');
     del.onclick = async (e) => {
       e.stopPropagation();
       if (busy) return alert('Agent running; cannot delete a session.');
@@ -1085,6 +1102,7 @@ function renderSessions(s) {
     ren.className = 'ss-del';
     ren.textContent = '✎';
     ren.title = 'Rename';
+    ren.setAttribute('aria-label', 'Rename session');
     ren.onclick = async (e) => {
       e.stopPropagation();
       const t = prompt('New title', sess.title);
@@ -1103,6 +1121,12 @@ function renderSessions(s) {
       renderEmpty();
       loadSessions();
     };
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        item.click();
+      }
+    });
     list.appendChild(item);
   }
 }
@@ -1129,7 +1153,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
     const v = btn.dataset.view;
     if (v === 'settings') {
-      $('#settings').classList.remove('hidden');
+      openSettings();
       return;
     }
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));

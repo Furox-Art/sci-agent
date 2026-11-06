@@ -145,6 +145,7 @@ CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`
 | `lit_stats_check` | hayır | İstatistiksel raporlama denetimi: p-değeri/örneklem/güven aralığı tutarlılık bayrakları (çevrimdışı) |
 | `lit_doi_normalize` | hayır | DOI normalleştirme ve doğrulama (doi.org/`doi:` öneklerini temizler, çevrimdışı) |
 | `lit_pdf_provenance` | hayır | PDF sayfa kanıtlama: SHA-256, alıntı karakter aralıkları, tablo/şekil kutuları (çevrimdışı) |
+| `lit_bm25_rank` | hayır | BM25 ile kanıt kısa listeleme: verilen özetler içinde sorguya göre sıralama (çevrimdışı, opsiyonel `rank_bm25`) |
 | `plan_audit` | evet | plan-auditor CLI: mühürlü plan, kanıt zinciri, tamamlanma kapısı |
 | `cds1_cli` | evet | cds CLI (scientific-computing-system v1, saf Python): calc/stats/integrate/units/constants/plot/sample/hypothesis/prompt/modules |
 | `repocraft_cli` | evet | repocraft CLI: doğrulanmış spesifikasyondan deterministik Python proje iskeleti |
@@ -154,13 +155,13 @@ CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`
 | `polyglot_cli` | evet | polyglot-python CLI: kendi dilinde Python — TR dahil 8 dil transpiler (run/translate/check/locales) |
 | `eq_route` | hayır | eq-layer routing: mesaj için niyet/duygu/repair analizi ve yönlendirme önerisi |
 
-Kayıtlı toplam **41 araç** (7 çekirdek + 34 eklenti aracı); CLI ve masaüstü aynı altı gruba ayırır (`packages/core/src/tools/grouping.js`):
+Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI ve masaüstü aynı altı gruba ayırır (`packages/core/src/tools/grouping.js`):
 
 - **File & code** — core file and shell operations: read, write, edit, list, search, run.
 - **AI agents** — parallel sub-agents via `task`, each with its own context.
 - **Scientific computation** — math expressions, unit conversion, physical constants, statistics, matrices, molar mass, CSV stats, Python eval.
 - **Scientific package bridges** — CLI bridges to the user's open scientific packages (axiomize, cds/cds2, repocraft, nomosguard, sra, polyguard, polyglot-python) plus eq-layer routing.
-- **Literature (evidence chain)** — OpenAlex/Europe PMC/Crossref search, citation and retraction checks, full-text reading, citation-graph traversal, data/code availability, quote verification, methodology audit, PRISMA-style screening, bibliography export, hash-chained evidence ledger, statistical-reporting checks, DOI normalization, PDF page provenance.
+- **Literature (evidence chain)** — OpenAlex/Europe PMC/Crossref search, citation and retraction checks, full-text reading, citation-graph traversal, data/code availability, quote verification, methodology audit, PRISMA-style screening, bibliography export, hash-chained evidence ledger, statistical-reporting checks, DOI normalization, PDF page provenance, BM25 evidence shortlisting.
 - **Plan verification** — sealed-plan audit with a SHA-256 evidence chain and fail-closed completion gate.
 
 **Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
@@ -199,7 +200,9 @@ SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın s
 1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
 2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
 
-Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) bu kancanın çalışan örnekleridir: 34 bilimsel/kanıt aracı + bilimsel davranış ve akıl yürütme istemleri.
+Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) bu kancanın çalışan örnekleridir: 35 bilimsel/kanıt aracı + bilimsel davranış ve akıl yürütme istemleri.
+
+**Masaüstü paketleme (Electron):** `packages/desktop` içinde `npm run dist` ile Windows NSIS installer üretilir (`electron-builder`, config: `packages/desktop/electron-builder.yml`). Çıktı: `packages/desktop/release/SciAgent-<sürüm>-win-x64.exe`. İlk kullanımda kökte bir kez `npm install` gerekir; imza yoktur (Windows SmartScreen uyarı verebilir). Paket içinde `SCI_AGENT_WORKSPACE` env ile workspace seçilir.
 
 ## Verify it yourself
 
@@ -209,13 +212,13 @@ Bu README'deki sayıları repo kökünde tek komutlarla doğrulayabilirsin:
 # Eklenti adları (beklenen: 8 eklenti)
 node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPlugins().map(p => p.name).join('\n')))"
 
-# Kayıtlı araç sayısı (beklenen: 41)
+# Kayıtlı araç sayısı (beklenen: 42)
 node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
 
 # Varsayılan beceri kaynakları (beklenen: 3 github: kaynağı)
 node -e "import('./packages/core/src/index.js').then(m => console.log(m.DEFAULT_CONFIG.skills.sources))"
 
-# Test süiti (beklenen: 130 geçer, 0 başarısız, 0 atlanan)
+# Test süiti (beklenen: 134 geçer, 0 başarısız, 0 atlanan)
 node --test "test/**/*.test.js"
 ```
 
@@ -223,7 +226,7 @@ node --test "test/**/*.test.js"
 
 - [ ] Özel bilimsel model hookup'ı: model kullanıcı tarafından sağlanacak — sağlayıcı bağlama ve gerçek uç noktayla uçtan uca deneme
 - [ ] Daha fazla literatür köprüsü
-- [ ] Paketleme: Electron installer (tek komut kurulum scriptleri hazır: `scripts/setup.ps1` / `scripts/setup.sh`)
+- [ ] İmzalama ve otomatik güncelleme (installer hazır: `npm run dist`); tek komut kurulum scriptleri: `scripts/setup.ps1` / `scripts/setup.sh`
 - [ ] WSL ve masaüstü paketleme cilası
 
 ## Lisans
@@ -232,4 +235,4 @@ node --test "test/**/*.test.js"
 
 ## Durum
 
-v0.9 — v0.8'in üzerine: 3 yeni literatür aracı (lit_stats_check, lit_doi_normalize, lit_pdf_provenance → toplam 41), sağlamlaştırılmış ajan döngüsü (araç hatası/abort/bozuk çağrı korumaları), tek komut kurulum scriptleri (`scripts/setup.ps1` / `setup.sh`) ve CHANGELOG eklendi. 130 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.10 — v0.9'un üzerine: `lit_bm25_rank` (BM25 kanıt kısa listeleme → toplam 42 araç), erişilebilirlik (klavye ile oturum geçişi, dialog ARIA + odak yönetimi, canlı durum bölgesi, focus-visible, reduced-motion) ve **Electron installer** (`npm run dist` → Windows NSIS exe) eklendi. 134 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

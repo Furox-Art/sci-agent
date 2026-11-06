@@ -7,15 +7,16 @@ import { resolvePython } from './pybridge.js';
  * Extra literature evidence bridge: methodology audit, PRISMA-style screening,
  * hash-chained evidence ledger (append + verify), offline quote check on
  * caller-supplied text, BibTeX/RIS/CSL-JSON export, statistical reporting
- * consistency screen, DOI normalization and caller-supplied PDF page
- * provenance via the user's installed `literature-evidence-mcp` Python
- * package (>= 0.5.1).
+ * consistency screen, DOI normalization, caller-supplied PDF page provenance
+ * and offline BM25 evidence ranking via the user's installed
+ * `literature-evidence-mcp` Python package (>= 0.5.1).
  *
  * Same call pattern as sci-lit.js: the package exposes directly callable
  * functions in `literature_evidence_mcp.server` (audit_pmc_methodology,
  * search_literature + screen_methodology, export_bibliography, verify_quote,
  * export_evidence, EvidenceLedger.verify / verify_evidence_ledger,
- * check_statistical_reporting, normalize_doi, pdf_page_provenance), so no MCP
+ * check_statistical_reporting, normalize_doi, pdf_page_provenance,
+ * bm25_rank_evidence), so no MCP
  * stdio client is needed. Each call spawns
  * `python -X utf8 -I -c <driver>` with JSON on stdin and a sentinel-prefixed
  * JSON result on stdout. Every failure (missing Python, missing package,
@@ -127,6 +128,8 @@ def _main():
             res = {"input": str(req["doi"]), "normalized": srv.normalize_doi(str(req["doi"]))}
         elif op == "pdfprov":
             res = srv.pdf_page_provenance(str(req["pdf_base64"]), int(req["page_number"]), str(req["quote"]))
+        elif op == "rank":
+            res = srv.bm25_rank_evidence(str(req["query"]), list(req["documents"]), int(req.get("top_k", 10)))
         else:
             raise ValueError("unknown op: %r" % (op,))
         if asyncio.iscoroutine(res):
@@ -839,5 +842,117 @@ export const lit_pdf_provenance = {
     const r = await runBridge('pdfprov', { pdf_base64: b64, page_number: page, quote: qt });
     if (!r.ok) return pdfProvError(r.error, page);
     return pdfProvenanceLines(r.data).join('\n');
+  },
+};
+
+// Render the bm25_rank_evidence (lexical ranking of caller-supplied documents) result dict.
+function bm25RankLines(data) {
+  const lines = [`BM25 evidence ranking (caller-supplied corpus): ${data?.status ?? 'unknown'}`];
+  if (typeof data?.backend === 'string' && data.backend) lines.push(`Backend: ${data.backend}`);
+  lines.push(
+    `Candidates: ${Number(data?.candidate_count) || 0} | lexically matched: ${Number(data?.lexically_matched_candidates) || 0} | returned: ${Number(data?.returned_count) || 0}`,
+  );
+  const results = Array.isArray(data?.results) ? data.results : [];
+  for (const r of results.slice(0, 50)) {
+    const title = typeof r?.title === 'string' && r.title ? r.title.slice(0, 100) : '(no title)';
+    const score = Number.isFinite(r?.bm25_score) ? r.bm25_score.toFixed(4) : '?';
+    lines.push(`  ${r?.rank ?? '?'}. ${r?.id ?? '?'}: ${title} | BM25 score: ${score}`);
+  }
+  if (data?.status === 'NO_QUERY_TERM_OVERLAP') {
+    lines.push('No candidate shares a query term; nothing is ranked (absence of lexical overlap is not evidence of absence).');
+  }
+  if (data?.status === 'NO_INDEXABLE_DOCUMENT_TEXT') {
+    lines.push('No candidate had indexable text (words of two or more characters).');
+  }
+  if (typeof data?.notice === 'string' && data.notice.trim()) lines.push(`Package notice: ${data.notice}`);
+  lines.push(
+    'Warning: BM25 is a lexical overlap ranking only; it does not verify sources, semantic support or scientific validity.',
+  );
+  return lines;
+}
+
+export const lit_bm25_rank = {
+  name: 'lit_bm25_rank',
+  description:
+    'Ranks caller-supplied documents (id, title, abstract) against a query with BM25 (rank-bm25/BM25Okapi) and returns only lexically matched candidates with scores, highest first. Lexical overlap ranking only — no semantic support, source authentication or scientific verdict, and no network: the corpus stays local. Requires the literature-evidence-mcp package and the optional rank_bm25 package; if rank_bm25 is missing a dedicated install hint is returned.',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Query text (2-1000 characters; words of two or more characters are indexed)' },
+      documents: {
+        type: 'array',
+        description:
+          '1-10000 candidate records, each {id (unique string or integer), title?, abstract?}; title (max 700 chars) and abstract (max 20000 chars) are strings and at least one must be non-empty',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: ['string', 'number'], description: 'Unique record id (string 1-256 chars, or integer)' },
+            title: { type: 'string', description: 'Document title (max 700 characters)' },
+            abstract: { type: 'string', description: 'Document abstract (max 20000 characters)' },
+          },
+          required: ['id'],
+        },
+      },
+      top_k: { type: 'number', description: 'Max ranked results to return (1-50, default 10)' },
+    },
+    required: ['query', 'documents'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ query, documents, top_k } = {}) {
+    const q = str(query);
+    if (!q) throw new Error('query required (2-1000 characters to rank the supplied documents against)');
+    if (q.length < 2 || q.length > 1000) {
+      return 'Error: query must have 2-1000 characters.';
+    }
+    if (!Array.isArray(documents) || !documents.length) {
+      return 'Error: documents must be a non-empty array of records {id, title?, abstract?}.';
+    }
+    if (documents.length > 10_000) {
+      return 'Error: too many documents (max 10000 per ranking).';
+    }
+    const seen = new Set();
+    let totalBytes = 0;
+    for (let i = 0; i < documents.length; i++) {
+      const d = documents[i];
+      if (d === null || typeof d !== 'object' || Array.isArray(d)) {
+        return `Error: document ${i} must be an object {id, title?, abstract?}.`;
+      }
+      const rawId = d.id;
+      let id;
+      if (typeof rawId === 'string') id = rawId.trim();
+      else if (typeof rawId === 'number' && Number.isInteger(rawId)) id = String(rawId);
+      if (!id || id.length < 1 || id.length > 256) {
+        return `Error: document ${i} requires a string id (1-256 characters) or an integer id.`;
+      }
+      if (seen.has(id)) {
+        return `Error: duplicate document id "${id.slice(0, 64)}"; ids must be unique.`;
+      }
+      seen.add(id);
+      const title = d.title;
+      const abstract = d.abstract;
+      if ((title !== undefined && title !== null && typeof title !== 'string') ||
+          (abstract !== undefined && abstract !== null && typeof abstract !== 'string')) {
+        return `Error: document ${i} title and abstract must be strings when given.`;
+      }
+      const t = typeof title === 'string' ? title : '';
+      const a = typeof abstract === 'string' ? abstract : '';
+      if (!t.trim() && !a.trim()) {
+        return `Error: document ${i} needs a non-empty title or abstract.`;
+      }
+      if (t.length > 700) return `Error: document ${i} title exceeds 700 characters.`;
+      if (a.length > 20_000) return `Error: document ${i} abstract exceeds 20000 characters.`;
+      totalBytes += Buffer.byteLength(t, 'utf8') + Buffer.byteLength(a, 'utf8');
+      if (totalBytes > 8_000_000) {
+        return 'Error: total candidate text exceeds the 8 MB limit.';
+      }
+    }
+    const k = Math.min(50, Math.max(1, Math.floor(Number(top_k) || 10)));
+    const r = await runBridge('rank', { query: q, documents, top_k: k });
+    if (!r.ok) return gentle(r.error);
+    if (r.data?.status === 'OPTIONAL_BM25_NOT_INSTALLED') {
+      return 'Error: the optional rank_bm25 Python package is not installed. Install: "python -m pip install rank_bm25" (or "python -m pip install literature-evidence-mcp[retrieval]") and retry.';
+    }
+    return bm25RankLines(r.data).join('\n');
   },
 };

@@ -1,16 +1,19 @@
 {
   "name": "@sci/desktop",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "SciAgent masaüstü uygulaması (Electron) ve yerel sunucu",
   "type": "module",
   "main": "main.js",
+  "author": "furoxart",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
   },
   "dependencies": {
     "@sci/core": "*"
   },
   "devDependencies": {
-    "electron": "^45.2.1"
+    "electron": "^45.2.1",
+    "electron-builder": "^25.1.8"
   }
 }

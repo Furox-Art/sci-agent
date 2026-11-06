@@ -1,0 +1,54 @@
+# SciAgent masaüstü paketleme yapılandırması (electron-builder)
+# Kullanım:  npm install  (bir kez)  →  npm run dist  →  release/ altında installer
+appId: com.furoxart.sciagent
+productName: SciAgent
+
+# npm workspaces'te electron ROOT node_modules'a kurulur; electron-builder
+# paket dizininden onu göremez (electron-userland/electron-builder#3984).
+# Bu yüzden sürüm sabitlenir ve dist klasörü gösterilir (zip indirme olmaz).
+# NOT: electron devDependency (^45.2.1) güncellenirse bu satır da güncellenmeli.
+electronVersion: 45.2.1
+electronDist: ../../node_modules/electron/dist
+
+directories:
+  output: release
+  buildResources: build
+
+# Asar içine sadece uygulama dosyaları girer; production bağımlılıklar
+# (@sci/core workspace paketi) electron-builder tarafından node_modules'dan
+# otomatik toplanır. Dev bağımlılıklar (electron, electron-builder) paketlenmez.
+files:
+  - main.js
+  - server.js
+  - ui/**/*
+
+# Pakette native (node-gyp) modül yok; gereksiz npm rebuild/install çağrısı
+# workspace node_modules'ını reify etmeye çalışıp Windows dosya kilidi
+# (EBUSY) hatasına yol açıyor, bu yüzden kapatıldı.
+npmRebuild: false
+
+asar: true
+
+# server.js paket kökünden DIŞARI çıkan iki göreli yol kullanıyor:
+#   1) import { buildSteering } from '../core/src/eq/eq-layer.js'
+#      → app.asar'ın bir üstü = resources/ → resources/core/src/... olarak eklenir.
+#   2) readFileSync(path.join(__dirname, '../../package.json')) (VERSION)
+#      → resources/'ün bir üstü = kurulum kökü (exe yanı) → kök package.json
+#        extraFiles ile exe yanına kopyalanır.
+extraResources:
+  - from: ../../packages/core/src
+    to: core/src
+extraFiles:
+  - from: ../../package.json
+    to: package.json
+
+win:
+  target: nsis
+  # 512x512 PNG; electron-builder bunu otomatik olarak .ico'ya çevirir.
+  # Override için build/icon.ico dosyası yerleştirilebilir.
+  icon: ui/assets/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}

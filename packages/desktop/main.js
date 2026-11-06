@@ -1,6 +1,11 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+// Not (paketleme): sunucu ayrı bir `node server.js` süreci olarak değil,
+// startServer doğrudan import edilerek aynı süreçte başlatılır ve asar ile
+// paketlenir. server.js'in paket kökü dışına çıkan göreli yolları
+// (../core/src/eq/eq-layer.js ve ../../package.json) electron-builder.yml
+// içindeki extraResources/extraFiles ile paketlemeye eklenir.
 import { startServer } from './server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

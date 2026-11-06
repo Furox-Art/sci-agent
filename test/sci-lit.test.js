@@ -219,11 +219,11 @@ test('canlı veri/kod bağlantıları: link listesi ya da nazik hata metni döne
 
 // --- Registration: the sci-lit plugin must expose the full bridge surface ---
 
-test('sci-lit plugin registration: all 15 tools present, including the round-3 offline helpers', () => {
+test('sci-lit plugin registration: all 16 tools present, including the round-3 offline helpers', () => {
   const plugin = getPlugin('sci-lit');
   assert.ok(plugin, 'sci-lit plugin must exist');
   const names = plugin.tools.map((t) => t.name);
-  assert.equal(plugin.tools.length, 15);
+  assert.equal(plugin.tools.length, 16);
   for (const name of [
     'lit_search',
     'lit_verify',
@@ -240,12 +240,13 @@ test('sci-lit plugin registration: all 15 tools present, including the round-3 o
     'lit_stats_check',
     'lit_doi_normalize',
     'lit_pdf_provenance',
+    'lit_bm25_rank',
   ]) {
     assert.ok(names.includes(name), `${name} must be registered in the sci-lit plugin`);
   }
   assert.ok(
-    /statistical reporting consistency screen|DOI normalization|PDF page provenance/.test(plugin.description),
-    'plugin description must mention the round-3 tools',
+    /statistical reporting consistency screen|DOI normalization|PDF page provenance|BM25 evidence ranking/.test(plugin.description),
+    'plugin description must mention the offline helpers',
   );
 });
 

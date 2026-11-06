@@ -14,6 +14,7 @@ import {
   lit_stats_check,
   lit_doi_normalize,
   lit_pdf_provenance,
+  lit_bm25_rank,
 } from './science/sci-lit-extra.js';
 import { plan_audit } from './science/sci-audit.js';
 
@@ -70,10 +71,10 @@ const BUILTINS = {
   'sci-lit': {
     name: 'sci-lit',
     description:
-      'Literature evidence tools (literature-evidence-mcp): OpenAlex/Europe PMC/Crossref search, citation matching, retraction checking, open-access full-text retrieval, quote verification (by PMCID or supplied text), citation-graph traversal, data/code link lookup, methodology audit, PRISMA-style screening, hash-chained evidence ledger append/verify, BibTeX/RIS/CSL-JSON export, statistical reporting consistency screen, DOI normalization, caller-supplied PDF page provenance',
-    tools: [lit_search, lit_verify, lit_quote, lit_audit, lit_screen, lit_ledger, lit_fulltext, lit_cite_graph, lit_data_code, lit_bib, lit_quote_text, lit_evidence, lit_stats_check, lit_doi_normalize, lit_pdf_provenance],
+      'Literature evidence tools (literature-evidence-mcp): OpenAlex/Europe PMC/Crossref search, citation matching, retraction checking, open-access full-text retrieval, quote verification (by PMCID or supplied text), citation-graph traversal, data/code link lookup, methodology audit, PRISMA-style screening, hash-chained evidence ledger append/verify, BibTeX/RIS/CSL-JSON export, statistical reporting consistency screen, DOI normalization, caller-supplied PDF page provenance, offline BM25 evidence ranking',
+    tools: [lit_search, lit_verify, lit_quote, lit_audit, lit_screen, lit_ledger, lit_fulltext, lit_cite_graph, lit_data_code, lit_bib, lit_quote_text, lit_evidence, lit_stats_check, lit_doi_normalize, lit_pdf_provenance, lit_bm25_rank],
     systemPrompt:
-      'Literature mode: never fabricate literature claims from memory; search with lit_search, run DOI/retraction checks with lit_verify when citing, verify the full-text match with lit_quote when showing a quote. For methodology reviews use lit_audit, for systematic screening use lit_screen, and to verify a hash-chained evidence file use lit_ledger. Before reusing reported numbers (p values, CIs, sample sizes) screen them with lit_stats_check; normalize DOIs with lit_doi_normalize, and check quote provenance inside a local PDF with lit_pdf_provenance. If an external API fails, state that explicitly.',
+      'Literature mode: never fabricate literature claims from memory; search with lit_search, run DOI/retraction checks with lit_verify when citing, verify the full-text match with lit_quote when showing a quote. For methodology reviews use lit_audit, for systematic screening use lit_screen, and to verify a hash-chained evidence file use lit_ledger. Before reusing reported numbers (p values, CIs, sample sizes) screen them with lit_stats_check; normalize DOIs with lit_doi_normalize, check quote provenance inside a local PDF with lit_pdf_provenance, and shortlist caller-supplied abstracts with lit_bm25_rank before close reading. If an external API fails, state that explicitly.',
   },
   'sci-audit': {
     name: 'sci-audit',

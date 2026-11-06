@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ToolRegistry } from '@sci/core';
+import { ToolRegistry, getPlugin } from '@sci/core';
 import {
   lit_audit,
   lit_screen,
@@ -14,9 +15,11 @@ import {
   lit_stats_check,
   lit_doi_normalize,
   lit_pdf_provenance,
+  lit_bm25_rank,
 } from '../packages/core/src/science/sci-lit-extra.js';
+import { resolvePython } from '../packages/core/src/science/pybridge.js';
 
-const TOOLS = [lit_audit, lit_screen, lit_ledger, lit_bib, lit_quote_text, lit_evidence, lit_stats_check, lit_doi_normalize, lit_pdf_provenance];
+const TOOLS = [lit_audit, lit_screen, lit_ledger, lit_bib, lit_quote_text, lit_evidence, lit_stats_check, lit_doi_normalize, lit_pdf_provenance, lit_bm25_rank];
 
 async function makeRegistry() {
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-lit-extra-'));
@@ -25,7 +28,7 @@ async function makeRegistry() {
 
 // --- Structure tests: run in every environment (no Python/network needed) ---
 
-test('araç şekli: dokuz araç tanımlı, onaysız ve paralel çalışabilir', () => {
+test('araç şekli: on araç tanımlı, onaysız ve paralel çalışabilir', () => {
   for (const t of TOOLS) {
     assert.equal(typeof t.name, 'string');
     assert.ok(t.name.length > 0);
@@ -38,7 +41,7 @@ test('araç şekli: dokuz araç tanımlı, onaysız ve paralel çalışabilir', 
   }
   assert.deepEqual(
     TOOLS.map((t) => t.name),
-    ['lit_audit', 'lit_screen', 'lit_ledger', 'lit_bib', 'lit_quote_text', 'lit_evidence', 'lit_stats_check', 'lit_doi_normalize', 'lit_pdf_provenance'],
+    ['lit_audit', 'lit_screen', 'lit_ledger', 'lit_bib', 'lit_quote_text', 'lit_evidence', 'lit_stats_check', 'lit_doi_normalize', 'lit_pdf_provenance', 'lit_bm25_rank'],
   );
 });
 
@@ -80,6 +83,12 @@ test('şemalar: geçerli JSON Schema ve JSON-aşılabilir', () => {
   assert.equal(lit_pdf_provenance.parameters.properties.pdf_base64.type, 'string');
   assert.equal(lit_pdf_provenance.parameters.properties.page_number.type, 'number');
   assert.equal(lit_pdf_provenance.parameters.properties.quote.type, 'string');
+  assert.deepEqual(lit_bm25_rank.parameters.required, ['query', 'documents']);
+  assert.equal(lit_bm25_rank.parameters.properties.query.type, 'string');
+  assert.equal(lit_bm25_rank.parameters.properties.documents.type, 'array');
+  assert.equal(lit_bm25_rank.parameters.properties.documents.items.type, 'object');
+  assert.deepEqual(lit_bm25_rank.parameters.properties.documents.items.properties.id.type, ['string', 'number']);
+  assert.equal(lit_bm25_rank.parameters.properties.top_k.type, 'number');
   // Parameter descriptions must be present and non-trivial.
   for (const t of TOOLS) {
     for (const [key, prop] of Object.entries(t.parameters.properties)) {
@@ -487,4 +496,120 @@ test('lit_pdf_provenance validation: bad page, non-PDF and missing source fail g
   const r5 = await registry.invoke('lit_pdf_provenance', { pdf_base64: 'JVBERi0xLjQK', page_number: 1, quote: '' });
   assert.equal(r5.ok, false, 'empty quote must throw (caught by the registry)');
   assert.ok(r5.output.startsWith('Error'), `unexpected output: ${r5.output}`);
+});
+
+// --- Offline deterministic tests for the BM25 ranker (package required, no network) ---
+
+const RANK_DOCS = [
+  { id: 'd1', title: 'CRISPR off-target effects in vivo', abstract: 'off-target mutations measured by GUIDE-seq' },
+  { id: 'd2', title: 'CRISPR screening overview', abstract: 'pooled screens and library design' },
+  { id: 'd3', title: 'Unrelated ecology survey', abstract: 'forest biodiversity sampling' },
+  { id: 'd4', title: 'off-target effects of CRISPR nucleases', abstract: 'off-target sites and specificity assays across cell types' },
+];
+
+test('registration: lit_bm25_rank is exposed by the sci-lit plugin (16 tools)', () => {
+  const plugin = getPlugin('sci-lit');
+  assert.ok(plugin, 'sci-lit plugin must exist');
+  assert.equal(plugin.tools.length, 16);
+  assert.ok(plugin.tools.some((tool) => tool.name === 'lit_bm25_rank'), 'lit_bm25_rank must be registered');
+  assert.ok(/BM25 evidence ranking/.test(plugin.description), 'description must mention BM25 evidence ranking');
+});
+
+test('lit_bm25_rank ranks caller-supplied documents lexically (offline deterministic)', async (t) => {
+  const registry = await makeRegistry();
+  const r = await registry.invoke('lit_bm25_rank', { query: 'CRISPR off-target effects', documents: RANK_DOCS, top_k: 3 });
+  assert.equal(typeof r.ok, 'boolean');
+  assert.equal(typeof r.output, 'string');
+  assert.ok(r.output.length > 0);
+  if (/package was not found|Python interpreter not found/.test(r.output)) {
+    t.skip('literature-evidence-mcp not installed; BM25 ranking skipped');
+    return;
+  }
+  assert.ok(r.ok === true, `unexpected failure: ${r.output.slice(0, 400)}`);
+  assert.ok(/BM25 evidence ranking \(caller-supplied corpus\): BM25_LEXICAL_CANDIDATES_ONLY/.test(r.output), `status expected: ${r.output.slice(0, 400)}`);
+  assert.ok(/Backend: rank-bm25 0\.2\.2 \/ BM25Okapi/.test(r.output), 'backend line expected');
+  assert.ok(/Candidates: 4 \| lexically matched: 3 \| returned: 3/.test(r.output), `counts expected: ${r.output}`);
+  // Deterministic BM25Okapi ordering on this fixed corpus (length normalization puts the
+  // short d2 first; verified directly against the package).
+  assert.ok(/1\. d2: CRISPR screening overview \| BM25 score: \d+\.\d{4}/.test(r.output), `rank 1 expected: ${r.output}`);
+  assert.ok(/2\. d1: CRISPR off-target effects in vivo \| BM25 score: \d+\.\d{4}/.test(r.output), `rank 2 expected: ${r.output}`);
+  assert.ok(/3\. d4: off-target effects of CRISPR nucleases \| BM25 score: \d+\.\d{4}/.test(r.output), `rank 3 expected: ${r.output}`);
+  assert.ok(!r.output.includes('. d3:'), 'non-matching candidate must not be ranked');
+  assert.ok(/lexical overlap ranking only/.test(r.output), 'scope warning expected');
+});
+
+test('lit_bm25_rank edge statuses and validation: overlap miss, no indexable text, bad documents', async (t) => {
+  const registry = await makeRegistry();
+  const r = await registry.invoke('lit_bm25_rank', { query: 'quantum entanglement', documents: RANK_DOCS });
+  if (/package was not found|Python interpreter not found/.test(r.output)) {
+    t.skip('literature-evidence-mcp not installed; BM25 edge statuses skipped');
+    return;
+  }
+  assert.ok(r.ok === true, `unexpected failure: ${r.output.slice(0, 400)}`);
+  assert.ok(/NO_QUERY_TERM_OVERLAP/.test(r.output), `overlap-miss status expected: ${r.output.slice(0, 400)}`);
+  assert.ok(/Candidates: 4 \| lexically matched: 0 \| returned: 0/.test(r.output), 'zero matches expected');
+
+  const r6 = await registry.invoke('lit_bm25_rank', { query: 'crispr screening', documents: [{ id: 'x', title: 'a b', abstract: '  ' }] });
+  assert.ok(r6.ok === true);
+  assert.ok(/NO_INDEXABLE_DOCUMENT_TEXT/.test(r6.output), `no-indexable status expected: ${r6.output.slice(0, 400)}`);
+
+  // Package-independent validation errors.
+  const r2 = await registry.invoke('lit_bm25_rank', { query: 'crispr', documents: 'nope' });
+  assert.equal(r2.ok, true);
+  assert.ok(r2.output.startsWith('Error: documents must be a non-empty array'), `unexpected output: ${r2.output}`);
+
+  const r3 = await registry.invoke('lit_bm25_rank', { query: 'crispr screening', documents: [{ id: 'a', title: 'x' }, { id: 'a', title: 'y' }] });
+  assert.equal(r3.ok, true);
+  assert.ok(r3.output.startsWith('Error: duplicate document id'), `unexpected output: ${r3.output}`);
+
+  const r4 = await registry.invoke('lit_bm25_rank', { query: 'crispr screening', documents: [{ title: 'no id here' }] });
+  assert.equal(r4.ok, true);
+  assert.ok(r4.output.startsWith('Error: document 0 requires a string id'), `unexpected output: ${r4.output}`);
+
+  const r5 = await registry.invoke('lit_bm25_rank', { query: 'c', documents: [{ id: 'a', title: 'A title' }] });
+  assert.equal(r5.ok, true);
+  assert.ok(r5.output.startsWith('Error: query must have 2-1000 characters'), `unexpected output: ${r5.output}`);
+});
+
+test('lit_bm25_rank returns a clean dedicated error when rank_bm25 is missing (simulated)', async (t) => {
+  const registry = await makeRegistry();
+  const args = {
+    query: 'crispr off-target effects',
+    documents: [{ id: 'd1', title: 'CRISPR off-target effects review', abstract: 'off-target mutations' }],
+  };
+  // Locate the installed rank_bm25 module file so it can be hidden for this test.
+  let modPath = null;
+  try {
+    const dir = execFileSync(
+      resolvePython(),
+      ['-X', 'utf8', '-I', '-c', 'import rank_bm25, os; print(os.path.dirname(rank_bm25.__file__))'],
+      { encoding: 'utf8' },
+    ).trim();
+    modPath = path.join(dir, 'rank_bm25.py');
+  } catch {
+    // rank_bm25 not installed: the natural runtime path is exercised below without hiding anything.
+  }
+  let hiddenPath = null;
+  if (modPath) {
+    hiddenPath = `${modPath}.hidden-for-bm25-test`;
+    try {
+      await fs.rename(modPath, hiddenPath);
+    } catch {
+      t.skip('rank_bm25.py could not be temporarily hidden (file lock); missing-module simulation skipped');
+      return;
+    }
+  }
+  try {
+    const r = await registry.invoke('lit_bm25_rank', args);
+    assert.equal(r.ok, true, 'a missing optional dependency must return a gentle string, not throw');
+    assert.ok(
+      r.output.startsWith('Error: the optional rank_bm25 Python package is not installed'),
+      `dedicated error expected: ${r.output.slice(0, 400)}`,
+    );
+    assert.ok(/pip install rank_bm25/.test(r.output), 'install hint expected');
+  } finally {
+    if (hiddenPath) {
+      await fs.rename(hiddenPath, modPath).catch(() => {});
+    }
+  }
 });
