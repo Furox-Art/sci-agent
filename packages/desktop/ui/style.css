@@ -796,6 +796,9 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
   .chart-zero { margin-top: 4px; }
   .modal-card { width: 92%; max-height: calc(100vh - 32px); overflow-y: auto; }
   .tools-wrap { padding: 14px 12px; }
+  /* toast: sarılan header'ın yüksekliği değişken olduğundan üstte değil,
+     girdi çubuğunun üstüne sabitlenir (çakışma düzeltmesi) */
+  #toast { top: auto; bottom: 86px; right: 12px; left: 12px; max-width: none; }
 }
 
 /* Beceri gövdesi (markdown render) */

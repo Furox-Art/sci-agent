@@ -386,22 +386,45 @@ export async function startRepl(argv = []) {
             busy = false;
           }
         }
+      } else if (input === '/skills add') {
+        console.log(red('Usage: /skills add github:user/repo[/sub/path]'));
       } else if (input.startsWith('/skills add ')) {
+        // Same busy guard as /skills and /test: adding fetches over the network, so an
+        // early /exit (or EOF) must wait for the result instead of silently dropping it.
         const source = input.slice('/skills add '.length).trim();
-        try {
-          const sk = await fetchSkill(source);
-          cfg.skills = cfg.skills ?? { sources: [] };
-          if (!cfg.skills.sources.includes(source)) cfg.skills.sources.push(source);
-          const cfile = path.join(cfg.agent.workspaceRoot, 'sci-agent.config.json');
-          let cur = {};
+        if (!source) {
+          console.log(red('Usage: /skills add github:user/repo[/sub/path]'));
+        } else if (busy) {
+          console.log(dim('(previous task running; please wait)'));
+        } else {
+          busy = true;
+          // fetchSkill takes no signal (it sets its own 20 s fetch timeout), so race it
+          // against a hard 20 s timer to guarantee this command always terminates.
+          let timer;
           try {
-            cur = JSON.parse(readFileSync(cfile, 'utf8'));
-          } catch {}
-          cur.skills = { sources: cfg.skills.sources };
-          writeFileSync(cfile, JSON.stringify(cur, null, 2));
-          console.log(`${cyan('✓ Skill added')}: ${sk.name} ${dim(`(${source})`)}`);
-        } catch (e) {
-          console.log(red(`✕ ${trunc(e.message, 200)}`));
+            console.log(dim(`Adding skill ${source}…`));
+            const sk = await Promise.race([
+              fetchSkill(source),
+              new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error('timed out after 20 s — the skill source did not answer')), 20_000);
+              }),
+            ]);
+            cfg.skills = cfg.skills ?? { sources: [] };
+            if (!cfg.skills.sources.includes(source)) cfg.skills.sources.push(source);
+            const cfile = path.join(cfg.agent.workspaceRoot, 'sci-agent.config.json');
+            let cur = {};
+            try {
+              cur = JSON.parse(readFileSync(cfile, 'utf8'));
+            } catch {}
+            cur.skills = { sources: cfg.skills.sources };
+            writeFileSync(cfile, JSON.stringify(cur, null, 2));
+            console.log(`${cyan('✓ Skill added')}: ${sk.name} ${dim(`(${source})`)}`);
+          } catch (e) {
+            console.log(red(`✕ ${source}: ${trunc(e.message, 140)}`));
+          } finally {
+            clearTimeout(timer);
+            busy = false;
+          }
         }
       } else if (input === '/save') {
         const lines = ['# SciAgent Chat', '', new Date().toLocaleString('tr-TR'), ''];

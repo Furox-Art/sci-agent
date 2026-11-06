@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -117,6 +118,95 @@ test('geçersiz değerler: throw değil, nazik İngilizce hata metni (ok:true)',
   assert.equal(r2.ok, true);
   assert.ok(r2.output.startsWith('Error:'), `unexpected output: ${r2.output}`);
   assert.ok(/forward|backward|both/.test(r2.output), 'desteklenen yönler listelenmeli');
+});
+
+// --- Python-start failure attribution: honest dedicated message, NOT the network wording ---
+// (Simulated in a fresh child process so pybridge's module-level resolvePython()
+// cache is empty and SCI_AGENT_PYTHON takes effect deterministically.)
+
+// Run one tool's execute() in a fresh node child and return its string output.
+function runToolInChild(driverFile, name, args, env) {
+  const driverUrl = new URL(`../packages/core/src/science/${driverFile}`, import.meta.url).href;
+  const script = `
+    const mod = await import(${JSON.stringify(driverUrl)});
+    const r = await mod[${JSON.stringify(name)}].execute(${JSON.stringify(args)});
+    process.stdout.write(JSON.stringify(String(r)));
+  `;
+  return execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    env,
+    encoding: 'utf8',
+    timeout: 60_000,
+    windowsHide: true,
+  });
+}
+
+test('Python başlatılamadığında ağ hatası değil, dürüst ayrılmış mesaj döner (simüle)', async () => {
+  // Var olan ama çalıştırılamayan bir "yorumlayıcı": resolvePython onu döndürür
+  // (absolute + existsSync yeterli) ama spawn başarısız olur -> 'Failed to start
+  // Python process' sınıfı -> ağ metni yerine Python-start mesajı beklenir.
+  const fake = path.join(os.tmpdir(), `sci-fake-python-${process.pid}.txt`);
+  await fs.writeFile(fake, 'this is not a Python interpreter');
+  try {
+    const out = runToolInChild('sci-lit.js', 'lit_search', { query: 'CRISPR off-target effects' }, {
+      ...process.env,
+      SCI_AGENT_PYTHON: fake,
+    });
+    const output = JSON.parse(out);
+    assert.ok(
+      output.startsWith('Error: the Python interpreter could not be started ('),
+      `dedicated Python-start message expected: ${output.slice(0, 400)}`,
+    );
+    assert.ok(output.includes('SCI_AGENT_PYTHON'), 'SCI_AGENT_PYTHON hint expected');
+    assert.ok(
+      !output.includes('could not reach the literature provider'),
+      `network wording must not appear: ${output.slice(0, 400)}`,
+    );
+  } finally {
+    await fs.rm(fake, { force: true });
+  }
+});
+
+test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython null, simüle)', () => {
+  // PATH ve Python kurulum dizinleri strip'lenmiş ortam: SCI_AGENT_PYTHON yok,
+  // LOCALAPPDATA/ProgramFiles taraması yok, 'python'/'python3' bare adları
+  // başarısız -> runBridge'in 'Python interpreter not found' yolu.
+  const out = runToolInChild('sci-lit.js', 'lit_search', { query: 'CRISPR off-target effects' }, {
+    SystemRoot: process.env.SystemRoot,
+    SYSTEMDRIVE: process.env.SYSTEMDRIVE,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
+    APPDATA: process.env.APPDATA,
+  });
+  const output = JSON.parse(out);
+  assert.ok(
+    output.startsWith('Error: the Python interpreter could not be started (Python interpreter not found)'),
+    `dedicated message for a missing interpreter expected: ${output.slice(0, 400)}`,
+  );
+  assert.ok(output.includes('SCI_AGENT_PYTHON'), 'SCI_AGENT_PYTHON hint expected');
+  assert.ok(
+    !output.includes('could not reach the literature provider'),
+    `network wording must not appear: ${output.slice(0, 400)}`,
+  );
+});
+
+test('Süreç başlayıp sonra başarısız olursa ağ metni korunur (sınıf ayrımı sınırı)', () => {
+  // Çalışan ama Python sürücüsünü anlamayan sahte yorumlayıcı (node.exe):
+  // süreç BAŞLAR, python bayraklarını anlamaz ve anlamsız çıkış yapar ->
+  // 'unexpected Python output' sınıfı -> ağ metni KORUNMALI (Python-start
+  // sınıfına kaymamalı; gerçek ağ hataları da bu sınıfta kalır).
+  const out = runToolInChild('sci-lit.js', 'lit_search', { query: 'CRISPR off-target effects' }, {
+    ...process.env,
+    SCI_AGENT_PYTHON: process.execPath,
+  });
+  const output = JSON.parse(out);
+  assert.ok(
+    output.startsWith('Error: could not reach the literature provider'),
+    `network wording expected for a ran-but-failed bridge: ${output.slice(0, 400)}`,
+  );
+  assert.ok(
+    !output.includes('the Python interpreter could not be started'),
+    `dedicated start-failure message must not appear: ${output.slice(0, 400)}`,
+  );
 });
 
 // --- Live tests: only meaningful with the package + network; type-based asserts ---

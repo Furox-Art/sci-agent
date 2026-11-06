@@ -194,6 +194,81 @@ test('lit_quote_text uzunluk limitleri: sınır aşımı nazik hata metni (ok:tr
   assert.ok(r2.output.startsWith('Error:'));
 });
 
+// --- Python-start failure attribution: honest dedicated message, NOT the network wording ---
+// Offline ops route every bridge failure through gentle() too, so a Python-start
+// failure used to read as "could not reach the literature provider" even for them.
+// (Simulated in a fresh child process so pybridge's module-level resolvePython()
+// cache is empty and SCI_AGENT_PYTHON takes effect deterministically.)
+
+// Run one tool's execute() in a fresh node child and return its string output.
+function runToolInChild(driverFile, name, args, env) {
+  const driverUrl = new URL(`../packages/core/src/science/${driverFile}`, import.meta.url).href;
+  const script = `
+    const mod = await import(${JSON.stringify(driverUrl)});
+    const r = await mod[${JSON.stringify(name)}].execute(${JSON.stringify(args)});
+    process.stdout.write(JSON.stringify(String(r)));
+  `;
+  return execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    env,
+    encoding: 'utf8',
+    timeout: 60_000,
+    windowsHide: true,
+  });
+}
+
+test('Python başlatılamadığında çevrimdışı araç bile ağ hatası değil dürüst mesaj döner (simüle)', async () => {
+  // Var olan ama çalıştırılamayan "yorumlayıcı" (lit_bib tamamen çevrimdışı bir
+  // araçtır): spawn başarısız olur -> 'Failed to start Python process' sınıfı ->
+  // ağ metni yerine Python-start mesajı beklenir.
+  const fake = path.join(os.tmpdir(), `sci-fake-python-extra-${process.pid}.txt`);
+  await fs.writeFile(fake, 'this is not a Python interpreter');
+  try {
+    const out = runToolInChild('sci-lit-extra.js', 'lit_bib', { papers: [{ title: 'X' }] }, {
+      ...process.env,
+      SCI_AGENT_PYTHON: fake,
+    });
+    const output = JSON.parse(out);
+    assert.ok(
+      output.startsWith('Error: the Python interpreter could not be started ('),
+      `dedicated Python-start message expected: ${output.slice(0, 400)}`,
+    );
+    assert.ok(output.includes('SCI_AGENT_PYTHON'), 'SCI_AGENT_PYTHON hint expected');
+    assert.ok(
+      !output.includes('could not reach the literature provider'),
+      `network wording must not appear: ${output.slice(0, 400)}`,
+    );
+  } finally {
+    await fs.rm(fake, { force: true });
+  }
+});
+
+test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython null, simüle)', () => {
+  // PATH ve Python kurulum dizinleri strip'lenmiş ortam: SCI_AGENT_PYTHON yok,
+  // 'python'/'python3' bare adları başarısız -> 'Python interpreter not found' yolu
+  // (lit_quote_text de çevrimdışı bir araçtır).
+  const out = runToolInChild('sci-lit-extra.js', 'lit_quote_text', {
+    quote: 'randomization was performed',
+    source_text: 'Patients were enrolled; randomization was performed by computer.',
+    source_id: 'src',
+  }, {
+    SystemRoot: process.env.SystemRoot,
+    SYSTEMDRIVE: process.env.SYSTEMDRIVE,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
+    APPDATA: process.env.APPDATA,
+  });
+  const output = JSON.parse(out);
+  assert.ok(
+    output.startsWith('Error: the Python interpreter could not be started (Python interpreter not found)'),
+    `dedicated message for a missing interpreter expected: ${output.slice(0, 400)}`,
+  );
+  assert.ok(output.includes('SCI_AGENT_PYTHON'), 'SCI_AGENT_PYTHON hint expected');
+  assert.ok(
+    !output.includes('could not reach the literature provider'),
+    `network wording must not appear: ${output.slice(0, 400)}`,
+  );
+});
+
 test('lit_ledger yol çözümleme: workspaceRoot altındaki göreli yol kullanılır', async (t) => {
   // Bridge çağrısı gerektirir; paket yoksa skip. Ağ gerekmez (yalnızca yerel dosya).
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-ledger-ws-'));

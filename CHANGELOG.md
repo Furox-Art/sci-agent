@@ -2,6 +2,16 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.5 — 2026-11-07
+
+### Fixed
+- **Honest error attribution in the literature bridges** — a Python-start failure (broken venv, permissions, missing interpreter) was mislabeled as "could not reach the literature provider"; both drivers now emit a dedicated message (`the Python interpreter could not be started (<reason>). Set SCI_AGENT_PYTHON …`), and the network wording is reserved for real outbound failures (+5 simulation tests)
+- **CLI `/skills add`** — no-argument usage guidance (previously went to the model), `busy` guard while fetching (fast `/exit` no longer swallows the result), 20 s hard timeout, error lines match the `/skills` format
+- **UI: toast on mobile** — on ≤640 px the toast anchors above the input bar instead of colliding with the wrapped header
+
+### Tests
+- +7 tests: **169 total, 0 fail**
+
 ## 0.10.4 — 2026-11-07
 
 ### Fixed

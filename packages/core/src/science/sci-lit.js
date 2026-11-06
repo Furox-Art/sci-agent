@@ -117,11 +117,27 @@ function runBridge(op, payload = {}) {
   });
 }
 
+// Python process could not START (no interpreter found, or spawn failed with
+// ENOENT/EACCES/...): a local environment problem, not a network outage — label
+// it honestly instead of "could not reach the literature provider".
+function pyStartMessage(msg) {
+  const reason = msg.replace(/^Failed to start Python process:\s*/i, '') || 'unknown reason';
+  const tail = reason.length > 200 ? `${reason.slice(0, 200)}…` : reason;
+  return `Error: the Python interpreter could not be started (${tail}). Set SCI_AGENT_PYTHON to a working interpreter and retry.`;
+}
+
 // Map any bridge failure to a gentle message (never throw).
 function gentle(errorText) {
   const msg = String(errorText ?? '');
   if (/No module named/i.test(msg) && /literature_evidence_mcp/i.test(msg)) {
     return 'Error: the literature-evidence-mcp Python package was not found. Install: "python -m pip install literature-evidence-mcp" (>= 0.5.1). If a different Python is used, you can provide its path via the SCI_AGENT_PYTHON environment variable.';
+  }
+  if (
+    msg === 'Python interpreter not found' ||
+    /^Failed to start Python process\b/i.test(msg) ||
+    /\bspawn\b.*\b(ENOENT|EACCES)\b/i.test(msg)
+  ) {
+    return pyStartMessage(msg);
   }
   const tail = msg.length > 400 ? `${msg.slice(0, 400)}…` : msg;
   return `Error: could not reach the literature provider (may be no network, an exhausted quota/rate limit, or a temporary service outage). Details: ${tail}`;

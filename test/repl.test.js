@@ -187,6 +187,59 @@ test('/test prints a clear failure line with latency and does not hang on an unr
   assert.ok(Number.isFinite(ms) && ms < 15000, `failure reported quickly (${ms} ms)`);
 });
 
+test('/skills add with no argument prints usage instead of calling the model (piped stdin)', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-skills-usage-'));
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  await fs.writeFile(
+    path.join(root, 'sci-agent.config.json'),
+    JSON.stringify({ model: { provider: 'mock' }, skills: { sources: [] } }),
+  );
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'cli', 'bin', 'sci-agent.js');
+  const r = spawnSync(process.execPath, [bin, '--workspace', root], {
+    input: '/skills add\n/exit\n',
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  assert.equal(r.status, 0, `repl exited cleanly (stderr: ${r.stderr})`);
+  const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
+  assert.match(out, /^Usage: \/skills add github:user\/repo\[\/sub\/path\]$/m);
+  // The bare command must not leak into the agent loop (no mock model response follows).
+  assert.doesNotMatch(out, /Mock sağlayıcı/);
+  assert.doesNotMatch(out, /✓ Skill added/);
+  // Nothing was persisted to the config.
+  const cfgAfter = JSON.parse(await fs.readFile(path.join(root, 'sci-agent.config.json'), 'utf8'));
+  assert.deepEqual(cfgAfter.skills?.sources, []);
+});
+
+test('/skills add with an invalid source prints "✕ <source>: <message>", exits cleanly and persists nothing (piped stdin)', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-skills-fail-'));
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  await fs.writeFile(
+    path.join(root, 'sci-agent.config.json'),
+    JSON.stringify({ model: { provider: 'mock' }, skills: { sources: [] } }),
+  );
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'cli', 'bin', 'sci-agent.js');
+  // "notaskill:…" lacks the github: prefix, so fetchSkill rejects immediately (no network).
+  const r = spawnSync(process.execPath, [bin, '--workspace', root], {
+    input: '/skills add notaskill:foo/bar\n/exit\n',
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  assert.equal(r.status, 0, `repl exited cleanly (stderr: ${r.stderr})`);
+  const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
+  assert.match(out, /^Adding skill notaskill:foo\/bar…$/m);
+  // Failure line carries the source prefix, same format as the /skills listing.
+  assert.match(out, /^✕ notaskill:foo\/bar: Invalid skill source: notaskill:foo\/bar .+"github:user\/repo" expected\)$/m);
+  assert.doesNotMatch(out, /✓ Skill added/);
+  // A failed add must not persist the source.
+  const cfgAfter = JSON.parse(await fs.readFile(path.join(root, 'sci-agent.config.json'), 'utf8'));
+  assert.deepEqual(cfgAfter.skills?.sources, []);
+});
+
 test('deleting the current session starts a fresh "default" session without title ghosting (piped stdin)', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-del-'));
   t.after(async () => {
