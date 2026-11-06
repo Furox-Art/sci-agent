@@ -3,14 +3,21 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ToolRegistry } from '@sci/core';
+import { ToolRegistry, getPlugin } from '@sci/core';
 import { lit_search, lit_verify, lit_quote, lit_fulltext, lit_cite_graph, lit_data_code } from '../packages/core/src/science/sci-lit.js';
+import { lit_doi_normalize } from '../packages/core/src/science/sci-lit-extra.js';
 
 const TOOLS = [lit_search, lit_verify, lit_quote, lit_fulltext, lit_cite_graph, lit_data_code];
 
 async function makeRegistry() {
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-lit-'));
   return new ToolRegistry({ tools: TOOLS, workspaceRoot });
+}
+
+// Dedicated registry for the round-3 offline DOI helper (lives in sci-lit-extra.js).
+async function makeDoiRegistry() {
+  const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-lit-doi-'));
+  return new ToolRegistry({ tools: [lit_doi_normalize], workspaceRoot });
 }
 
 // --- Structure tests: run in every environment (no Python/network needed) ---
@@ -208,4 +215,68 @@ test('canlı veri/kod bağlantıları: link listesi ya da nazik hata metni döne
     assert.ok(/DOI 10\.1038\/nature12373/.test(r.output), 'istenen DOI çıktıda görünmeli');
   }
   assert.ok(process.pid > 0);
+});
+
+// --- Registration: the sci-lit plugin must expose the full bridge surface ---
+
+test('sci-lit plugin registration: all 15 tools present, including the round-3 offline helpers', () => {
+  const plugin = getPlugin('sci-lit');
+  assert.ok(plugin, 'sci-lit plugin must exist');
+  const names = plugin.tools.map((t) => t.name);
+  assert.equal(plugin.tools.length, 15);
+  for (const name of [
+    'lit_search',
+    'lit_verify',
+    'lit_quote',
+    'lit_fulltext',
+    'lit_cite_graph',
+    'lit_data_code',
+    'lit_audit',
+    'lit_screen',
+    'lit_ledger',
+    'lit_bib',
+    'lit_quote_text',
+    'lit_evidence',
+    'lit_stats_check',
+    'lit_doi_normalize',
+    'lit_pdf_provenance',
+  ]) {
+    assert.ok(names.includes(name), `${name} must be registered in the sci-lit plugin`);
+  }
+  assert.ok(
+    /statistical reporting consistency screen|DOI normalization|PDF page provenance/.test(plugin.description),
+    'plugin description must mention the round-3 tools',
+  );
+});
+
+// --- Offline deterministic tests for the round-3 DOI helper (package required, no network) ---
+
+test('lit_doi_normalize: canonical form for bare, doi: and URL spellings (offline deterministic)', async (t) => {
+  const registry = await makeDoiRegistry();
+  for (const doi of ['https://doi.org/10.1038/Nature12373', 'doi:10.1038/nature12373', '10.1038/nature12373']) {
+    const r = await registry.invoke('lit_doi_normalize', { doi });
+    assert.equal(typeof r.ok, 'boolean');
+    assert.equal(typeof r.output, 'string');
+    assert.ok(r.output.length > 0);
+    if (/package was not found|Python interpreter not found/.test(r.output)) {
+      t.skip('literature-evidence-mcp not installed; DOI normalization skipped');
+      return;
+    }
+    assert.ok(r.ok === true, `unexpected failure for ${doi}: ${r.output}`);
+    assert.ok(/Normalized DOI: 10\.1038\/nature12373/.test(r.output), `canonical DOI expected: ${r.output}`);
+    assert.ok(r.output.includes(`Input: ${doi}`), `input echo expected: ${r.output}`);
+    assert.ok(/registration or resolvability is not checked/.test(r.output), 'scope note expected');
+  }
+});
+
+test('lit_doi_normalize validation: invalid DOI is a gentle Error, missing arg throws (registry-caught)', async () => {
+  const registry = await makeDoiRegistry();
+  const bad = await registry.invoke('lit_doi_normalize', { doi: 'not-a-doi' });
+  assert.equal(bad.ok, true, 'invalid DOI must not throw');
+  assert.ok(bad.output.startsWith('Error: invalid DOI'), `unexpected output: ${bad.output}`);
+  assert.ok(/10\.<registrant>\/<suffix>/.test(bad.output), 'expected syntax must be listed');
+
+  const missing = await registry.invoke('lit_doi_normalize', {});
+  assert.equal(missing.ok, false, 'missing doi must throw (caught by the registry)');
+  assert.ok(missing.output.startsWith('Error'), `unexpected output: ${missing.output}`);
 });

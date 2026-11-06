@@ -1,17 +1,21 @@
 import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { resolvePython } from './pybridge.js';
 
 /**
  * Extra literature evidence bridge: methodology audit, PRISMA-style screening,
  * hash-chained evidence ledger (append + verify), offline quote check on
- * caller-supplied text and BibTeX/RIS/CSL-JSON export via the user's installed
- * `literature-evidence-mcp` Python package (>= 0.5.1).
+ * caller-supplied text, BibTeX/RIS/CSL-JSON export, statistical reporting
+ * consistency screen, DOI normalization and caller-supplied PDF page
+ * provenance via the user's installed `literature-evidence-mcp` Python
+ * package (>= 0.5.1).
  *
  * Same call pattern as sci-lit.js: the package exposes directly callable
  * functions in `literature_evidence_mcp.server` (audit_pmc_methodology,
  * search_literature + screen_methodology, export_bibliography, verify_quote,
- * export_evidence, EvidenceLedger.verify / verify_evidence_ledger), so no MCP
+ * export_evidence, EvidenceLedger.verify / verify_evidence_ledger,
+ * check_statistical_reporting, normalize_doi, pdf_page_provenance), so no MCP
  * stdio client is needed. Each call spawns
  * `python -X utf8 -I -c <driver>` with JSON on stdin and a sentinel-prefixed
  * JSON result on stdout. Every failure (missing Python, missing package,
@@ -117,6 +121,12 @@ def _main():
             res = srv.verify_quote(str(req["quote_text"]), str(req["source_text"]), str(req["source_id"]))
         elif op == "evidence":
             res = srv.export_evidence(str(req["kind"]), dict(req["payload"]))
+        elif op == "stats":
+            res = srv.check_statistical_reporting(list(req["records"]))
+        elif op == "doi":
+            res = {"input": str(req["doi"]), "normalized": srv.normalize_doi(str(req["doi"]))}
+        elif op == "pdfprov":
+            res = srv.pdf_page_provenance(str(req["pdf_base64"]), int(req["page_number"]), str(req["quote"]))
         else:
             raise ValueError("unknown op: %r" % (op,))
         if asyncio.iscoroutine(res):
@@ -341,6 +351,74 @@ function evidenceLines(data) {
   if (typeof data?.path === 'string') lines.push(`Ledger file: ${data.path}`);
   lines.push('Verify the chain afterwards with lit_ledger. Limitation: wholesale replacement of the ledger file cannot be detected.');
   return lines;
+}
+
+// Render the check_statistical_reporting (mechanical stats consistency) result dict.
+// `records` is the caller's original input; the package echoes only index/flags/status.
+function statsCheckLines(records, data) {
+  const lines = [`Statistical reporting screen (mechanical consistency): ${data?.status ?? 'unknown'}`];
+  const checked = Array.isArray(data?.records) ? data.records : [];
+  const flagged = checked.filter((r) => Array.isArray(r?.flags) && r.flags.length);
+  lines.push(`Records checked: ${checked.length} | flagged: ${flagged.length}`);
+  checked.forEach((r) => {
+    const idx = Number.isFinite(r?.index) ? r.index : '?';
+    const label =
+      typeof records[idx]?.label === 'string' && records[idx].label.trim()
+        ? ` (${records[idx].label.trim().slice(0, 80)})`
+        : '';
+    const flags = Array.isArray(r?.flags) && r.flags.length ? r.flags.join(', ') : 'none';
+    lines.push(`  Record ${idx}${label}: ${r?.status ?? 'unknown'} | flags: ${flags}`);
+  });
+  if (typeof data?.notice === 'string' && data.notice.trim()) lines.push(`Package notice: ${data.notice}`);
+  lines.push(
+    'Warning: these are range/ordering checks on the numbers as entered; no statistical test, effect re-estimation or scientific validity assessment was performed.',
+  );
+  return lines;
+}
+
+// Render the normalize_doi result dict.
+function doiNormalizeLines(input, data) {
+  return [
+    `Normalized DOI: ${typeof data?.normalized === 'string' && data.normalized ? data.normalized : '?'}`,
+    `Input: ${input}`,
+    'Note: syntactic normalization only (prefix strip, format validation, lowercase); registration or resolvability is not checked (use lit_verify for that).',
+  ];
+}
+
+// Render the pdf_page_provenance (caller-supplied PDF) result dict.
+function pdfProvenanceLines(data) {
+  const lines = [
+    `PDF page provenance: ${data?.status ?? 'unknown'}`,
+    `Page: ${Number.isFinite(data?.page_number) ? data.page_number : '?'} of ${Number.isFinite(data?.page_count) ? data.page_count : '?'} | PDF sha256: ${typeof data?.pdf_sha256 === 'string' ? `${data.pdf_sha256.slice(0, 16)}…` : '?'}`,
+  ];
+  if (typeof data?.page_text_sha256 === 'string') lines.push(`Page text sha256: ${data.page_text_sha256.slice(0, 16)}…`);
+  if (Number.isFinite(data?.quote_offset_start) && Number.isFinite(data?.quote_offset_end)) {
+    lines.push(`Quote found at characters ${data.quote_offset_start}-${data.quote_offset_end}.`);
+  } else {
+    lines.push('Quote not found on this page (offsets null).');
+  }
+  const rects = Array.isArray(data?.matching_text_bounding_boxes) ? data.matching_text_bounding_boxes : [];
+  const tables = Array.isArray(data?.detected_table_bounding_boxes) ? data.detected_table_bounding_boxes : [];
+  const images = Array.isArray(data?.detected_image_bounding_boxes) ? data.detected_image_bounding_boxes : [];
+  lines.push(
+    `Match text boxes: ${rects.length} | tables: ${tables.length}${data?.tables_truncated === true ? ' (truncated)' : ''} | images: ${images.length}${data?.images_truncated === true ? ' (truncated)' : ''}`,
+  );
+  if (typeof data?.notice === 'string' && data.notice.trim()) lines.push(`Package notice: ${data.notice}`);
+  lines.push(
+    'Warning: structural/textual PDF coordinates only; figure and table content, source authenticity and scientific claims are not verified.',
+  );
+  return lines;
+}
+
+// Map pdf_page_provenance input errors to clear messages (offline op; the network
+// gentle text would mislead when the package rejects a caller-supplied PDF).
+function pdfProvError(errorText, page) {
+  const msg = String(errorText ?? '');
+  if (/Page not present/i.test(msg)) return `Error: page ${page} is not present in the PDF (check the reported page count).`;
+  if (/quote length/i.test(msg)) return 'Error: quote must be 1-2000 characters.';
+  if (/page_number/i.test(msg)) return 'Error: page_number must be an integer from 1 to 1000.';
+  if (/PDF/i.test(msg)) return 'Error: the PDF could not be parsed (invalid, oversized or unsupported file).';
+  return gentle(msg);
 }
 
 // Render the EvidenceLedger.verify() result dict.
@@ -616,5 +694,150 @@ export const lit_evidence = {
     const r = await runBridge('evidence', { kind: k, payload });
     if (!r.ok) return gentle(r.error);
     return evidenceLines(r.data).join('\n');
+  },
+};
+
+export const lit_stats_check = {
+  name: 'lit_stats_check',
+  description:
+    'Screens caller-supplied reported statistics (p values, confidence intervals, sample sizes, point estimates) for mechanical inconsistencies: p value outside 0-1, reversed or partial confidence interval, estimate outside its reported CI, invalid sample size. Purely arithmetic range/ordering checks on the numbers exactly as entered — no statistical re-analysis, no scientific validity assessment; runs offline (the records are never sent to any provider). Requires the literature-evidence-mcp package.',
+  parameters: {
+    type: 'object',
+    properties: {
+      records: {
+        type: 'array',
+        description:
+          '1-100 statistical records, each {label?, p_value?, sample_size?, ci_lower?, ci_upper?, estimate?}; label is free text identifying the paper/table/section (not checked), the others are optional numbers taken exactly as reported',
+        items: {
+          type: 'object',
+          properties: {
+            label: { type: 'string', description: 'Free-text identifier, e.g. "Smith 2020 Table 2" (not checked)' },
+            p_value: { type: 'number', description: 'Reported p value; flags P_VALUE_OUT_OF_RANGE when outside 0-1' },
+            sample_size: { type: 'number', description: 'Reported sample size (integer); flags INVALID_SAMPLE_SIZE when below 1' },
+            ci_lower: { type: 'number', description: 'Lower bound of the reported confidence interval' },
+            ci_upper: { type: 'number', description: 'Upper bound of the reported confidence interval' },
+            estimate: {
+              type: 'number',
+              description: 'Reported point estimate; flags ESTIMATE_OUTSIDE_REPORTED_CI_REVIEW when outside ci_lower..ci_upper',
+            },
+          },
+        },
+      },
+    },
+    required: ['records'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ records } = {}) {
+    if (!Array.isArray(records) || !records.length) {
+      return 'Error: records must be a non-empty array of statistical records {label?, p_value?, sample_size?, ci_lower?, ci_upper?, estimate?}.';
+    }
+    if (records.length > 100) {
+      return 'Error: too many records (max 100 per screen).';
+    }
+    if (records.some((r) => r === null || typeof r !== 'object' || Array.isArray(r))) {
+      return 'Error: each record must be an object with optional numeric fields p_value, sample_size, ci_lower, ci_upper, estimate.';
+    }
+    const NUM_FIELDS = ['p_value', 'sample_size', 'ci_lower', 'ci_upper', 'estimate'];
+    for (let i = 0; i < records.length; i++) {
+      for (const key of NUM_FIELDS) {
+        const v = records[i][key];
+        if (v !== undefined && v !== null && (typeof v !== 'number' || !Number.isFinite(v))) {
+          return `Error: record ${i} field ${key} must be a finite number (got ${typeof v}).`;
+        }
+      }
+    }
+    const r = await runBridge('stats', { records });
+    if (!r.ok) return gentle(r.error);
+    return statsCheckLines(records, r.data).join('\n');
+  },
+};
+
+export const lit_doi_normalize = {
+  name: 'lit_doi_normalize',
+  description:
+    'Normalizes a DOI to its canonical lowercase form: strips https://doi.org/, https://dx.doi.org/ and doi: prefixes and validates the 10.<registrant>/<suffix> syntax. Syntactic cleanup only — it does not check that the DOI is registered or resolvable (use lit_verify for that). Offline; requires the literature-evidence-mcp package.',
+  parameters: {
+    type: 'object',
+    properties: {
+      doi: {
+        type: 'string',
+        description: 'DOI in any common spelling: bare 10.<registrant>/<suffix>, doi: prefixed, or a https://doi.org/ URL',
+      },
+    },
+    required: ['doi'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ doi } = {}) {
+    const d = str(doi);
+    if (!d) throw new Error('doi required (e.g. 10.1038/nature12373 or https://doi.org/10.1038/nature12373)');
+    const r = await runBridge('doi', { doi: d });
+    if (!r.ok) {
+      if (/Expected a valid DOI/i.test(r.error)) {
+        return 'Error: invalid DOI; expected 10.<registrant>/<suffix> (e.g. 10.1038/nature12373, doi:10.1038/nature12373 or a https://doi.org/ URL).';
+      }
+      return gentle(r.error);
+    }
+    return doiNormalizeLines(d, r.data).join('\n');
+  },
+};
+
+export const lit_pdf_provenance = {
+  name: 'lit_pdf_provenance',
+  description:
+    'Audits one page of a caller-supplied PDF: returns the PDF SHA-256, the page text hash, the character offsets where a quote occurs and bounding boxes for the matching text, tables and images. Structural/textual provenance only — embedded image content, table semantics, source authenticity and scientific claims are not verified. Runs offline (the PDF is read locally, nothing is uploaded); requires the literature-evidence-mcp package.',
+  parameters: {
+    type: 'object',
+    properties: {
+      pdf_path: {
+        type: 'string',
+        description:
+          'Path to a local PDF file (max 5 MB); relative paths resolve against the workspace root. Used when both pdf_path and pdf_base64 are given',
+      },
+      pdf_base64: {
+        type: 'string',
+        description: 'PDF bytes base64-encoded (max 7 MB of base64, decoded max 5 MB); use pdf_path when the file is on disk',
+      },
+      page_number: { type: 'number', description: '1-based page number to audit (1-1000)' },
+      quote: { type: 'string', description: 'Quote to locate on that page (1-2000 characters)' },
+    },
+    required: ['page_number', 'quote'],
+  },
+  needsApproval: false,
+  parallel: true,
+  async execute({ pdf_path, pdf_base64, page_number, quote } = {}, ctx = {}) {
+    const page = Math.floor(Number(page_number));
+    if (!Number.isFinite(page) || page < 1 || page > 1000) {
+      return 'Error: page_number must be an integer from 1 to 1000.';
+    }
+    const qt = typeof quote === 'string' ? quote.trim() : '';
+    if (!qt) throw new Error('quote required (the text to locate on the page)');
+    if (qt.length > 2000) return 'Error: quote must be 1-2000 characters.';
+    let b64 = typeof pdf_base64 === 'string' ? pdf_base64.trim() : '';
+    let p = str(pdf_path);
+    if (p) {
+      if (!isAbsolute(p)) {
+        const base = typeof ctx?.workspaceRoot === 'string' && ctx.workspaceRoot ? ctx.workspaceRoot : process.cwd();
+        p = resolve(join(base, p));
+      }
+      if (/[*?]/.test(p)) return 'Error: invalid PDF path (wildcards are not allowed).';
+      let buf;
+      try {
+        buf = await readFile(p);
+      } catch (e) {
+        return `Error: could not read the PDF file (${e.message}).`;
+      }
+      if (buf.length > 5_000_000) return 'Error: PDF file too large (max 5 MB).';
+      b64 = buf.toString('base64');
+    }
+    if (!b64) throw new Error('pdf_path or pdf_base64 required (the caller-supplied PDF to audit)');
+    if (b64.length > 7_000_000) return 'Error: PDF base64 too large (max 7 MB, decoded max 5 MB).';
+    if (!Buffer.from(b64, 'base64').subarray(0, 5).toString('latin1').startsWith('%PDF-')) {
+      return 'Error: file does not look like a PDF (missing %PDF- header).';
+    }
+    const r = await runBridge('pdfprov', { pdf_base64: b64, page_number: page, quote: qt });
+    if (!r.ok) return pdfProvError(r.error, page);
+    return pdfProvenanceLines(r.data).join('\n');
   },
 };
