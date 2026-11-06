@@ -263,3 +263,49 @@ test('invalid JSON body returns 400 (not 500)', async (t) => {
   });
   assert.equal(r.status, 400);
 });
+
+// ===== Example CSVs (examples/) =====
+
+test('example kinetics.csv serves with expected columns and numeric rows', async (t) => {
+  const { base, root } = await makeServer(t);
+  await fs.mkdir(path.join(root, 'examples'));
+  await fs.copyFile(new URL('../examples/kinetics.csv', import.meta.url), path.join(root, 'examples', 'kinetics.csv'));
+  const r = await fetch(base + '/api/csv?path=' + encodeURIComponent('examples/kinetics.csv'));
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.deepEqual(d.columns, ['time', 'concentration_M', 'ln_conc']);
+  assert.equal(d.rowCount, 12);
+  // time is a text label column (x axis); concentration and ln_conc are the plotted series
+  assert.equal(d.labelName, 'time');
+  assert.deepEqual(d.labels[0], '0 min');
+  assert.deepEqual(d.labels.at(-1), '110 min');
+  for (const col of ['concentration_M', 'ln_conc']) {
+    assert.equal(d.numeric[col].length, d.rowCount, `${col} numeric array matches rowCount`);
+  }
+  assert.equal(d.numeric.concentration_M[0], 0.5);
+  assert.equal(d.numeric.concentration_M.at(-1), 0.0106);
+  // first-order decay: concentration strictly decreases over time
+  for (let i = 1; i < d.numeric.concentration_M.length; i++) {
+    assert.ok(d.numeric.concentration_M[i] < d.numeric.concentration_M[i - 1], `row ${i} decays`);
+  }
+});
+
+test('example titration.csv serves with expected columns and numeric rows', async (t) => {
+  const { base, root } = await makeServer(t);
+  await fs.mkdir(path.join(root, 'examples'));
+  await fs.copyFile(new URL('../examples/titration.csv', import.meta.url), path.join(root, 'examples', 'titration.csv'));
+  const r = await fetch(base + '/api/csv?path=' + encodeURIComponent('examples/titration.csv'));
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.deepEqual(d.columns, ['volume', 'pH']);
+  assert.equal(d.rowCount, 11);
+  // volume is a text label column (x axis); pH is the plotted series
+  assert.equal(d.labelName, 'volume');
+  assert.deepEqual(d.labels[0], '0.0 mL');
+  assert.deepEqual(d.labels.at(-1), '25.0 mL');
+  assert.equal(d.numeric.pH.length, d.rowCount, 'pH numeric array matches rowCount');
+  assert.ok(Math.min(...d.numeric.pH) < 4, 'starts acidic');
+  assert.ok(Math.max(...d.numeric.pH) > 11, 'ends basic');
+  // steep pH jump across the equivalence point at 12.5 mL
+  assert.ok(d.numeric.pH[6] - d.numeric.pH[5] > 2, 'pH jump near equivalence');
+});

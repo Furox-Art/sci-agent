@@ -97,6 +97,7 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/help` | komut listesi |
 | `/model` | model/yapılandırma bilgisi |
 | `/tools` | araç listesi (ajan araçları turkuaz işaretli) |
+| `/tools <filtre>` | ad/açıklamada arama: boşluk = VE, `\|` = VEYA (masaüstü aramasıyla aynı) |
 | `/sessions` | oturum listesi |
 | `/sessions <no>` | oturuma geç |
 | `/sessions del <no>` | oturumu sil |
@@ -107,6 +108,16 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/exit` | çıkış |
 
 CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`) paylaşır: uygulamada bıraktığın sohbeti terminalde sürdürebilirsin. Akışlı yanıtlar, alt-ajan olayları (`▶ ■ ↳`) ve eq-layer yönlendirmesi terminalde de aktiftir; onay isteyen araçlar terminalde `e/h` sorar.
+
+### Örnek veriler
+
+Grafikler görünümünde denemek için `examples/` altında üç hazır CSV var (yol yaz veya "load example" düğmesini kullan):
+
+| Dosya | İçerik | Beklenen eğri |
+|---|---|---|
+| `examples/veri.csv` | 3 aylık sıcaklık/nem/basınç serisi | Çok serili çizgi |
+| `examples/kinetics.csv` | Birinci mertebe tepkime: konsantrasyon + ln[C] (k = 0.035/dk) | Üstel bozunum + ln'de düz çizgi |
+| `examples/titration.csv` | Zayıf asit titrasyonu (0.010 M asetik asit, eşdeğerlik 12.5 mL) | Eşdeğerlikte dik sıçramalı S eğrisi |
 
 ## Araçlar
 

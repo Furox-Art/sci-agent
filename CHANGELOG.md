@@ -6,6 +6,9 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 
 ### Added
 - **4 more default skills** (7 total, all verified to load via `fetchSkill`): `plan-auditor` (sealed-plan verification workflow), `nomosguard` (fail-closed security reasoning), `literature-evidence-mcp` (verifiable literature evidence usage), `scientific-computing-system` (dependency-free scientific computation guidance) — all from the user's public repos, on top of the existing 3
+- **Scientific example CSVs** — `examples/kinetics.csv` (first-order decay: C(t) + ln[C], k = 0.035/min) and `examples/titration.csv` (weak-acid titration sigmoid, equivalence at 12.5 mL), with `/api/csv` tests; x-axis columns are text labels so the Charts view plots the curves against time/volume
+- **Skill prompt budget locked by tests** — measured 7-skill system text (~34k chars, ~8.6k tokens); per-skill 6000-char cap keeps names + descriptions always intact (5 bodies full, 2 at 85%/68% retention)
+- **CLI `/tools [filter]`** and a dynamic version banner; README screenshots refreshed from the current UI
 
 ## 0.10.2 — 2026-11-06
 
