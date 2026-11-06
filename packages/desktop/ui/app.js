@@ -63,6 +63,18 @@ function toolBlock(id, name, args) {
   return det;
 }
 
+// Failed tool result: plain 'Error: …' output, or JSON with an `error` key
+function failedOutput(output) {
+  if (typeof output !== 'string') return false;
+  if (output.startsWith('Error:')) return true;
+  try {
+    const j = JSON.parse(output);
+    return j !== null && typeof j === 'object' && 'error' in j;
+  } catch {
+    return false;
+  }
+}
+
 function toolResult(id, ok, output) {
   const det = (id && toolBlocks.get(id)) || lastTool;
   if (!det) return;
@@ -70,6 +82,17 @@ function toolResult(id, ok, output) {
   pre.className = ok ? 'out' : 'err';
   pre.textContent = output;
   det.appendChild(pre);
+  // Make failures visually obvious: red left border + 'failed' chip next to the tool name
+  if (!ok || failedOutput(output)) {
+    det.classList.add('failed');
+    const sum = det.querySelector('summary');
+    if (sum && !sum.querySelector('.f-chip')) {
+      const chip = document.createElement('span');
+      chip.className = 'f-chip';
+      chip.textContent = 'failed'; // real text, visible to screen readers
+      sum.appendChild(chip);
+    }
+  }
   const cb = document.createElement('button');
   cb.className = 't-copy';
   cb.textContent = 'copy';

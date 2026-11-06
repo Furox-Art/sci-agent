@@ -137,3 +137,93 @@ test('/tools [filter] narrows the listing like the desktop tool search (piped st
   assert.match(nomatchSection, /^No tools match "zzzznope"\.$/m);
   assert.deepEqual(namesIn(nomatchSection), []);
 });
+
+test('/test prints a clear success line with latency (mock provider, piped stdin)', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-test-ok-'));
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  await fs.writeFile(
+    path.join(root, 'sci-agent.config.json'),
+    JSON.stringify({ model: { provider: 'mock' }, skills: { sources: [] } }),
+  );
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'cli', 'bin', 'sci-agent.js');
+  const r = spawnSync(process.execPath, [bin, '--workspace', root], {
+    input: '/test\n/exit\n',
+    encoding: 'utf8',
+    timeout: 120000,
+    // Scripted mock so the sample response is deterministic ("ok").
+    env: { ...process.env, SCI_AGENT_MOCK: JSON.stringify(['ok']) },
+  });
+  assert.equal(r.status, 0, `repl exited cleanly (stderr: ${r.stderr})`);
+  const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
+  assert.match(out, /^Testing model connection…$/m);
+  assert.match(out, /^✓ connection ok \(\d+ ms\) — sample response: ok$/m);
+});
+
+test('/test prints a clear failure line with latency and does not hang on an unreachable server (piped stdin)', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-test-fail-'));
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  // Closed loopback port: connection refused immediately on every platform.
+  await fs.writeFile(
+    path.join(root, 'sci-agent.config.json'),
+    JSON.stringify({ model: { provider: 'openai-compat', baseUrl: 'http://127.0.0.1:1', name: 'unused' }, skills: { sources: [] } }),
+  );
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'cli', 'bin', 'sci-agent.js');
+  const r = spawnSync(process.execPath, [bin, '--workspace', root], {
+    input: '/test\n/exit\n',
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  assert.equal(r.status, 0, `repl exited cleanly (stderr: ${r.stderr})`);
+  const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
+  assert.match(out, /^Testing model connection…$/m);
+  assert.match(out, /^✕ failed \(\d+ ms\): .+$/m);
+  assert.doesNotMatch(out, /✓ connection ok/);
+  // The connection test itself completed quickly (the /test request is capped at 15 s).
+  const ms = Number(out.match(/^✕ failed \((\d+) ms\)/m)?.[1]);
+  assert.ok(Number.isFinite(ms) && ms < 15000, `failure reported quickly (${ms} ms)`);
+});
+
+test('deleting the current session starts a fresh "default" session without title ghosting (piped stdin)', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-del-'));
+  t.after(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  await fs.writeFile(
+    path.join(root, 'sci-agent.config.json'),
+    JSON.stringify({ model: { provider: 'mock' }, skills: { sources: [] } }),
+  );
+  // One saved session, which the REPL picks up as the current session at startup.
+  const sessDir = path.join(root, '.sci-agent-sessions');
+  await fs.mkdir(sessDir);
+  await fs.writeFile(
+    path.join(sessDir, 'ghost.json'),
+    JSON.stringify({
+      id: 'ghost',
+      title: 'ghost-session',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      messages: [
+        { role: 'system', content: 'sys' },
+        { role: 'user', content: 'hi' },
+      ],
+    }),
+  );
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'cli', 'bin', 'sci-agent.js');
+  const r = spawnSync(process.execPath, [bin, '--workspace', root], {
+    input: '/sessions del 1\n/clear\n/sessions\n/exit\n',
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  assert.equal(r.status, 0, `repl exited cleanly (stderr: ${r.stderr})`);
+  const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
+  assert.match(out, /^Session deleted: ghost-session \(it was the current session; started fresh\)$/m);
+  assert.rejects(() => fs.access(path.join(sessDir, 'ghost.json')));
+  // The fresh session must be titled "default", not resurrect the deleted title.
+  const listed = out.match(/^ {2}1\. (.+?) \d+ messages · /m)?.[1];
+  assert.equal(listed, 'default');
+  const fresh = JSON.parse(await fs.readFile(path.join(sessDir, 'default.json'), 'utf8'));
+  assert.equal(fresh.title, 'default');
+});

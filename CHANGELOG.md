@@ -2,6 +2,20 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.4 — 2026-11-07
+
+### Fixed
+- **Linux/macOS Python resolution** — bare interpreter names are now probed with a real spawn before being trusted; Debian/Ubuntu (no `python` alias, only `python3`) previously failed every Python bridge with `spawn python ENOENT`, misreported as a network error (found by running the suite on an Ubuntu VM)
+- **CLI `/test`** — 15 s timeout with a clear timeout message (previously hung forever against a silent model server); the result line no longer gets swallowed by a fast `/exit`
+- **CLI `/sessions del`** — the delete was silently dropped (async import raced EOF) and the deleted session's title haunted the next save; now synchronous with a title reset
+- **CLI** — a command error no longer crashes the whole REPL (top-level catch + prompt continues)
+
+### Added
+- **UI: failed tool results are visible** — red left border + a real-text "failed" chip next to the tool name (detection covers `Error:` strings and JSON `{error}` shapes, including history replay); successful blocks unchanged
+
+### Tests
+- +7 tests (CLI timeouts/delete/crash-guard, skill truncation boundaries, example CSVs): **162 total, 0 fail**
+
 ## 0.10.3 — 2026-11-06
 
 ### Added

@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 import path from 'node:path';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
@@ -317,13 +317,15 @@ export async function startRepl(argv = []) {
           else {
             const wasCurrent = f.path === sessionFile;
             try {
-              const fsmod = await import('node:fs');
-              fsmod.unlinkSync(f.path);
+              // Synchronous unlink: an await here would suspend the command and let a
+              // following piped line (or EOF → exit) run first, silently dropping it.
+              unlinkSync(f.path);
             } catch {}
             if (wasCurrent) {
               messages.length = 0;
               messages.push({ role: 'system', content: buildSystemPrompt(cfg) });
               sessionFile = null;
+              sessionTitle = 'default'; // don't carry the deleted title into the fresh default session
             }
             console.log(dim(`Session deleted: ${f.title}${wasCurrent ? ' (it was the current session; started fresh)' : ''}`));
           }
@@ -419,14 +421,30 @@ export async function startRepl(argv = []) {
         writeFileSync(out, lines.join('\n'));
         console.log(dim(`Saved: ${out}`));
       } else if (input === '/test') {
-        const t0 = Date.now();
-        console.log(dim('Testing model connection…'));
-        try {
-          const provider = createProvider(cfg.model);
-          const out = await provider.chat({ messages: [{ role: 'user', content: 'Reply with only "ok".' }] });
-          console.log(`${cyan('✓ connection ok')} (${Date.now() - t0} ms) — sample response: ${trunc(out.content, 40)}`);
-        } catch (e) {
-          console.log(red(`✕ failed (${Date.now() - t0} ms): ${trunc(e.message, 200)}`));
+        // Same busy guard as /skills: /test calls the model, so it must not run while
+        // a task is streaming, and an early /exit (or EOF) must wait for its result.
+        if (busy) {
+          console.log(dim('(previous task running; please wait)'));
+        } else {
+          busy = true;
+          const t0 = Date.now();
+          const signal = AbortSignal.timeout(15_000);
+          try {
+            console.log(dim('Testing model connection…'));
+            const provider = createProvider(cfg.model);
+            const out = await provider.chat({ messages: [{ role: 'user', content: 'Reply with only "ok".' }], signal });
+            console.log(`${cyan('✓ connection ok')} (${Date.now() - t0} ms) — sample response: ${trunc(out.content, 40)}`);
+          } catch (e) {
+            console.log(
+              red(
+                signal.aborted || e?.name === 'AbortError' || e?.name === 'TimeoutError'
+                  ? `✕ failed (${Date.now() - t0} ms): timed out after 15 s — the model server did not answer`
+                  : `✕ failed (${Date.now() - t0} ms): ${trunc(e?.message, 200)}`,
+              ),
+            );
+          } finally {
+            busy = false;
+          }
         }
       } else if (input === '/clear') {
         messages.splice(1);
@@ -445,6 +463,8 @@ export async function startRepl(argv = []) {
           }
         }
       }
+    } catch (e) {
+      console.log(red(`Error: ${e.message}`));
     } finally {
       if (input !== '/exit' && !rl.closed) rl.prompt();
     }

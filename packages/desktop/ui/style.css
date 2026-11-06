@@ -208,6 +208,18 @@ details.tool pre,
 }
 pre.err { color: var(--err); }
 
+/* Başarısız araç sonucu: kırmızı sol çizgi + 'failed' rozeti */
+details.tool.failed { border-left-color: var(--err); }
+details.tool.failed .f-chip {
+  font-size: 11px;
+  border: 1px solid var(--err);
+  color: var(--err);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  opacity: 0.85;
+}
+
 /* Onay kartı: AI işlemi → turkuaz çizgi */
 .approval {
   border: 1px solid rgba(0, 213, 200, 0.45);

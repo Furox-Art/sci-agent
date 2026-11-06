@@ -1,12 +1,24 @@
 import { existsSync, readdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 /**
  * Finds the installed Python interpreter (independent of PATH).
  * The SCI_AGENT_PYTHON environment variable has the highest priority.
- * Returns: absolute path to python.exe, or a bare name left to PATH.
+ * Returns: absolute path to python.exe, or a bare name verified to run
+ * (Debian/Ubuntu have no `python` alias — only `python3` — so bare names
+ * are probed with a real spawn before being trusted).
  */
 let cached = undefined;
+
+function bareNameWorks(cmd) {
+  try {
+    const r = spawnSync(cmd, ['-X', 'utf8', '-I', '-c', 'import sys'], { timeout: 10_000 });
+    return r.status === 0;
+  } catch {
+    return false;
+  }
+}
 
 export function resolvePython() {
   if (cached !== undefined) return cached;
@@ -25,7 +37,11 @@ export function resolvePython() {
   }
   candidates.push('python', 'python3');
   for (const c of candidates) {
-    if (path.isAbsolute(c) && !existsSync(c)) continue;
+    if (path.isAbsolute(c)) {
+      if (!existsSync(c)) continue;
+    } else if (!bareNameWorks(c)) {
+      continue;
+    }
     cached = c;
     return c;
   }
