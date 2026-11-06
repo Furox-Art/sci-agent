@@ -2,6 +2,17 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.1 — 2026-11-06
+
+### Fixed
+- **Packaged app data paths** — the installed SciAgent now writes config and sessions to the Electron userData dir (`%APPDATA%\Roaming\SciAgent`) instead of the process cwd; `SCI_AGENT_WORKSPACE` overrides (highest priority); dev mode unchanged (cwd)
+- **Settings modal focus trap** — Tab/Shift+Tab cycle inside the open modal and focus cannot escape; the trap is removed on close
+- **Chart legend keyboard access** — series toggles are real `<button>`s now (`aria-pressed`, identical styling); the series counter is no longer falsely click-styled
+
+### Changed
+- Portable lit-tool tests: the two validation tests no longer assume `literature-evidence-mcp` is installed — they verify the real invariant (a clean dedicated error with an install hint, whichever optional dependency is absent first). Found by running the suite on Linux (instabox VM), where they failed while Windows passed.
+- CSS: three duplicated ≤640px media-query blocks merged into one (rendering unchanged)
+
 ## 0.10.0 — 2026-11-06
 
 **Tools: 42 (7 core + 35 plugin) · Tests: 134 · Plugins: 8 · Skills: 3**

@@ -400,13 +400,35 @@ $('#btn-clear').onclick = async () => {
 };
 // Settings modal: remember the opener, move focus in, restore focus on close
 let settingsOpener = null;
+// Focus trap: while the modal is open, Tab/Shift+Tab cycle inside it (added on open, removed on close)
+const focusableModalSelector = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
+function trapSettingsTab(e) {
+  if (e.key !== 'Tab') return;
+  const modal = $('#settings');
+  const items = [...modal.querySelectorAll(focusableModalSelector)].filter(
+    (el) => !el.disabled && el.offsetParent !== null
+  );
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  const inside = modal.contains(document.activeElement);
+  if (!e.shiftKey && (!inside || document.activeElement === last)) {
+    e.preventDefault();
+    first.focus();
+  } else if (e.shiftKey && (!inside || document.activeElement === first)) {
+    e.preventDefault();
+    last.focus();
+  }
+}
 function openSettings() {
   settingsOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   $('#settings').classList.remove('hidden');
   $('#s-provider').focus();
+  document.addEventListener('keydown', trapSettingsTab, true);
 }
 function closeSettings() {
   $('#settings').classList.add('hidden');
+  document.removeEventListener('keydown', trapSettingsTab, true);
   settingsOpener?.focus();
   settingsOpener = null;
 }
@@ -840,11 +862,13 @@ function renderChart() {
   // Legend: click to show/hide a series
   legend.innerHTML = '';
   all.forEach((k, si) => {
-    const item = document.createElement('span');
+    const item = document.createElement('button');
+    item.type = 'button';
     const sw = document.createElement('i');
     sw.style.background = CHART_COLORS[si % CHART_COLORS.length];
     item.append(sw, document.createTextNode(k));
     if (chartHidden.has(k)) item.classList.add('off');
+    item.setAttribute('aria-pressed', String(!chartHidden.has(k)));
     item.title = 'show/hide';
     item.onclick = () => {
       chartHidden.has(k) ? chartHidden.delete(k) : chartHidden.add(k);

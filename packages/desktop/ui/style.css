@@ -330,30 +330,6 @@ textarea:focus { outline: 1px solid var(--blue); }
   .hero { height: 220px; }
 }
 
-/* Telefonlar (≤640px): kompakt üst menü + daralan içerik */
-@media (max-width: 640px) {
-  #side { padding: 6px 8px; gap: 4px; }
-  .side-brand { font-size: 13px; padding: 0 6px 0 2px; }
-  .side-nav { gap: 2px; }
-  .nav-item { padding: 6px 7px; font-size: 12.5px; gap: 5px; }
-  .nav-item .ico { width: 16px; }
-  header { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
-  .brand { font-size: 14px; }
-  .brand .sub { display: none; } /* dar ekranda başlık alt metni gizlenir */
-  .head-actions { gap: 6px; }
-  .head-actions button { padding: 6px 10px; }
-  .hero { height: 180px; }
-  main { padding: 10px 12px; }
-  .msg,
-  details.tool,
-  .approval { max-width: 100%; }
-  footer { padding: 8px 10px; }
-  .chart-bar { flex-wrap: wrap; }
-  .chart-bar input { max-width: 100%; min-width: 0; }
-  .modal-card { width: 92%; }
-  .tools-wrap { padding: 14px 12px; }
-}
-
 /* ===== AJANLAR GÖRÜNÜMÜ ===== */
 .sub-h { margin: 18px 0 10px; font-size: 14px; color: var(--cyan); }
 #agents-info {
@@ -597,8 +573,17 @@ details.tool .t-copy:hover { color: var(--cyan); border-color: var(--cyan); }
 .hero.collapsed { display: none !important; }
 .approval .a-count { color: var(--dim); font-size: 12px; }
 #btn-send.btn-stop { background: var(--err); color: #fff; font-weight: 600; }
-.chart-legend span { cursor: pointer; }
-.chart-legend span.off { opacity: 0.35; text-decoration: line-through; }
+/* Lejant seri aç/kapa düğmeleri: eski span görünümüyle birebir aynı */
+.chart-legend button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.chart-legend button:hover { filter: none; }
+.chart-legend button.off { opacity: 0.35; text-decoration: line-through; }
 
 /* Saat damgası */
 .msg { position: relative; padding-top: 19px; }
@@ -754,23 +739,31 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
 }
 .md-table td { border: 1px solid rgba(28, 58, 94, 0.5); padding: 4px 10px; color: var(--txt); }
 
-/* Mobil responsive (≤640px) */
+/* Mobil responsive (≤640px) — tek birleştirilmiş blok (union; çakışmada son gelen kazanır) */
 @media (max-width: 640px) {
   body { flex-direction: column; height: auto; min-height: 100vh; }
-  #side { width: 100%; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
-  .side-nav { flex-direction: row; flex-wrap: wrap; }
-  .nav-item { padding: 10px 14px; font-size: 13px; min-height: 40px; } /* dokunmatik: geniş tıklama alanı */
+  #side { width: 100%; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; gap: 4px; }
+  .side-brand { font-size: 13px; padding: 0 6px 0 2px; }
+  .side-nav { flex-direction: row; flex-wrap: wrap; gap: 2px; }
+  .nav-item { padding: 10px 14px; font-size: 13px; min-height: 40px; gap: 5px; } /* dokunmatik: geniş tıklama alanı */
+  .nav-item .ico { width: 16px; }
   .side-sessions { margin-top: 8px; border-top: 0; padding-top: 0; }
+  header { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+  .brand { font-size: 14px; }
+  .brand .sub { display: none; } /* dar ekranda başlık alt metni gizlenir */
+  .head-actions { gap: 6px; }
+  .head-actions button { padding: 6px 10px; }
   .hero { height: 180px; }
   main { padding: 12px; }
   .msg, details.tool, .approval { width: 100%; max-width: 100%; }
-  footer { flex-direction: column; }
+  footer { flex-direction: column; padding: 8px 10px; }
   #btn-send { width: 100%; }
-  .modal-card { width: 92%; max-height: calc(100vh - 32px); overflow-y: auto; }
   .chart-bar { flex-wrap: wrap; }
   .chart-bar input { flex: 1 1 100%; max-width: 100%; min-width: 0; }
   .chart-norm,
   .chart-zero { margin-top: 4px; }
+  .modal-card { width: 92%; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .tools-wrap { padding: 14px 12px; }
 }
 
 /* Markdown tablo */
@@ -786,25 +779,6 @@ main > .msg, main > details.tool, main > .approval { width: min(100%, 80ch); }
   font-size: 12px;
 }
 .md-table td { border: 1px solid rgba(28, 58, 94, 0.5); padding: 4px 10px; color: var(--txt); }
-
-/* Mobil responsive (≤640px) */
-@media (max-width: 640px) {
-  body { flex-direction: column; height: auto; min-height: 100vh; }
-  #side { width: 100%; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px; }
-  .side-nav { flex-direction: row; flex-wrap: wrap; }
-  .nav-item { padding: 10px 14px; font-size: 13px; min-height: 40px; } /* dokunmatik: geniş tıklama alanı */
-  .side-sessions { margin-top: 8px; border-top: 0; padding-top: 0; }
-  .hero { height: 180px; }
-  main { padding: 12px; }
-  .msg, details.tool, .approval { width: 100%; max-width: 100%; }
-  footer { flex-direction: column; }
-  #btn-send { width: 100%; }
-  .modal-card { width: 92%; max-height: calc(100vh - 32px); overflow-y: auto; }
-  .chart-bar { flex-wrap: wrap; }
-  .chart-bar input { flex: 1 1 100%; max-width: 100%; min-width: 0; }
-  .chart-norm,
-  .chart-zero { margin-top: 4px; }
-}
 
 /* Beceri gövdesi (markdown render) */
 .skill-md { background: #051129; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 12.5px; max-height: 260px; overflow: auto; }
