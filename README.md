@@ -188,7 +188,7 @@ pip install numpy scipy pandas axiomize scientific-computing-system scientific-c
 SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın sistem istemine ekler — Claude Code beceri modeliyle aynı fikir, kaynakları kendi depolarından.
 
 - **Kaynak biçimi:** `github:kullanici/depo[/alt/yol]` (genel depolarda çalışır, anahtar gerekmez)
-- **Varsayılan yüklü (3 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard)
+- **Varsayılan yüklü (7 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) + [plan-auditor](https://github.com/Furox-Art/plan-auditor) + [nomosguard](https://github.com/Furox-Art/nomosguard) + [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) + [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system)
 - **Uygulama:** Ajanlar görünümü → Beceriler kartından ekle/kaldır
 - **CLI:** `/skills` (listele) · `/skills add github:kullanici/depo` (ekle; `sci-agent.config.json` dosyasına kalıcı yazılır)
 - Yeni beceri eklemek için tek gereken: deponun kökünde (veya belirttiğin alt yolda) geçerli frontmatter'lı bir `SKILL.md`
@@ -215,7 +215,7 @@ node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPl
 # Kayıtlı araç sayısı (beklenen: 42)
 node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
 
-# Varsayılan beceri kaynakları (beklenen: 3 github: kaynağı)
+# Varsayılan beceri kaynakları (beklenen: 7 github: kaynağı)
 node -e "import('./packages/core/src/index.js').then(m => console.log(m.DEFAULT_CONFIG.skills.sources))"
 
 # Test süiti (beklenen: 134 geçer, 0 başarısız, 0 atlanan)

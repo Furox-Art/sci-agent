@@ -1,6 +1,6 @@
 {
   "name": "@sci/desktop",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "SciAgent masaüstü uygulaması (Electron) ve yerel sunucu",
   "type": "module",
   "main": "main.js",

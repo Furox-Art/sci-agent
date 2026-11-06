@@ -2,6 +2,11 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.3 — 2026-11-06
+
+### Added
+- **4 more default skills** (7 total, all verified to load via `fetchSkill`): `plan-auditor` (sealed-plan verification workflow), `nomosguard` (fail-closed security reasoning), `literature-evidence-mcp` (verifiable literature evidence usage), `scientific-computing-system` (dependency-free scientific computation guidance) — all from the user's public repos, on top of the existing 3
+
 ## 0.10.2 — 2026-11-06
 
 ### Security (local app hardening)
