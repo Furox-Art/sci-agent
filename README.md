@@ -119,6 +119,10 @@ Grafikler görünümünde denemek için `examples/` altında üç hazır CSV var
 | `examples/kinetics.csv` | Birinci mertebe tepkime: konsantrasyon + ln[C] (k = 0.035/dk) | Üstel bozunum + ln'de düz çizgi |
 | `examples/titration.csv` | Zayıf asit titrasyonu (0.010 M asetik asit, eşdeğerlik 12.5 mL) | Eşdeğerlikte dik sıçramalı S eğrisi |
 
+| Kinetics | Titration |
+|---|---|
+| ![Kinetics eğrisi](docs/screenshots/ornek-kinetics.png) | ![Titration eğrisi](docs/screenshots/ornek-titration.png) |
+
 ## Araçlar
 
 | Araç | Onay | Açıklama |
