@@ -534,25 +534,57 @@ inputEl.addEventListener('input', () => {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 150)}px`;
 });
 
-// Export chat as Markdown
+// Export chat as Markdown: session-title heading, speaker-prefixed messages,
+// fenced tool blocks (name + args + result; results truncated at 2000 chars),
+// failed tools marked, timestamp footer. Plain markdown only — no HTML.
 $('#btn-export').title = 'Download chat as .md file';
 $('#btn-export').onclick = async () => {
   try {
     const h = await api('/api/history');
-    const lines = ['# SciAgent Chat', '', new Date().toLocaleString('tr-TR'), ''];
+    // Session title as the document heading (falls back if /api/sessions fails)
+    let title = 'SciAgent Chat';
+    try {
+      const s = await api('/api/sessions');
+      const active = s.sessions?.find((x) => x.id === s.active);
+      if (active?.title) title = String(active.title);
+    } catch {}
+    // Map tool_call ids → names so results carry their tool's name
+    const toolNames = new Map();
     for (const m of h.messages) {
-      if (m.role === 'user') lines.push(`## User\n\n${m.content}\n`);
-      else if (m.role === 'assistant') {
-        if (m.tool_calls?.length) {
-          for (const tc of m.tool_calls) {
-            lines.push(`**→ tool:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
-          }
+      if (m.role === 'assistant') {
+        for (const tc of m.tool_calls ?? []) {
+          if (tc?.id) toolNames.set(tc.id, tc.function?.name ?? '?');
         }
-        if (m.content) lines.push(`**SciAgent**\n\n${m.content}\n`);
-      } else if (m.role === 'tool') {
-        lines.push(`> result: ${String(m.content).slice(0, 400)}\n`);
       }
     }
+    const MAX_RESULT = 2000;
+    const trunc = (v) => {
+      const s = String(v ?? '');
+      return s.length > MAX_RESULT
+        ? `${s.slice(0, MAX_RESULT)}\n… [truncated — showing first ${MAX_RESULT} of ${s.length} characters]`
+        : s;
+    };
+    // Fence long enough that fences inside tool output cannot close the block
+    const fence = (body) => {
+      let n = 3;
+      for (const match of body.matchAll(/^`{3,}/gm)) n = Math.max(n, match[0].length + 1);
+      return `${'`'.repeat(n)}\n${body}\n${'`'.repeat(n)}`;
+    };
+    const lines = [`# ${title}`, ''];
+    for (const m of h.messages) {
+      if (m.role === 'user') lines.push('## User', '', m.content, '');
+      else if (m.role === 'assistant') {
+        for (const tc of m.tool_calls ?? []) {
+          lines.push(`**→ tool: ${tc.function?.name ?? '?'}**`, '', fence(String(tc.function?.arguments ?? '')), '');
+        }
+        if (m.content) lines.push('**SciAgent**', '', m.content, '');
+      } else if (m.role === 'tool') {
+        const name = toolNames.get(m.tool_call_id) ?? '?';
+        const failed = failedOutput(m.content) ? ' (failed)' : '';
+        lines.push(`**→ result: ${name}${failed}**`, '', fence(trunc(m.content)), '');
+      }
+    }
+    lines.push('---', '', `_${new Date().toLocaleString('tr-TR')}_`);
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

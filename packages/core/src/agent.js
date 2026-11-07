@@ -7,6 +7,8 @@
  * Sağlamlık: araç/kayıt hataları döngüyü çökertmez (modele temiz hata gözlemi döner),
  * abort sinyali düzenli biçimde durdurulur ve nedeni bildirilir; bozuk araç çağrıları
  * (eksik/bilinmeyen ad, geçersiz JSON) gözlemlenir, 3 ardışık bozuk çağrıda döngü durur.
+ * Paralel araç batch'leri sınırlı eşzamanlılıkla yürütülür (DEFAULT_MAX_CONCURRENT = 4;
+ * runAgentLoop'un isteğe bağlı maxConcurrent seçeneğiyle geçilebilir).
  */
 
 // Argümanları güvenle dizgeleştirir; döngüsel yapı gibi sorunlu değerlerde '{}' döner.
@@ -18,7 +20,32 @@ const stringifyArgs = (args) => {
   }
 };
 
-export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra } = {}) {
+// Maximum number of tool calls executed at the same time within one step. A model can
+// emit many tool calls in a single turn; each one may spawn child processes
+// (python/shell), which can exhaust CPU and memory on small machines. Bounding parallel
+// batches at 4 keeps runaway turns safe; callers can override it with the optional
+// `maxConcurrent` option of runAgentLoop (positive integer).
+const DEFAULT_MAX_CONCURRENT = 4;
+
+// Bounded-concurrency worker pool: runs `worker` over `items` with at most `limit`
+// workers in flight; each queued item starts only when a running one finishes, so the
+// pool never exceeds `limit` simultaneous executions. Mirrors Promise.all semantics:
+// resolves when every item is processed and rejects as soon as a worker rejects.
+const runWithConcurrency = async (items, worker, limit) => {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+};
+
+export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent } = {}) {
+  // Effective tool-concurrency limit for this run: caller-provided `maxConcurrent` when
+  // it is a positive integer, otherwise DEFAULT_MAX_CONCURRENT (4).
+  const concurrency = Number.isInteger(maxConcurrent) && maxConcurrent >= 1 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
   // Ardışık bozuk araç çağrısı sayacı: 3'e ulaşınca döngü sonlanır (sonsuz döngü koruması).
   let malformedStreak = 0;
   // Abort: nedeni olay olarak bildir ve düzenli sonuçla dön (hata fırlatma).
@@ -85,11 +112,13 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       if (!registry.get(tc.name)) return `Malformed tool call: unknown tool "${tc.name}".`;
       return 'Malformed tool call: tool arguments are not valid JSON.';
     };
+    // Her yardımcı, modele gidecek araç yanıtını (output dizgesi) döndürür; messages'a
+    // yazma çağrı yerine yapılır (sıralı akışta hemen, havuzda asistan sırasına göre).
     const runMalformed = (tc) => {
       onEvent({ type: 'tool_call', id: tc?.id, name: tc?.name, args: tc?.arguments });
       const output = JSON.stringify({ error: malformedMessage(tc) });
       onEvent({ type: 'tool_result', id: tc?.id, name: tc?.name, ok: false, output });
-      messages.push({ role: 'tool', tool_call_id: tc?.id, content: output });
+      return output;
     };
     const runOne = async (tc) => {
       onEvent({ type: 'tool_call', id: tc.id, name: tc.name, args: tc.arguments });
@@ -105,7 +134,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
         result = { ok: false, output: JSON.stringify({ error: String(e?.message ?? e) }) };
       }
       onEvent({ type: 'tool_result', id: tc.id, name: tc.name, ok: result.ok, output: result.output });
-      messages.push({ role: 'tool', tool_call_id: tc.id, content: result.output });
+      return result.output;
     };
     // Abort arada tetiklendiyse kalan çağrılar çalıştırılmaz; geçmiş tutarlı kalsın diye
     // her biri için 'aborted' gözlemi yazılır.
@@ -113,25 +142,51 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       const output = JSON.stringify({ error: 'Aborted before execution.' });
       onEvent({ type: 'tool_call', id: tc?.id, name: tc?.name, args: tc?.arguments });
       onEvent({ type: 'tool_result', id: tc?.id, name: tc?.name, ok: false, output });
-      messages.push({ role: 'tool', tool_call_id: tc?.id, content: output });
+      return output;
     };
 
-    // Tüm çağrılar paralel-güvenli araçlara aitse aynı adımda eşzamanlı yürüt.
+    // Tüm çağrılar paralel-güvenli araçlara aitse aynı adımda sınırlı eşzamanlılıkla yürüt.
     const parallel = toolCalls.length > 1 && toolCalls.every((tc) => registry.get(tc?.name)?.parallel);
     let malformedThisStep = 0;
     if (parallel) {
-      await Promise.all(toolCalls.map(runOne));
+      // Bounded-concurrency pool: at most `concurrency` tool calls run at once; each
+      // queued call starts only when a running one finishes, so a turn with many calls
+      // cannot exhaust CPU by spawning every child process simultaneously. tool_call /
+      // tool_result events stream as calls start and complete, but the resulting tool
+      // messages are appended afterwards in the assistant message's tool_calls order, so
+      // every result stays paired with its own tool_call id. If abort fires mid-batch,
+      // not-yet-started calls are never executed and each gets an 'Aborted before
+      // execution.' observation; malformed calls likewise never execute.
+      const outputs = new Array(toolCalls.length);
+      let abortedMidBatch = false;
+      await runWithConcurrency(toolCalls, async (tc, i) => {
+        if (signal?.aborted) {
+          abortedMidBatch = true;
+          outputs[i] = runAborted(tc);
+        } else if (isMalformed(tc)) {
+          malformedThisStep++;
+          outputs[i] = runMalformed(tc);
+        } else {
+          outputs[i] = await runOne(tc);
+        }
+      }, concurrency);
+      for (let i = 0; i < toolCalls.length; i++) {
+        if (outputs[i] !== undefined) {
+          messages.push({ role: 'tool', tool_call_id: toolCalls[i]?.id, content: outputs[i] });
+        }
+      }
+      if (abortedMidBatch) return abortRun(step);
     } else {
       let abortedMidBatch = false;
       for (const tc of toolCalls) {
         if (signal?.aborted) {
           abortedMidBatch = true;
-          runAborted(tc);
+          messages.push({ role: 'tool', tool_call_id: tc?.id, content: runAborted(tc) });
         } else if (isMalformed(tc)) {
           malformedThisStep++;
-          runMalformed(tc);
+          messages.push({ role: 'tool', tool_call_id: tc?.id, content: runMalformed(tc) });
         } else {
-          await runOne(tc);
+          messages.push({ role: 'tool', tool_call_id: tc.id, content: await runOne(tc) });
         }
       }
       if (abortedMidBatch) return abortRun(step);

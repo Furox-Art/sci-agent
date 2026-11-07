@@ -237,3 +237,102 @@ test('bozuk çağrı sayacı geçerli bir adımda sıfırlanır', async () => {
   assert.equal(res.done, true);
   assert.equal(provider.calls.length, 5);
 });
+
+// Eşzamanlılık ölçen sahte paralel araç: aktif yürütme sayısını izler, aynı anda en
+// yüksek kaç çağrının çalıştığını (peak) kaydeder; her çağrı kısa gecikmeyle döner.
+const concurrencyTool = (state) => ({
+  name: 'slow_paralel',
+  description: 'eşzamanlılık ölçen araç',
+  parameters: { type: 'object' },
+  parallel: true,
+  needsApproval: false,
+  async execute(args) {
+    state.active++;
+    state.peak = Math.max(state.peak, state.active);
+    await new Promise((r) => setTimeout(r, 20));
+    state.active--;
+    return `sonuc-${args.i}`;
+  },
+});
+
+const concurrencyCalls = (n) => Array.from({ length: n }, (_, i) => ({ id: `c${i}`, name: 'slow_paralel', arguments: { i } }));
+
+test('paralel havuz: aynı anda en fazla maxConcurrent araç çalışır', async () => {
+  const state = { active: 0, peak: 0 };
+  const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
+  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'havuz bitti' }]);
+  const messages = [{ role: 'user', content: 'x' }];
+  const res = await runAgentLoop({ provider, registry, messages, onEvent: () => {}, maxConcurrent: 4, maxSteps: 5 });
+  assert.equal(res.done, true);
+  // 10 çağrının hiçbiri 4 eşzamanlı sınırı aşamaz; sınır tam dolulukla kullanılır.
+  assert.equal(state.peak, 4);
+  assert.equal(state.active, 0); // döngü bittiğinde sızan yürütme kalmaz
+});
+
+test('paralel havuz: sonuçlar doğru tool_call kimlikleriyle ve asistan sırasıyla eşleşir', async () => {
+  const state = { active: 0, peak: 0 };
+  const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
+  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'eşleşme tamam' }]);
+  const messages = [{ role: 'user', content: 'x' }];
+  const events = [];
+  const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), maxConcurrent: 4, maxSteps: 5 });
+  assert.equal(res.done, true);
+  const assistant = messages.find((m) => m.role === 'assistant');
+  assert.equal(assistant.tool_calls.length, 10);
+  const toolMsgs = messages.filter((m) => m.role === 'tool');
+  assert.equal(toolMsgs.length, 10);
+  // Her araç yanıtı, asistan mesajındaki tool_call sırasına ve kimliğine göre birebir eşleşir.
+  toolMsgs.forEach((m, idx) => {
+    assert.equal(m.tool_call_id, assistant.tool_calls[idx].id);
+    assert.equal(m.content, `sonuc-${idx}`);
+  });
+  // tool_result olayları tamamlanma sırasında gelebilir; kimlikler birebir eşleşmeli.
+  const trs = events.filter((e) => e.type === 'tool_result');
+  assert.equal(trs.length, 10);
+  assert.ok(trs.every((e) => e.ok === true));
+  assert.deepEqual(trs.map((e) => e.id).sort(), assistant.tool_calls.map((tc) => tc.id).sort());
+});
+
+test('paralel havuz: maxConcurrent verilmezse varsayılan sınır 4 uygulanır', async () => {
+  const state = { active: 0, peak: 0 };
+  const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
+  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'varsayılan bitti' }]);
+  const messages = [{ role: 'user', content: 'x' }];
+  const res = await runAgentLoop({ provider, registry, messages, onEvent: () => {}, maxSteps: 5 });
+  assert.equal(res.done, true);
+  assert.equal(state.peak, 4); // seçenek yokken DEFAULT_MAX_CONCURRENT devrede
+  assert.equal(state.active, 0);
+});
+
+test('paralel havuzda abort: başlamayan çağrılar çalıştırılmaz ve gözlemlenir', async () => {
+  const ac = new AbortController();
+  const pabort = {
+    name: 'pabort',
+    description: 'ilk çağrıda abort tetikleyen paralel araç',
+    parameters: { type: 'object' },
+    parallel: true,
+    needsApproval: false,
+    async execute() {
+      ac.abort();
+      return 'ilk çalıştı';
+    },
+  };
+  const registry = new ToolRegistry({ tools: [pabort], workspaceRoot: '.' });
+  const calls = Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, name: 'pabort', arguments: { i } }));
+  const provider = new MockProvider([{ toolCalls: calls }, { content: 'buraya gelinmemeli' }]);
+  const messages = [{ role: 'user', content: 'x' }];
+  const events = [];
+  const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), signal: ac.signal, maxConcurrent: 4, maxSteps: 5 });
+  assert.equal(res.done, false);
+  assert.equal(res.aborted, true);
+  assert.equal(provider.calls.length, 1); // ikinci model çağrısı hiç yapılmadı
+  const assistant = messages.find((m) => m.role === 'assistant');
+  const toolMsgs = messages.filter((m) => m.role === 'tool');
+  assert.equal(toolMsgs.length, 6); // her çağrı için yanıt var: geçmiş protokolü tutarlı
+  toolMsgs.forEach((m, idx) => assert.equal(m.tool_call_id, assistant.tool_calls[idx].id));
+  assert.equal(toolMsgs[0].content, 'ilk çalıştı');
+  for (const m of toolMsgs.slice(1)) {
+    assert.deepEqual(JSON.parse(m.content), { error: 'Aborted before execution.' });
+  }
+  assert.ok(events.some((e) => e.type === 'error' && /abort/i.test(e.text)));
+});

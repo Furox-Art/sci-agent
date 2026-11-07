@@ -161,6 +161,9 @@ main {
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Uzun bölünmez dizgeler (URL, hash) baloncuğu taşmasın; .msg altlarına kalıtsal iner */
+.msg { overflow-wrap: anywhere; }
+
 .msg.user { align-self: flex-end; background: #123a5c; }
 .msg.assistant {
   align-self: flex-start;

@@ -2,6 +2,15 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.6 — 2026-11-07
+
+### Added
+- **Bounded parallel tool execution** — when the model emits many tool calls in one turn they now run through a worker pool (max 4 concurrent, optional `maxConcurrent` loop option) instead of all-at-once; results stay paired to the correct `tool_call_id`, events stream as they complete, and abort/malformed handling extends to the parallel branch (+4 tests)
+- **Faithful chat Export** — the exported markdown now includes the session title as heading, tool calls as fenced blocks with dynamic fence length, results mapped to their tool names with ` (failed)` markers, 2000-char truncation notes, and a timestamp footer; long unbroken strings no longer overflow chat bubbles (`overflow-wrap`)
+
+### Tests
+- +4 tests: **173 total, 0 fail**
+
 ## 0.10.5 — 2026-11-07
 
 ### Fixed
