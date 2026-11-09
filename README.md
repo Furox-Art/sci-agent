@@ -181,6 +181,8 @@ Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI ve masaüst
 
 **Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
 
+**Deterministik kanıt kapısı (v0.10.7):** "uydurmaya yasak" yalnızca prompt düzeyinde değil. Bir koşuda **hiç araç çalışmadan** sayısal/istatistik/ölçüm/literatür iddiası içeren bir final yanıt gelirse ajan döngüsü (`packages/core/src/agent.js`) iddiayı yakalar, `warning` olayı yayınlar ve modeli tek turda aracıyla doğrulamaya zorlar; ikinci turda da araç çağrılmazsa sonuç `unverified: true` + `unverifiedClaims` ile işaretlenir ve CLI/masaüstü uyarıyı kırmızı gösterir. `runAgentLoop({ grounding: false })` ile kapatılabilir.
+
 **Kullanıcının açık depolarından entegrasyon** (12 depo bağlı):
 - [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) → `sci-furox` köprü araçları (pip)
 - [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) → `sci-quantum` akıl yürütme protokolü (prompt)
@@ -203,7 +205,7 @@ pip install numpy scipy pandas axiomize scientific-computing-system scientific-c
 SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın sistem istemine ekler — Claude Code beceri modeliyle aynı fikir, kaynakları kendi depolarından.
 
 - **Kaynak biçimi:** `github:kullanici/depo[/alt/yol]` (genel depolarda çalışır, anahtar gerekmez)
-- **Varsayılan yüklü (7 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) + [plan-auditor](https://github.com/Furox-Art/plan-auditor) + [nomosguard](https://github.com/Furox-Art/nomosguard) + [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) + [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system)
+- **Varsayılan yüklü (9 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) + [plan-auditor](https://github.com/Furox-Art/plan-auditor) + [nomosguard](https://github.com/Furox-Art/nomosguard) + [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) + [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system) + [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0)
 - **Uygulama:** Ajanlar görünümü → Beceriler kartından ekle/kaldır
 - **CLI:** `/skills` (listele) · `/skills add github:kullanici/depo` (ekle; `sci-agent.config.json` dosyasına kalıcı yazılır)
 - Yeni beceri eklemek için tek gereken: deponun kökünde (veya belirttiğin alt yolda) geçerli frontmatter'lı bir `SKILL.md`
@@ -230,10 +232,10 @@ node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPl
 # Kayıtlı araç sayısı (beklenen: 42)
 node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
 
-# Varsayılan beceri kaynakları (beklenen: 7 github: kaynağı)
+# Varsayılan beceri kaynakları (beklenen: 9 github: kaynağı)
 node -e "import('./packages/core/src/index.js').then(m => console.log(m.DEFAULT_CONFIG.skills.sources))"
 
-# Test süiti (beklenen: 134 geçer, 0 başarısız, 0 atlanan)
+# Test süiti (beklenen: 180 geçer, 0 başarısız, 0 atlanan)
 node --test "test/**/*.test.js"
 ```
 
@@ -250,4 +252,4 @@ node --test "test/**/*.test.js"
 
 ## Durum
 
-v0.10 — v0.9'un üzerine: `lit_bm25_rank` (BM25 kanıt kısa listeleme → toplam 42 araç), erişilebilirlik (klavye ile oturum geçişi, dialog ARIA + odak yönetimi, canlı durum bölgesi, focus-visible, reduced-motion) ve **Electron installer** (`npm run dist` → Windows NSIS exe) eklendi. 134 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.10.7 — v0.10.6'nın üzerine: Linux/macOS Python betik çözümlemesi (`bin/`, tireli modül adları), alt süreç sızıntısı ve askıda kalma düzeltmeleri, deterministik kanıt kapısı (araçsız sayısal/literatür iddiası → uyarı + doğrulama turu, `unverified` işareti), README/config senkronu ve iki yeni varsayılan beceri (axiomize, scientific-computing-system-2.0). 180 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.

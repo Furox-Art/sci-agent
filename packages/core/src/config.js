@@ -21,6 +21,8 @@ export const DEFAULT_CONFIG = {
       'github:Furox-Art/nomosguard',
       'github:Furox-Art/literature-evidence-mcp',
       'github:Furox-Art/scientific-computing-system',
+      'github:Furox-Art/axiomize/skills/axiomize',
+      'github:Furox-Art/scientific-computing-system-2.0',
     ],
   },
   policies: { autoApprove: ['read_file', 'list_dir', 'search_files'] },

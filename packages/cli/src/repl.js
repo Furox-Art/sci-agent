@@ -186,6 +186,9 @@ export async function startRepl(argv = []) {
     } else if (ev.type === 'error') {
       flushLine();
       console.log(red(`Error: ${ev.text}`));
+    } else if (ev.type === 'warning') {
+      flushLine();
+      console.log(red(`⚠ ${ev.text}`));
     } else if (ev.type === 'step') {
       flushLine();
       console.log(dim(`— step ${ev.step}/${ev.maxSteps} —`));

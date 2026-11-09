@@ -171,6 +171,8 @@ test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython 
   // LOCALAPPDATA/ProgramFiles taraması yok, 'python'/'python3' bare adları
   // başarısız -> runBridge'in 'Python interpreter not found' yolu.
   const out = runToolInChild('sci-lit.js', 'lit_search', { query: 'CRISPR off-target effects' }, {
+    PATH: '',
+    Path: '',
     SystemRoot: process.env.SystemRoot,
     SYSTEMDRIVE: process.env.SYSTEMDRIVE,
     TEMP: process.env.TEMP,

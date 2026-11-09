@@ -251,6 +251,8 @@ test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython 
     source_text: 'Patients were enrolled; randomization was performed by computer.',
     source_id: 'src',
   }, {
+    PATH: '',
+    Path: '',
     SystemRoot: process.env.SystemRoot,
     SYSTEMDRIVE: process.env.SYSTEMDRIVE,
     TEMP: process.env.TEMP,

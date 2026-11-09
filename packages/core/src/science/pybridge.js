@@ -57,9 +57,30 @@ function readdirSafe(dir) {
   }
 }
 
-/** The interpreter's Scripts directory (Windows console scripts: axiomize.exe, cds2.exe…). */
+/**
+ * The interpreter's scripts directory:
+ * Windows: <dir>/Scripts (if present)
+ * POSIX venv/system: <dir> (when pyExe is Already in .../bin/python3) or <dir>/bin
+ */
 export function pythonScriptsDir(pyExe) {
   const base = path.dirname(path.resolve(pyExe));
   const scripts = path.join(base, 'Scripts');
-  return existsSync(scripts) ? scripts : base;
+  if (existsSync(scripts)) return scripts;
+  const bin = path.join(base, 'bin');
+  if (existsSync(bin)) return bin;
+  return base;
+}
+
+/**
+ * Resolves a console script installed alongside the Python interpreter
+ * across Windows (<name>.exe in Scripts/) and POSIX (<name> in bin/).
+ */
+export function findPythonScript(pyExe, scriptName) {
+  if (!pyExe || !scriptName) return null;
+  const dir = pythonScriptsDir(pyExe);
+  const candidates =
+    process.platform === 'win32'
+      ? [path.join(dir, `${scriptName}.exe`), path.join(dir, scriptName)]
+      : [path.join(dir, scriptName), path.join(dir, `${scriptName}.exe`)];
+  return candidates.find((c) => existsSync(c)) ?? null;
 }

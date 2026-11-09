@@ -21,7 +21,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { resolvePython, pythonScriptsDir } from '../science/pybridge.js';
+import { resolvePython, findPythonScript } from '../science/pybridge.js';
 
 const TIMEOUT_MS = 20_000;
 const MAX_STEERING_CHARS = 4000;
@@ -76,6 +76,11 @@ function runProcess(cmd, args, input) {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      try {
+        child.stdin?.destroy();
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      } catch {}
       resolve(value);
     };
     const timer = setTimeout(() => {
@@ -130,13 +135,18 @@ async function tryPortable(inputJson) {
   return parseRouteOutput(stdout);
 }
 
-/** PATH üzerinde ve Python Scripts dizininde eq-layer.exe arar. */
+/** PATH üzerinde ve Python Scripts/bin dizininde eq-layer konsol betiğini arar. */
 function findEqLayerExe() {
   const py = resolvePython();
+  if (py && path.isAbsolute(py)) {
+    const found = findPythonScript(py, 'eq-layer');
+    if (found) return found;
+  }
+  const names = process.platform === 'win32' ? ['eq-layer.exe', 'eq-layer'] : ['eq-layer', 'eq-layer.exe'];
   const candidates = [];
-  if (py && path.isAbsolute(py)) candidates.push(path.join(pythonScriptsDir(py), 'eq-layer.exe'));
   for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
-    if (dir) candidates.push(path.join(dir, 'eq-layer.exe'));
+    if (!dir) continue;
+    for (const n of names) candidates.push(path.join(dir, n));
   }
   return candidates.find((c) => existsSync(c)) ?? null;
 }

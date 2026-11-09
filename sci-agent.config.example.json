@@ -32,7 +32,13 @@
     "sources": [
       "github:Furox-Art/quantum-reasoning-skill",
       "github:Furox-Art/eq-layer/skills/eq-layer",
-      "github:Furox-Art/polyglot-code-guard"
+      "github:Furox-Art/polyglot-code-guard",
+      "github:Furox-Art/plan-auditor",
+      "github:Furox-Art/nomosguard",
+      "github:Furox-Art/literature-evidence-mcp",
+      "github:Furox-Art/scientific-computing-system",
+      "github:Furox-Art/axiomize/skills/axiomize",
+      "github:Furox-Art/scientific-computing-system-2.0"
     ]
   }
 }

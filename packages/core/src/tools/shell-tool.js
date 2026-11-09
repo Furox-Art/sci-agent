@@ -20,18 +20,39 @@ export const run_command = {
     const absCwd = resolveSafe(workspaceRoot, cwd);
     const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
     return await new Promise((resolve) => {
-      const child = spawn(command, { shell: true, cwd: absCwd, timeout, windowsHide: true });
+      // Timeout is handled here (not via spawn's `timeout` option): when a spawn fails
+      // the stdio pipes would otherwise keep the event loop alive until the timer fires.
+      const child = spawn(command, { shell: true, cwd: absCwd, windowsHide: true });
       let out = '';
+      let done = false;
+      let timedOut = false;
+      const finish = (text) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try {
+          child.stdin?.destroy();
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+        } catch {}
+        resolve(text);
+      };
+      const timer = setTimeout(() => {
+        timedOut = true;
+        try {
+          child.kill();
+        } catch {}
+      }, timeout);
       const grab = (d) => {
         if (out.length < OUT_CAP) out += d.toString('utf8');
       };
       child.stdout.on('data', grab);
       child.stderr.on('data', grab);
-      child.on('error', (e) => resolve(`Error: ${e.message}`));
+      child.on('error', (e) => finish(`Error: ${e.message}`));
       child.on('close', (code, sig) => {
         if (out.length >= OUT_CAP) out += '\n...(output truncated)';
-        const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
-        resolve(`exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`);
+        const tail = timedOut || sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+        finish(`exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`);
       });
     });
   },

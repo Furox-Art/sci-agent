@@ -1,7 +1,5 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { resolvePython, pythonScriptsDir } from './pybridge.js';
+import { resolvePython, findPythonScript } from './pybridge.js';
 
 /**
  * plan-auditor (pip: plan-auditor) köprü aracı:
@@ -18,18 +16,37 @@ const MAX_TIMEOUT_MS = 600_000;
 function runProcess(exe, args, { cwd, timeout = DEFAULT_TIMEOUT_MS } = {}) {
   return new Promise((resolve) => {
     const env = { ...process.env, PYTHONUTF8: '1' };
-    const child = spawn(exe, args, { cwd, timeout, windowsHide: true, env });
+    const child = spawn(exe, args, { cwd, windowsHide: true, env });
     let out = '';
+    let done = false;
+    let timedOut = false;
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        child.stdin?.destroy();
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      } catch {}
+      resolve(r);
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        child.kill();
+      } catch {}
+    }, timeout);
     const grab = (d) => {
       if (out.length < OUT_CAP) out += d.toString('utf8');
     };
     child.stdout.on('data', grab);
     child.stderr.on('data', grab);
-    child.on('error', (e) => resolve({ ok: false, output: `Error: ${e.message}`, code: -1 }));
+    child.on('error', (e) => finish({ ok: false, output: `Error: ${e.message}`, code: -1 }));
     child.on('close', (code, sig) => {
       if (out.length >= OUT_CAP) out += '\n...(output truncated)';
-      const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
-      resolve({ ok: code === 0, output: `exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`, code });
+      const tail = timedOut || sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+      finish({ ok: code === 0 && !timedOut, output: `exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`, code });
     });
   });
 }
@@ -58,9 +75,9 @@ export const plan_audit = {
       return 'Error: Python not found. Python 3.10+ is required for plan-auditor; install it or provide the path via the SCI_AGENT_PYTHON environment variable.';
     }
     const timeout = Math.min(Number(timeoutMs) || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
-    // Path 1: console script in the Python Scripts directory (not PATH-dependent)
-    const exe = path.join(pythonScriptsDir(py), 'plan-auditor.exe');
-    if (existsSync(exe)) {
+    // Path 1: console script in the Python scripts/bin directory (not PATH-dependent)
+    const exe = findPythonScript(py, 'plan-auditor');
+    if (exe) {
       const res = await runProcess(exe, args, { cwd: workspaceRoot, timeout });
       return res.output;
     }

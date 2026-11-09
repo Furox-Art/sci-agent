@@ -308,6 +308,14 @@ function handleEvent(ev) {
       }
       approvalCards.delete(ev.id);
     }
+  } else if (ev.type === 'warning') {
+    // Deterministic grounding gate ("no fabrication"): the answer is or may be unverified.
+    const w = document.createElement('div');
+    w.className = 'a-state';
+    w.style.color = 'var(--err)';
+    w.textContent = `⚠ ${ev.text}`;
+    chatEl.appendChild(w);
+    if (nearBottom()) chatEl.scrollTop = chatEl.scrollHeight;
   } else if (ev.type === 'error') {
     resetStream();
     const b = bubble('assistant');

@@ -1,7 +1,5 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { resolvePython, pythonScriptsDir } from './pybridge.js';
+import { resolvePython, findPythonScript } from './pybridge.js';
 import { buildSteering } from '../eq/eq-layer.js';
 
 /**
@@ -15,18 +13,37 @@ const OUT_CAP = 50_000;
 
 function runProcess(exe, args, { cwd, timeout = 120_000 } = {}) {
   return new Promise((resolve) => {
-    const child = spawn(exe, args, { cwd, timeout, windowsHide: true });
+    const child = spawn(exe, args, { cwd, windowsHide: true });
     let out = '';
+    let done = false;
+    let timedOut = false;
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        child.stdin?.destroy();
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      } catch {}
+      resolve(r);
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        child.kill();
+      } catch {}
+    }, timeout);
     const grab = (d) => {
       if (out.length < OUT_CAP) out += d.toString('utf8');
     };
     child.stdout.on('data', grab);
     child.stderr.on('data', grab);
-    child.on('error', (e) => resolve({ ok: false, output: `Error: ${e.message}`, code: -1 }));
+    child.on('error', (e) => finish({ ok: false, output: `Error: ${e.message}`, code: -1 }));
     child.on('close', (code, sig) => {
       if (out.length >= OUT_CAP) out += '\n...(output truncated)';
-      const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
-      resolve({ ok: code === 0, output: `exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`, code });
+      const tail = timedOut || sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+      finish({ ok: code === 0 && !timedOut, output: `exit code: ${code ?? '?'}${tail}\n${out || '(no output)'}`, code });
     });
   });
 }
@@ -65,7 +82,7 @@ export const furox_compute = {
   },
 };
 
-function cliTool({ name, script, installHint, description }) {
+function cliTool({ name, script, moduleName, installHint, description }) {
   return {
     name,
     description: `${description} Requires approval.`,
@@ -83,13 +100,14 @@ function cliTool({ name, script, installHint, description }) {
       const py = resolvePython();
       if (!py) return `Error: Python not found. ${installHint}`;
       const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
-      const exe = path.join(pythonScriptsDir(py), `${script}.exe`);
-      if (existsSync(exe)) {
+      const exe = findPythonScript(py, script);
+      if (exe) {
         const res = await runProcess(exe, args, { cwd: workspaceRoot, timeout });
         return res.output;
       }
-      // If the exe is missing, try the module entry (python -m <script>)
-      const res = await runProcess(py, ['-X', 'utf8', '-m', script, ...args], { cwd: workspaceRoot, timeout });
+      // If the console script is missing, try the module entry (python -m <mod>)
+      const mod = moduleName ?? script.replaceAll('-', '_');
+      const res = await runProcess(py, ['-X', 'utf8', '-m', mod, ...args], { cwd: workspaceRoot, timeout });
       return res.ok || !res.output.includes('No module named')
         ? res.output
         : `Error: '${script}' not found. ${installHint}\n${res.output}`;

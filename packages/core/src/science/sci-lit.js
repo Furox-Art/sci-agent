@@ -71,7 +71,6 @@ function runBridge(op, payload = {}) {
     try {
       child = spawn(exe, ['-X', 'utf8', '-I', '-c', PY_DRIVER], {
         windowsHide: true,
-        timeout: BRIDGE_TIMEOUT_MS,
       });
     } catch (e) {
       resolve({ ok: false, error: `Failed to start Python process: ${e.message}` });
@@ -79,19 +78,36 @@ function runBridge(op, payload = {}) {
     }
     let out = '';
     let done = false;
+    let timedOut = false;
+    const cleanup = () => {
+      clearTimeout(timer);
+      try {
+        child.stdin?.destroy();
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      } catch {}
+    };
     const finish = (r) => {
       if (!done) {
         done = true;
+        cleanup();
         resolve(r);
       }
     };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        child.kill();
+      } catch {}
+      finish({ ok: false, error: `timeout (${BRIDGE_TIMEOUT_MS} ms)` });
+    }, BRIDGE_TIMEOUT_MS);
     child.stdout.on('data', (d) => {
       if (out.length < 4_000_000) out += d.toString('utf8');
     });
     child.stderr.on('data', () => {}); // provider/HTTP logs: drained, unused
     child.on('error', (e) => finish({ ok: false, error: `Failed to start Python process: ${e.message}` }));
     child.on('close', (code, signal) => {
-      if (signal) {
+      if (timedOut || signal) {
         finish({ ok: false, error: `timeout (${BRIDGE_TIMEOUT_MS} ms)` });
         return;
       }

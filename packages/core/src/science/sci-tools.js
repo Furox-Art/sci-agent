@@ -24,17 +24,38 @@ export const python_eval = {
     if (!exe) return 'Error: Python not found. Install it or provide the path via SCI_AGENT_PYTHON.';
     return await new Promise((resolve) => {
       // -I: isolated mode; -X utf8: force UTF-8 standard streams on Windows.
-      const child = spawn(exe, ['-I', '-X', 'utf8', '-c', code], { cwd: workspaceRoot, timeout, windowsHide: true });
+      // Timeout is handled here (not via spawn's `timeout` option): when a spawn fails
+      // (ENOENT/EACCES) the stdio pipes would otherwise keep the event loop alive.
+      const child = spawn(exe, ['-I', '-X', 'utf8', '-c', code], { cwd: workspaceRoot, windowsHide: true });
       let out = '';
+      let done = false;
+      let timedOut = false;
+      const finish = (text) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        try {
+          child.stdin?.destroy();
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+        } catch {}
+        resolve(text);
+      };
+      const timer = setTimeout(() => {
+        timedOut = true;
+        try {
+          child.kill();
+        } catch {}
+      }, timeout);
       const grab = (d) => {
         if (out.length < 50_000) out += d.toString('utf8');
       };
       child.stdout.on('data', grab);
       child.stderr.on('data', grab);
-      child.on('error', (e) => resolve(`Error: could not run Python (${e.message}). Is it installed?`));
+      child.on('error', (e) => finish(`Error: could not run Python (${e.message}). Is it installed?`));
       child.on('close', (c, sig) => {
-        const tail = sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
-        resolve(`exit code: ${c ?? '?'}${tail}\n${out || '(no output)'}`);
+        const tail = timedOut || sig === 'SIGTERM' ? `\n(timeout: ${timeout} ms)` : '';
+        finish(`exit code: ${c ?? '?'}${tail}\n${out || '(no output)'}`);
       });
     });
   },

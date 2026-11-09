@@ -6,15 +6,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ToolRegistry } from '@sci/core';
-import { resolvePython, pythonScriptsDir } from '../packages/core/src/science/pybridge.js';
+import { resolvePython, findPythonScript } from '../packages/core/src/science/pybridge.js';
 import { plan_audit } from '../packages/core/src/science/sci-audit.js';
 
 // plan-auditor kurulu mu? (exe yolu ya da python -m supervisor.cli ile kontrol)
 const pyExe = resolvePython();
 let hasPlanAuditor = false;
 if (pyExe) {
-  const exe = path.join(pythonScriptsDir(pyExe), 'plan-auditor.exe');
-  if (existsSync(exe)) {
+  const exe = findPythonScript(pyExe, 'plan-auditor');
+  if (exe) {
     hasPlanAuditor = spawnSync(exe, ['--help'], { timeout: 30000, windowsHide: true }).status === 0;
   } else {
     hasPlanAuditor =

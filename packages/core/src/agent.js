@@ -42,12 +42,59 @@ const runWithConcurrency = async (items, worker, limit) => {
   await Promise.all(runners);
 };
 
-export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent } = {}) {
+/**
+ * Deterministic grounding gate ("no fabrication"): patterns that mark a *verifiable*
+ * claim — a statistic, a measurement with a unit, an equality to a concrete number, or a
+ * literature reference. They are intentionally conservative and dependency-free: the
+ * gate only fires when a run produced such a claim without executing a single tool.
+ */
+const CLAIM_PATTERNS = [
+  { kind: 'statistics', re: /\bp\s*[=<>≤≥]\s*0?\.\d+/i },
+  { kind: 'statistics', re: /\b(?:95\s*%\s*CI|confidence interval|standard deviation|\bSD\b|\bSEM\b)/ },
+  { kind: 'statistics', re: /\b(?:n|N)\s*=\s*\d+/ },
+  { kind: 'statistics', re: /\b(?:odds ratio|hazard ratio|relative risk|effect size|R²|R2|χ²|chi-square)\b/i },
+  {
+    kind: 'measurement',
+    re: /-?\d+(?:[.,]\d+)?\s?(?:mg|kg|µg|ug|ng|pg|mL|ml|L|µL|uL|nL|mmol|mol|µmol|umol|nmol|nM|µM|uM|mM|M|K|°C|°F|Pa|kPa|MPa|J|kJ|W|kW|Hz|kHz|MHz|GHz|eV|keV|MeV|nm|µm|um|pm|mm|cm|km|m\/s|m\/s²|rpm|Da|kDa|ppm|ppb|mol\/L)(?![\w-])/,
+  },
+  { kind: 'measurement', re: /\d+(?:[.,]\d+)?\s?%|%\s?\d+(?:[.,]\d+)?/ },
+  { kind: 'equation', re: /[A-Za-zα-ωΑ-Ω][\w]*\s*=\s*-?\d+(?:[.,]\d+)?/ },
+  { kind: 'literature', re: /\b10\.\d{4,9}\/[^\s)]+/ },
+  { kind: 'literature', re: /\b(?:et al\.|PMID:?\s*\d+|arXiv:\s*\d{4}\.\d{4,5}|doi:)/i },
+];
+
+// Up to `max` distinct matching snippets, so the caller can show *why* the gate fired.
+export function findUngroundedClaims(text, max = 5) {
+  const s = typeof text === 'string' ? text : '';
+  if (!s) return [];
+  const found = [];
+  for (const { kind, re } of CLAIM_PATTERNS) {
+    const m = s.match(re);
+    if (m && !found.some((f) => f.snippet === m[0])) found.push({ kind, snippet: m[0] });
+    if (found.length >= max) break;
+  }
+  return found;
+}
+
+// One-shot steering text: appended to this run's system prompt only (never persisted in
+// `messages`), so the model either verifies the claim with a tool or labels it unverified.
+const GROUNDING_NUDGE = [
+  'Grounding check failed: your previous answer contained verifiable claims (numbers, statistics,',
+  'measurements or literature references) but no tool was used in this run.',
+  'Either verify each claim now with a tool (python_eval, furox_compute, csv_stats, lit_search, …)',
+  'and report the tool output, or state explicitly that the value is an unverified estimate from memory.',
+  'Do not present unverified numbers as results.',
+].join('\n');
+
+export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent, grounding = true } = {}) {
   // Effective tool-concurrency limit for this run: caller-provided `maxConcurrent` when
   // it is a positive integer, otherwise DEFAULT_MAX_CONCURRENT (4).
   const concurrency = Number.isInteger(maxConcurrent) && maxConcurrent >= 1 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
   // Ardışık bozuk araç çağrısı sayacı: 3'e ulaşınca döngü sonlanır (sonsuz döngü koruması).
   let malformedStreak = 0;
+  // Kanıt kapısı durumu: bu koşuda kaç araç çalıştı ve düzeltici uyarı verildi mi.
+  let toolsRun = 0;
+  let groundingNudge = false;
   // Abort: nedeni olay olarak bildir ve düzenli sonuçla dön (hata fırlatma).
   const abortRun = (steps) => {
     onEvent({ type: 'error', text: 'Run aborted before completion.', reason: 'aborted' });
@@ -57,9 +104,11 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     if (signal?.aborted) return abortRun(step);
     onEvent({ type: 'step', step: step + 1, maxSteps });
     // systemExtra yalnızca model çağrılarına eklenir; kalıcı geçmiş kopya üzerinden korunur.
+    // Kanıt kapısı uyarısı da sistem istemine eklenir (kalıcı messages dizisine yazılmaz).
+    const effectiveSystemExtra = groundingNudge ? [systemExtra, GROUNDING_NUDGE].filter(Boolean).join('\n\n') : systemExtra;
     const chatMessages =
-      systemExtra && messages.length && typeof messages[0]?.content === 'string'
-        ? messages.map((m, i) => (i === 0 ? { ...m, content: `${m.content}\n\n${systemExtra}` } : m))
+      effectiveSystemExtra && messages.length && typeof messages[0]?.content === 'string'
+        ? messages.map((m, i) => (i === 0 ? { ...m, content: `${m.content}\n\n${effectiveSystemExtra}` } : m))
         : messages;
     let res;
     try {
@@ -93,7 +142,31 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     // Deltalar akış sırasında gösterildi; yalnızca akışsız yanıtta tam metni yayınla.
     if (res.reasoning && !res.streamed) onEvent({ type: 'reasoning', text: res.reasoning });
     if (res.content && !res.streamed) onEvent({ type: 'text', text: res.content });
-    if (!toolCalls.length) return { done: true, steps: step + 1 };
+    if (!toolCalls.length) {
+      // Kanıt kapısı: hiç araç çalışmadan sayısal/literatür iddiası içeren final yanıt.
+      const claims = grounding ? findUngroundedClaims(res.content) : [];
+      if (claims.length && toolsRun === 0) {
+        const detail = claims.map((c) => `${c.kind}: ${JSON.stringify(c.snippet)}`).join('; ');
+        if (!groundingNudge) {
+          groundingNudge = true;
+          onEvent({
+            type: 'warning',
+            reason: 'ungrounded_claims',
+            text: `Ungrounded claims without any tool call (${detail}). Asking the model to verify them with a tool.`,
+            claims,
+          });
+          continue;
+        }
+        onEvent({
+          type: 'warning',
+          reason: 'ungrounded_claims',
+          text: `Answer marked unverified: still no tool call after the grounding check (${detail}).`,
+          claims,
+        });
+        return { done: true, steps: step + 1, unverified: true, unverifiedClaims: claims };
+      }
+      return { done: true, steps: step + 1 };
+    }
 
     // Bozuk çağrı: adı eksik/bilinmiyor veya argümanlar geçersiz JSON. Çalıştırılmaz;
     // o çağrı için temiz hata gözlemi modele döner ve döngü sürer.
@@ -126,6 +199,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       // geçersiz sonuç dönerse de döngü ölmesin: temiz hata gözlemi modele geri beslenir.
       let result;
       try {
+        toolsRun++;
         result = await registry.invoke(tc.name, tc.arguments, { provider, onEvent, maxSteps, signal });
         if (!result || typeof result !== 'object' || typeof result.output !== 'string') {
           result = { ok: false, output: JSON.stringify({ error: 'Tool returned an invalid result.' }) };

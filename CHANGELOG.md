@@ -2,6 +2,24 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## 0.10.7 — 2026-11-09
+
+### Added
+- **Deterministic grounding gate ("no fabrication")** — the no-fabrication rule is no longer prompt-only: `runAgentLoop` now checks every final answer. If a run executed **zero tools** and the answer still contains a verifiable claim (p-values, n=, measurement with a unit, `x = <number>`, DOI/`et al.`/PMID/arXiv), it emits a `warning` event, retries once with a verification instruction in that turn's system prompt, and — if the model still answers without a tool — returns `unverified: true` with `unverifiedClaims`; CLI and desktop show the warning in red. Disable with `runAgentLoop({ grounding: false })`. `findUngroundedClaims()` is exported (+6 tests)
+- **Two more default skills** — `github:Furox-Art/axiomize/skills/axiomize` and `github:Furox-Art/scientific-computing-system-2.0` are now in `DEFAULT_CONFIG.skills.sources` (9 total); the example config matches and a test now locks config/example parity (+1 test)
+
+### Fixed
+- **Linux/macOS console scripts** — `pythonScriptsDir()` now also resolves POSIX `bin/`, and `findPythonScript()` probes `<name>` (unix) or `<name>.exe` (Windows), so `axiomize`, `cds2`, `plan-auditor`, `eq-layer` and friends are found in Debian/Ubuntu venvs instead of falling back to `python -m`; hyphenated modules fall back to `python -m polyglot_python` instead of an invalid `polyglot-python` (+tests updated)
+- **Child-process leak / 60 s hang (Linux CI)** — `sci-lit`, `sci-lit-extra`, `sci-furox`, `sci-audit`, `sci-tools` and `run_command` no longer pass spawn's `timeout` option; each bridge now owns its timer, kills the child, destroys stdio pipes and clears the timer on every exit path, so a failed spawn (`ENOENT`/`EACCES`) cannot keep the Node event loop alive. The two "no interpreter" tests now pass an empty `PATH` so Linux no longer falls back to `/usr/bin/python3` (+4 CI tests green)
+- **Lockfile drift** — `package-lock.json` was stuck at 0.9.0 while the packages were 0.10.6
+
+### Documentation
+- README: skills 7 → 9 (with the two new sources), test count 134 → 180, new grounding-gate section; `sci-agent.config.example.json` synced (was 3 skills vs 7 in the defaults)
+
+### Tests
+- +7 tests: **180 total, 0 fail** on Windows (no skips)
+- Linux verification on the `instabox` Debian box (Node 22, Python 3.13): **160 pass, 0 fail, 20 skipped** — the 20 skips are the live `literature-evidence-mcp` tests (package not installed there); the 4 tests that used to hang/fail on Linux CI now pass, and the whole suite runs in ~3 s (previously two tests waited out a 60 s spawn timeout)
+
 ## 0.10.6 — 2026-11-07
 
 ### Added
