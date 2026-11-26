@@ -192,8 +192,8 @@ Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI ve masaüst
 - [scientific-reasoning-auditor](https://github.com/Furox-Art/scientific-reasoning-auditor) → `sra_cli` makale denetimi köprüsü (pip)
 - [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) → `polyguard_cli` kod doğrulama köprüsü (pip) + SKILL.md becerisi
 - [polyglot-python](https://github.com/Furox-Art/polyglot-python) → `polyglot_cli` transpiler köprüsü (pip)
-- [repocraft](https://github.com/Furox-Art/repocraft) → `repocraft_cli` deterministik proje iskeleti köprüsü (pip)
-- [nomosguard](https://github.com/Furox-Art/nomosguard) → `nomosguard_cli` güvenlik akıl yürütme köprüsü (pip)
+- [repocraft](https://github.com/Furox-Art/deterministic-recipe-scaffolder) → `repocraft_cli` deterministik proje iskeleti köprüsü (pip)
+- [nomosguard](https://github.com/Furox-Art/evidence-ledger-policy-gate) → `nomosguard_cli` güvenlik akıl yürütme köprüsü (pip)
 - [eq-layer](https://github.com/Furox-Art/eq-layer) → **otomatik ön-işleme**: her kullanıcı mesajında niyet/duygu routing'i çalışır, yönlendirme o turun sistem istemine eklenir (kalıcı geçmiş değişmez; `SCI_AGENT_EQ_DISABLE=1` ile kapatılır). Bilinçli olarak eklenmeyenler: scientific-toolkit-mcp (bağımlılık çakışması riski). Kurulum:
 
 ```bash
@@ -205,7 +205,7 @@ pip install numpy scipy pandas axiomize scientific-computing-system scientific-c
 SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın sistem istemine ekler — Claude Code beceri modeliyle aynı fikir, kaynakları kendi depolarından.
 
 - **Kaynak biçimi:** `github:kullanici/depo[/alt/yol]` (genel depolarda çalışır, anahtar gerekmez)
-- **Varsayılan yüklü (9 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) + [plan-auditor](https://github.com/Furox-Art/plan-auditor) + [nomosguard](https://github.com/Furox-Art/nomosguard) + [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) + [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system) + [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0)
+- **Varsayılan yüklü (9 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) + [plan-auditor](https://github.com/Furox-Art/plan-auditor) + [nomosguard](https://github.com/Furox-Art/evidence-ledger-policy-gate) + [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) + [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system) + [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0)
 - **Uygulama:** Ajanlar görünümü → Beceriler kartından ekle/kaldır
 - **CLI:** `/skills` (listele) · `/skills add github:kullanici/depo` (ekle; `sci-agent.config.json` dosyasına kalıcı yazılır)
 - Yeni beceri eklemek için tek gereken: deponun kökünde (veya belirttiğin alt yolda) geçerli frontmatter'lı bir `SKILL.md`
