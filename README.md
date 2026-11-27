@@ -72,7 +72,7 @@ Sağlayıcı seçim menüsü:
 npm run cli -- --provider-menu
 ```
 
-ChatGPT, GitHub Copilot, OpenRouter veya mevcut API anahtarı/yerel model yapılandırması arasından seçim yapılır. Hesap modları isteğe bağlı ve etkileşimlidir. Normal CLI akışı değişmez.
+ChatGPT, GitHub Copilot, OpenRouter, mevcut API anahtarı/yerel model yapılandırması veya ayrı yerel Claude Code ve Gemini/Antigravity ajan oturumları arasından seçim yapılır. Hesap modları isteğe bağlı ve etkileşimlidir. Normal CLI akışı değişmez.
 
 ### GitHub Copilot
 
@@ -108,6 +108,45 @@ npm run cli -- auth openrouter usage
 OAuth sırasında kullanıcı kredi limitini USD olarak önceden belirler; OpenRouter onay ekranında nihai limit ve 30 günlük varsayılan süre düzenlenebilir. Model kataloğu araç çağrısını destekleyen modelleri listeler. Anahtar mevcut yerel scrypt/AES-GCM şifreli kasada saklanır ve proje ayarlarına yazılmaz. Çıkış yerel anahtarı kaldırır; uzaktaki anahtarın iptali için gösterilen OpenRouter anahtar ayarları bağlantısını kullanın. Anahtar yeniden bağlandığında önceki anahtar otomatik iptal edilmez.
 
 Her iki mod da açık kullanıcı onayıyla istemleri ve seçilen araç çıktıları ilgili sağlayıcıya gönderir; eski sohbetleri otomatik yüklemez veya sohbet geçmişi yazmaz. Mevcut CLI bilimsel kayıtları ve açık kullanıcı kaydetme komutları geçerlidir. Gerçek abonelik/kredi hesabıyla giriş ve model çağrısı kabul testi yapılmamıştır; OpenRouter testleri sentetik HTTP yanıtları, Copilot adaptör testleri SDK taklitleri kullanır. SDK'nın gerçek başlatılması ve yetkisiz kullanıcı reddi Linux'ta doğrulanmıştır. Sağlayıcı şartları ve ticari dağıtım uygunluğu ayrıca incelenmelidir.
+
+## Claude Code ve Gemini / Antigravity: yerel ajan oturumları
+
+Bu iki seçenek, SciAgent'in model sağlayıcıları değildir. T3 Code ve editörlerin yerel ajan entegrasyonuna benzer biçimde, kullanıcının açıkça seçtiği ayrı bir resmî ajan oturumu başlatılır. SciAgent'in bilimsel araç kataloğu, hakemleri, araştırma belleği ve kanıt kapısı bu oturumlarda otomatik çalışmaz; yerel ajan kendi araçları ve izin sistemiyle çalışır. Çıktısı SciAgent tarafından bilimsel olarak onaylanmış sayılmaz. Abonelik uygunluğunu, kullanılabilir modelleri, ek ücretleri ve kotayı sağlayıcı belirler. Hiçbir sağlayıcıyla iş ortaklığı veya dağıtım onayı iddia edilmez.
+
+### Claude Code (değiştirilmemiş resmî CLI)
+
+Önce Anthropic'in [resmî Claude Code kurulumunu](https://code.claude.com/docs/en/setup) yapın. SciAgent, `PATH` üzerindeki kullanıcının yüklediği resmî `claude` çalıştırılabilir dosyasını kullanır. OAuth tokenlarını okumaz, oturumu kopyalamaz, Anthropic kimlik doğrulama seçeneklerini engellemez ve SDK üzerinden tüketici aboneliğini başka bir modele dönüştürmez.
+
+```bash
+npm run cli -- auth claude login
+npm run cli -- auth claude status
+npm run cli -- --claude --workspace /path/to/project
+npm run cli -- auth claude logout
+npm run cli -- auth claude usage
+```
+
+Oturumda model, izin ve hesap seçimi Claude Code'un kendi terminal arayüzündedir. Hesap ve ücretlendirme kullanıcının kendi Anthropic sözleşmesine veya Claude Code'da seçtiği yetkili sağlayıcıya bağlıdır. Claude Code'u bir ürün içinde çalıştırma/dağıtma koşulları için [Anthropic Legal and Compliance](https://code.claude.com/docs/en/legal-and-compliance) belgesini okuyun; ilgili ticari koşullara uymak gerekir. Bu entegrasyon, üçüncü taraf Claude.ai OAuth girişi veya programatik abonelik arka ucu değildir.
+
+### Gemini / Google Antigravity (resmî ACP)
+
+[Antigravity CLI](https://antigravity.google/docs/cli/acp) yüklenmeli ve `agy acp --help` desteklenmelidir. Google hesabınızla giriş, Google'ın resmî terminal yetkilendirme komutunda gerçekleşir:
+
+```bash
+npm run cli -- auth gemini login
+npm run cli -- --gemini --workspace /path/to/project
+npm run cli -- auth gemini version
+npm run cli -- auth gemini status
+npm run cli -- auth gemini logout
+npm run cli -- auth gemini usage
+```
+
+SciAgent, standart ACP v1 istemcisi olarak değiştirilmeyen `agy acp` işlemini başlatır ve resmî `@agentclientprotocol/sdk` (2.12.0) üzerinden stdio JSON-RPC ile konuşur. İstemleri yalnızca etkileşimli terminalde kullanıcı yazar. Model kataloğu ACP oturumunda model yapılandırması olarak bildirilmişse `/model` ile seçim yapılabilir; katalog bildirilmediyse ajan varsayılanı geçerlidir. `/exit` oturumu kapatır, Ctrl+C devam eden turu iptal eder; ikinci Ctrl+C bağlantıyı kapatır. Hesap durumu ve çıkış resmî `agy` oturumunda yönetilir; `auth gemini status` bilgi mesajıdır, bir OAuth durum sorgusu değildir. `auth gemini native` doğrudan resmî terminali açar.
+
+İstemci dosya sistemi/terminal/MCP sunucusu yeteneklerini ilan etmez; bu tür istemciye yöneltilen talepler desteklenmez. ACP izin talepleri, aynı oturuma ve aktif tura ait olduğunda ve somut giriş ayrıntıları gösterilebildiğinde kullanıcıya sorulur. Yalnız bir kerelik onay verilebilir; kalıcı izin otomatik seçilmez. Ajanın kendi çalışma alanı izinleri ve araçları yine Antigravity tarafından yönetilir; bu istemci işletim sistemi sandbox'ı değildir. Ajanın kendi önceden onaylanmış izinleri geçerli olabilir.
+
+Google, Antigravity'nin resmî ACP istemcisi olarak kullanımı belgelendirir ancak tüketici aboneliğinin üçüncü taraf ajan arka ucu veya otomatik hesap döndürme şeklinde kullanılmasını desteklemez. [Google ACP belgesi](https://antigravity.google/docs/cli/acp), [Google Antigravity FAQ](https://antigravity.google/docs/faq). Bu yüzden iki yerel ajan da SciAgent'in otomatik `--prompt` ve alt ajan/model sağlayıcısı akışlarından ayrıdır; özel uç nokta, proxy, kimlik taklidi veya token çıkarma kullanılmaz. Yerel ajan uygulamaları kendi hesabınızın tüm ayarlarıyla çalışır; güvenmediğiniz çalışma alanlarını açmayın.
+
+Doğrulama: Linux cihazında Claude Code 2.1.332 ve Antigravity CLI 1.5.11 sürümleri görüldü. Boş kullanıcı dizininde gerçek Antigravity ACP v1 initialize bağlantısı doğrulandı; gerçek abonelikle oturum açma, model seçme ve çıkarım kabul testi yapılmadı. Sentetik ACP oturumlarında izin reddi, model seçimi, iptal, bağlantı ve protokol uyumsuzluğu test edildi. Windows/macOS yerel terminal devri ayrıca test edilmelidir.
 
 ## Model bağlama
 

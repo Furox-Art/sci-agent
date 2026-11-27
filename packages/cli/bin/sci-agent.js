@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startRepl } from '../src/repl.js';
 import { authCommand, launchChatGPT } from '../src/chatgpt-cli.js';
+import { launchClaude, launchGemini, nativeAuthCommand } from '../src/native-agent-cli.js';
 import { launchOpenRouter, launchCopilot, providerMenu, openRouterCommand, copilotCommand } from '../src/provider-cli.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,9 @@ if (argv.includes('--help') || argv.includes('-h')) {
 Kullanım:
   sci-agent                                  # etkileşimli terminal
   sci-agent --provider-menu                 # select account provider
+  sci-agent --claude                        # native Claude Code terminal session
+  sci-agent --gemini                        # official Antigravity ACP terminal session
+  sci-agent auth claude | gemini <command>
   sci-agent --copilot                       # official Copilot account
   sci-agent --openrouter                    # OpenRouter OAuth / own credits
   sci-agent auth copilot | openrouter <command>
@@ -34,11 +38,14 @@ REPL içindeki komutlar için /help yaz.`);
 }
 
 try {
-  const options=['--chatgpt','--openrouter','--copilot','--provider-menu'].filter(x=>argv.includes(x));
+  const options=['--chatgpt','--openrouter','--copilot','--provider-menu','--claude','--gemini'].filter(x=>argv.includes(x));
   if(options.length>1)throw new Error('Select only one provider');
-  if (argv[0] === 'auth' && argv[1]==='openrouter') await openRouterCommand(argv.slice(2));
+  if (argv[0] === 'auth' && ['claude','gemini'].includes(argv[1])) await nativeAuthCommand(argv[1],argv.slice(2));
+  else if (argv[0] === 'auth' && argv[1]==='openrouter') await openRouterCommand(argv.slice(2));
   else if (argv[0] === 'auth' && argv[1]==='copilot') await copilotCommand(argv.slice(2));
   else if (argv[0] === 'auth') await authCommand(argv.slice(1));
+  else if (argv.includes('--claude')) await launchClaude(argv.filter(a=>a!=='--claude'));
+  else if (argv.includes('--gemini')) await launchGemini(argv.filter(a=>a!=='--gemini'));
   else if (argv.includes('--openrouter')) await launchOpenRouter(argv.filter(a=>a!=='--openrouter'),startRepl);
   else if (argv.includes('--copilot')) await launchCopilot(argv.filter(a=>a!=='--copilot'),startRepl);
   else if (argv.includes('--provider-menu')) await providerMenu(argv.filter(a=>a!=='--provider-menu'),startRepl);

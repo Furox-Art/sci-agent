@@ -1,3 +1,4 @@
+import { launchClaude, launchGemini } from './native-agent-cli.js';
 import {spawn} from 'node:child_process';
 import {OpenRouterAuth,openRouterAuthorization,OPENROUTER_KEYS,CopilotProvider,createCopilotConnection,COPILOT_USAGE,copilotEnvironment,filterCopilotModels} from '@sci/core';
 import {question,clean,browser,unlock,launchChatGPT} from './chatgpt-cli.js';
@@ -98,11 +99,13 @@ export async function launchCopilot(argv,startRepl){
   }finally{await c.close();}
 }
 export async function providerMenu(argv,startRepl){
-  console.log('SciAgent — Select provider\n[1] ChatGPT\n[2] GitHub Copilot\n[3] OpenRouter\n[4] Existing API key / local model configuration');
+  console.log('SciAgent — Select provider\n[1] ChatGPT\n[2] GitHub Copilot\n[3] OpenRouter\n[4] Existing API key / local model configuration\n[5] Claude Code (native agent)\n[6] Gemini / Antigravity (native ACP agent)');
   const choice=(await question('Select: ')).trim();
   if(choice==='1')return launchChatGPT(argv,startRepl);
   if(choice==='2')return launchCopilot(argv,startRepl);
   if(choice==='3')return launchOpenRouter(argv,startRepl);
   if(choice==='4')return startRepl(argv);
+  if(choice==='5')return launchClaude(argv);
+  if(choice==='6')return launchGemini(argv);
   throw new Error('Invalid provider selection');
 }
