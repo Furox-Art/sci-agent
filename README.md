@@ -24,6 +24,10 @@ sci-agent --version
 
 See [sci-agent on npm](https://www.npmjs.com/package/sci-agent). The package bundles its runtime dependencies, so no separate `npm install` is needed after installation.
 
+## Releasing
+
+To publish a new version, update `package.json`, commit it, and create a GitHub release tagged `v<version>` (for example `v0.10.9`). The `publish-npm.yml` workflow verifies that the tag matches the package version, runs the test suite, builds the tarball and publishes it to npm with provenance via OIDC trusted publishing. No npm token is stored in the repository.
+
 ## Quick start
 
 Requires Node.js 20 or newer (Node 22+ recommended). Python 3.11+ is needed for optional scientific bridges and Lesson-gate. The optional Copilot SDK requires a compatible platform and Node 20.19+ or 22.12+.
