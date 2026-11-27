@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sci-agent"
+version = "0.10.7"
+description = "Sci-Agent — Python launcher for the model-agnostic scientific research and coding agent"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+authors = [{ name = "Furox-Art" }]
+keywords = [
+  "scientific-computing",
+  "ai-agent",
+  "cli",
+  "llm",
+  "research",
+  "terminal",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development :: Code Generators",
+]
+
+[project.urls]
+Homepage = "https://github.com/Furox-Art/Sci-Agent"
+Repository = "https://github.com/Furox-Art/Sci-Agent.git"
+Issues = "https://github.com/Furox-Art/Sci-Agent/issues"
+Changelog = "https://github.com/Furox-Art/Sci-Agent/blob/main/CHANGELOG.md"
+
+[project.scripts]
+sci-agent = "sci_agent.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sci_agent = ["_bundle/*.tgz"]

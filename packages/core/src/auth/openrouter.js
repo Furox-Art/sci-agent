@@ -11,7 +11,7 @@ export function openRouterAuthorization({limit,expiration='30-days'}={}){
   const verifier=randomBytes(32).toString('base64url');
   const u=new URL('https://openrouter.ai/auth');
   // Official headless PKCE flow: provider displays a one-time code, no callback server.
-  for(const [k,v] of Object.entries({code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256',key_label:'SciAgent',limit:String(limit),expiration}))u.searchParams.set(k,v);
+  for(const [k,v] of Object.entries({code_challenge:createHash('sha256').update(verifier).digest('base64url'),code_challenge_method:'S256',key_label:'Sci-Agent',limit:String(limit),expiration}))u.searchParams.set(k,v);
   return {url:u.href,verifier,expiresAt:Date.now()+10*60_000};
 }
 async function safeRequest(fetchImpl,route,options={}){
@@ -58,9 +58,9 @@ export class OpenRouterAuth{
     const key=this.#key();
     const provider=new OpenAICompatProvider({baseUrl:OPENROUTER_BASE,apiKey:key,name:model,stream:true,fetchImpl:async(url,opts)=>{
       need(url===OPENROUTER_BASE+'/chat/completions','Unexpected OpenRouter inference destination');
-      return safeRequest(this.#fetch,'/chat/completions',{...opts,headers:{...opts.headers,'HTTP-Referer':'https://github.com/Furox-Art/sci-agent','X-Title':'SciAgent'}});
+      return safeRequest(this.#fetch,'/chat/completions',{...opts,headers:{...opts.headers,'HTTP-Referer':'https://github.com/Furox-Art/Sci-Agent','X-Title':'Sci-Agent'}});
     }});
-    // Do not expose the key on the public provider instance passed to SciAgent tools.
+    // Do not expose the key on the public provider instance passed to Sci-Agent tools.
     return {model,baseUrl:OPENROUTER_BASE,chat:args=>provider.chat(args)};
   }
   async logout(){

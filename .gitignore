@@ -43,3 +43,9 @@ evidence-ledger.jsonl
 Thumbs.db
 
 sciagent-chat-*.md
+
+# Publish artifacts
+dist-npm/
+python/src/sci_agent/_bundle/*.tgz
+python/src/sci_agent.egg-info/
+python/build/

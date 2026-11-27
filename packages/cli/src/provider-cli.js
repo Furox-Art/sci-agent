@@ -1,7 +1,7 @@
 import { launchLocal } from './local-cli.js';
 import { launchClaude, launchGemini } from './native-agent-cli.js';
 import {spawn} from 'node:child_process';
-import {OpenRouterAuth,openRouterAuthorization,OPENROUTER_KEYS,CopilotProvider,createCopilotConnection,COPILOT_USAGE,copilotEnvironment,filterCopilotModels} from '@sci/core';
+import {OpenRouterAuth,openRouterAuthorization,OPENROUTER_KEYS,CopilotProvider,createCopilotConnection,COPILOT_USAGE,copilotEnvironment,filterCopilotModels} from '../../core/src/index.js';
 import {question,clean,browser,unlock,launchChatGPT} from './chatgpt-cli.js';
 
 async function chooseModel(models){
@@ -60,9 +60,9 @@ export async function launchOpenRouter(argv,startRepl){
   }finally{await v.close();}
 }
 async function officialCopilotLogin(){
-  console.log('Sign in through the official GitHub Copilot CLI; no GitHub password or token is collected by SciAgent.');
+  console.log('Sign in through the official GitHub Copilot CLI; no GitHub password or token is collected by Sci-Agent.');
   if((await question('Run copilot login (yes/no): ')).trim().toLowerCase()!=='yes')throw new Error('Cancelled');
-  if(process.platform==='win32')throw new Error('Run copilot login in your terminal, then restart SciAgent with --copilot.');
+  if(process.platform==='win32')throw new Error('Run copilot login in your terminal, then restart Sci-Agent with --copilot.');
   await new Promise((resolve,reject)=>{
     const p=spawn('copilot',['login'],{stdio:'inherit',env:copilotEnvironment(),shell:false});
     p.once('error',()=>reject(new Error('Install the official GitHub Copilot CLI and run copilot login: https://docs.github.com/copilot/how-tos/copilot-cli')));
@@ -73,8 +73,8 @@ export async function copilotCommand(args){
   const action=args[0]??'help';
   if(action==='usage'){console.log(COPILOT_USAGE);return;}
   if(action==='login'){await officialCopilotLogin();return;}
-  if(action==='logout'){console.log('Run the official Copilot CLI and use /logout to remove its stored login; SciAgent does not own that credential. Revoke the OAuth authorization separately in GitHub Settings if needed.');return;}
-  if(action==='switch'){console.log('Exit SciAgent, run the official Copilot CLI, then /user switch and restart SciAgent.');return;}
+  if(action==='logout'){console.log('Run the official Copilot CLI and use /logout to remove its stored login; Sci-Agent does not own that credential. Revoke the OAuth authorization separately in GitHub Settings if needed.');return;}
+  if(action==='switch'){console.log('Exit Sci-Agent, run the official Copilot CLI, then /user switch and restart Sci-Agent.');return;}
   if(!['status','models'].includes(action)){console.log('sci-agent auth copilot login | status | models | switch | logout | usage');return;}
   const c=await createCopilotConnection();
   try{
@@ -100,7 +100,7 @@ export async function launchCopilot(argv,startRepl){
   }finally{await c.close();}
 }
 export async function providerMenu(argv,startRepl){
-  console.log('SciAgent — Select provider\n[1] ChatGPT\n[2] GitHub Copilot\n[3] OpenRouter\n[4] Existing API key / local model configuration\n[5] Claude Code (native agent)\n[6] Gemini / Antigravity (native ACP agent)\n[7] Ollama (local)\n[8] LM Studio (local)\n[9] llama.cpp (local)\n[10] vLLM (local)');
+  console.log('Sci-Agent — Select provider\n[1] ChatGPT\n[2] GitHub Copilot\n[3] OpenRouter\n[4] Existing API key / local model configuration\n[5] Claude Code (native agent)\n[6] Gemini / Antigravity (native ACP agent)\n[7] Ollama (local)\n[8] LM Studio (local)\n[9] llama.cpp (local)\n[10] vLLM (local)');
   const choice=(await question('Select: ')).trim();
   if(choice==='1')return launchChatGPT(argv,startRepl);
   if(choice==='2')return launchCopilot(argv,startRepl);

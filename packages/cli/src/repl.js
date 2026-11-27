@@ -2,7 +2,7 @@ import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin, saveResearch, getResearch, searchResearch, lessonGate, sandboxEnabled, probeSandbox } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin, saveResearch, getResearch, searchResearch, lessonGate, sandboxEnabled, probeSandbox } from '../../core/src/index.js';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -266,7 +266,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
   const version = JSON.parse(
     readFileSync(fileURLToPath(new URL('../../../package.json', import.meta.url)), 'utf8'),
   ).version;
-  console.log(bold(`SciAgent v${version} — scientific coding agent`));
+  console.log(bold(`Sci-Agent v${version} — scientific coding agent`));
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
   console.log(`Workspace: ${cfg.agent.workspaceRoot} | Tools: ${registry.tools.length}`);
   console.log(dim(HELP));
@@ -485,14 +485,14 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
           }
         }
       } else if (input === '/save') {
-        const lines = ['# SciAgent Chat', '', new Date().toLocaleString('en-US'), ''];
+        const lines = ['# Sci-Agent Chat', '', new Date().toLocaleString('en-US'), ''];
         for (const m of messages) {
           if (m.role === 'user') lines.push(`## User\n\n${m.content}\n`);
           else if (m.role === 'assistant') {
             if (m.tool_calls?.length) {
               for (const tc of m.tool_calls) lines.push(`**→ tool:** ${tc.function?.name} \`${tc.function?.arguments}\`\n`);
             }
-            if (m.content) lines.push(`**SciAgent**\n\n${m.content}\n`);
+            if (m.content) lines.push(`**Sci-Agent**\n\n${m.content}\n`);
           } else if (m.role === 'tool') {
             lines.push(`> result: ${String(m.content).slice(0, 400)}\n`);
           }

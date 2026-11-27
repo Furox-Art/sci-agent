@@ -47,7 +47,7 @@ export async function openVault(pass,{dir=vaultPath()}={}){
   await validateDir(dir);
   const lock=path.join(dir,'active.lock'),file=path.join(dir,'chatgpt.enc');
   let handle;
-  try{handle=await fs.open(lock,'wx',0o600);}catch(e){if(e.code==='EEXIST')throw new Error('ChatGPT vault already in use; close the other SciAgent process. If it crashed, inspect the lock before removing it.');throw e;}
+  try{handle=await fs.open(lock,'wx',0o600);}catch(e){if(e.code==='EEXIST')throw new Error('ChatGPT vault already in use; close the other Sci-Agent process. If it crashed, inspect the lock before removing it.');throw e;}
   let closed=false;
   const close=async()=>{if(closed)return;closed=true;await handle.close();await fs.unlink(lock);};
   try{

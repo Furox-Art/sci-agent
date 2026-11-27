@@ -1,4 +1,4 @@
-# SciAgent one-command setup (Windows)
+# Sci-Agent one-command setup (Windows)
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 [-SkipPip]
 # - checks Node.js >= 20
 # - npm install (workspaces)
@@ -67,7 +67,7 @@ Write-Host "`n==> verification..."
 Push-Location $PSScriptRoot\..
 try {
   & node -e "import('./packages/core/src/plugins.js').then(m => { const ps = m.listPlugins(); const tools = ps.reduce((n,p) => n + (m.getPlugin(p.name)?.tools ?? []).length, 0); console.log('plugins: ' + ps.length); console.log('plugin tools: ' + tools); })"
-  Write-Host "`nSciAgent is ready."
+  Write-Host "`nSci-Agent is ready."
   Write-Host "  CLI:         npm run cli -- --help"
   Write-Host "  Tests:       npm test"
 } finally {

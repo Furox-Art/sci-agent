@@ -12,7 +12,7 @@ provider approval.
 - [x] Harden GitHub Actions with read-only permission, pinned action revisions,
   bounded runtime, Node 22/24 matrix and dependency audit.
 - [x] Verify GitHub-hosted Actions after public release. Both Node.js 22 and 24
-  jobs passed tests and dependency audits in [run 46005385974](https://github.com/Furox-Art/sci-agent/actions/runs/46005385974).
+  jobs passed tests and dependency audits in [run 46005385974](https://github.com/Furox-Art/Sci-Agent/actions/runs/46005385974).
   No billing or spending settings were changed.
 - [ ] Enable GitHub private vulnerability reporting, secret scanning and
   push protection when supported by repository visibility/account.

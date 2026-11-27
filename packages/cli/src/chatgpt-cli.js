@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 import { spawn } from 'node:child_process';
-import { openVault,vaultExists,ChatGPTAuth,ChatGPTPlanProvider,USAGE_URL } from '@sci/core';
+import { openVault,vaultExists,ChatGPTAuth,ChatGPTPlanProvider,USAGE_URL } from '../../core/src/index.js';
 const out=process.stdout;
 export const clean=s=>String(s??'').replace(/[\x00-\x1f\x7f-\x9f]/g,' ').slice(0,250);
 export function question(prompt,{secret=false}={}){
@@ -29,8 +29,8 @@ export async function browser(url,origin='https://auth.openai.com'){
   }
 }
 async function confirmEligibility(){
-  console.log('Continue with ChatGPT — SciAgent (local CLI)');
-  console.log('Your ChatGPT plan usage is optional and subject to account eligibility and limits.\nUse this only for your own local personal project or an eligible/approved distribution. Do not share accounts, pool quota or rotate accounts to bypass limits.\nYour prompts and selected tool outputs are sent to OpenAI for SciAgent inference. Your encrypted credentials stay on this device; no ChatGPT password or API key is requested.\nTerms: https://openai.com/policies/sign-in-with-chatgpt-terms/\nUsage and access: '+USAGE_URL);
+  console.log('Continue with ChatGPT — Sci-Agent (local CLI)');
+  console.log('Your ChatGPT plan usage is optional and subject to account eligibility and limits.\nUse this only for your own local personal project or an eligible/approved distribution. Do not share accounts, pool quota or rotate accounts to bypass limits.\nYour prompts and selected tool outputs are sent to OpenAI for Sci-Agent inference. Your encrypted credentials stay on this device; no ChatGPT password or API key is requested.\nTerms: https://openai.com/policies/sign-in-with-chatgpt-terms/\nUsage and access: '+USAGE_URL);
   if((await question('Confirm local use, eligibility and consent (yes/no): ')).trim().toLowerCase()!=='yes')throw new Error('ChatGPT sign-in cancelled');
 }
 export async function unlock({create=false}={}){

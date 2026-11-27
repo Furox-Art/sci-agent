@@ -1,22 +1,29 @@
 <div align="center">
-  <img src="docs/assets/logo.png" alt="SciAgent — scientific research and coding agent" width="560" />
+  <img src="https://raw.githubusercontent.com/Furox-Art/Sci-Agent/main/docs/assets/logo.png" alt="Sci-Agent - scientific research and coding agent" width="560" />
 </div>
 
-# SciAgent
+# Sci-Agent
 
-A model-agnostic scientific research and coding agent for the terminal. SciAgent combines a tool-driven agent loop with hypothesis tracking, evidence-linked claims, scientific computation, literature retrieval, independent numerical replay and persistent research records.
+A model-agnostic scientific research and coding agent for the terminal. Sci-Agent combines a tool-driven agent loop with hypothesis tracking, evidence-linked claims, scientific computation, literature retrieval, independent numerical replay and persistent research records.
 
-[![tests](https://github.com/Furox-Art/sci-agent/actions/workflows/test.yml/badge.svg)](https://github.com/Furox-Art/sci-agent/actions/workflows/test.yml)
+[![tests](https://github.com/Furox-Art/Sci-Agent/actions/workflows/test.yml/badge.svg)](https://github.com/Furox-Art/Sci-Agent/actions/workflows/test.yml)
 
-**CLI only.** No desktop application, hosted service or separate SciAgent subscription is required. Model access, optional scientific packages and local computing resources are supplied by the user.
+**CLI only.** No desktop application, hosted service or separate Sci-Agent subscription is required. Model access, optional scientific packages and local computing resources are supplied by the user.
 
 ## Quick start
 
 Requires Node.js 20 or newer (Node 22+ recommended). Python 3.11+ is needed for optional scientific bridges and Lesson-gate. The optional Copilot SDK requires a compatible platform and Node 20.19+ or 22.12+.
 
 ```bash
-git clone https://github.com/Furox-Art/sci-agent.git
-cd sci-agent
+npm install -g sci-agent
+sci-agent --provider-menu
+```
+
+To work from the source repository instead:
+
+```bash
+git clone https://github.com/Furox-Art/Sci-Agent.git
+cd Sci-Agent
 npm ci
 npm run cli -- --provider-menu
 ```
@@ -24,7 +31,7 @@ npm run cli -- --provider-menu
 For a scripted demonstration without a model account:
 
 ```bash
-SCI_AGENT_PROVIDER=mock npm run cli -- --prompt "List the project files"
+SCI_AGENT_PROVIDER=mock sci-agent --prompt "List the project files"
 ```
 
 Optional setup scripts: `bash scripts/setup.sh` or `powershell -File scripts/setup.ps1`. Review installation commands and package provenance first.
@@ -51,7 +58,7 @@ sci-agent/
 ## Model and account selection
 
 ```bash
-npm run cli -- --provider-menu
+sci-agent --provider-menu
 ```
 
 | Option | Integration | Access |
@@ -74,24 +81,24 @@ Account integrations are experimental. Authenticated live inference has not been
 Copy `sci-agent.config.example.json` to `sci-agent.config.json` and edit the model settings, or use environment variables:
 
 ```bash
-SCI_AGENT_BASE_URL=http://127.0.0.1:8000/v1 SCI_AGENT_MODEL=my-model npm run cli
+SCI_AGENT_BASE_URL=http://127.0.0.1:8000/v1 SCI_AGENT_MODEL=my-model sci-agent
 ```
 
 Set `SCI_AGENT_API_KEY` if the endpoint requires a key. `SCI_AGENT_PROVIDER=mock` selects the scripted demonstration provider. `SCI_AGENT_WORKSPACE` overrides the configured workspace. Do not commit real credentials.
 
 ### Local AI models
 
-SciAgent connects to local inference servers; the server, not SciAgent, loads the model weights. Install the runtime and download a tool-capable model yourself. Model licensing, quantization, GPU/CPU allocation and context length remain under user control.
+Sci-Agent connects to local inference servers; the server, not Sci-Agent, loads the model weights. Install the runtime and download a tool-capable model yourself. Model licensing, quantization, GPU/CPU allocation and context length remain under user control.
 
 ```bash
-npm run cli -- local models --local ollama
-npm run cli -- local status --local ollama
-npm run cli -- --local ollama
-npm run cli -- --local ollama --local-start --local-model qwen3:32b
-npm run cli -- --local lmstudio
-npm run cli -- --local llamacpp
-npm run cli -- --local vllm
-npm run cli -- --local custom --local-url http://127.0.0.1:9000/v1
+sci-agent local models --local ollama
+sci-agent local status --local ollama
+sci-agent --local ollama
+sci-agent --local ollama --local-start --local-model qwen3:32b
+sci-agent --local lmstudio
+sci-agent --local llamacpp
+sci-agent --local vllm
+sci-agent --local custom --local-url http://127.0.0.1:9000/v1
 ```
 
 `qwen3:32b` is an example of a model that must already be installed. Specify `--local-model` for direct selection or non-interactive prompts. `--local-timeout 900` extends the request timeout (1–3600 seconds; default 600). `--workspace` and `--sandbox` are supported.
@@ -105,7 +112,7 @@ npm run cli -- --local custom --local-url http://127.0.0.1:9000/v1
 
 Ollama discovery displays available parameter count, quantization and on-disk size metadata. Known cloud models and remote-model metadata are rejected; models explicitly lacking tool support are unavailable. Other runtimes must expose the OpenAI-compatible model catalog and tool-call protocol. Catalog availability does not prove tool-call quality.
 
-`--local-start` explicitly starts an installed Ollama server when needed, requests cloud mode to be disabled, binds to loopback and stops only the process SciAgent started on exit. It does not install software, download models or stop a previously running service.
+`--local-start` explicitly starts an installed Ollama server when needed, requests cloud mode to be disabled, binds to loopback and stops only the process Sci-Agent started on exit. It does not install software, download models or stop a previously running service.
 
 Local mode accepts loopback HTTP endpoints and rejects redirects. Set `SCI_AGENT_LOCAL_API_KEY` if required; cloud API credentials are not forwarded automatically. A loopback endpoint alone does not prove that the server never forwards requests. Literature tools and configured independent reviewers may use networks separately.
 
@@ -116,83 +123,83 @@ Large-model feasibility depends on RAM, VRAM, quantization and context length. O
 Use the documented [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) flow on your own eligible account and device. No API key is needed for an eligible plan connection. Check the [terms](https://openai.com/policies/sign-in-with-chatgpt-terms/) before use or distribution; paid or hosted distribution may require additional access or approval.
 
 ```bash
-npm run cli -- --chatgpt
-npm run cli -- auth login
-npm run cli -- auth status
-npm run cli -- auth switch
-npm run cli -- auth models
-npm run cli -- auth logout
-npm run cli -- auth usage
+sci-agent --chatgpt
+sci-agent auth login
+sci-agent auth status
+sci-agent auth switch
+sci-agent auth models
+sci-agent auth logout
+sci-agent auth usage
 ```
 
 On first use, create a password for the local vault (not your ChatGPT password), open the provider's authorization page, consent and select an available model. The integration is interactive only; unattended `--prompt` requests are rejected. Accounts are explicitly selected, not rotated to evade usage limits.
 
-The adapter uses authorization code + PKCE S256, random state/nonce, a short-lived loopback callback and OIDC issuer/audience/expiration/nonce/signature checks. It requires granted plan scopes. The password-encrypted vault at `~/.sci-agent-auth/chatgpt.enc` uses scrypt and AES-256-GCM. It is not an OS keychain. Keep the vault password safe. After a crash, remove a stale `active.lock` only after verifying that no SciAgent process is using it. Logout attempts remote refresh-token revocation and removes local tokens; failure to verify revocation is disclosed.
+The adapter uses authorization code + PKCE S256, random state/nonce, a short-lived loopback callback and OIDC issuer/audience/expiration/nonce/signature checks. It requires granted plan scopes. The password-encrypted vault at `~/.sci-agent-auth/chatgpt.enc` uses scrypt and AES-256-GCM. It is not an OS keychain. Keep the vault password safe. After a crash, remove a stale `active.lock` only after verifying that no Sci-Agent process is using it. Logout attempts remote refresh-token revocation and removes local tokens; failure to verify revocation is disclosed.
 
-Inference is restricted to the documented OpenAI models and Responses endpoints. The Responses adapter uses `store:false`, streaming and completed-response validation; incomplete responses cannot trigger tools. This does not guarantee provider-wide zero retention. Requests include prompts and relevant tool results. Connected account modes do not automatically load or save SciAgent chat history; explicit exports and research-memory settings still apply. Risky tools retain approval requirements. Synthetic OAuth/JWT and Responses tests pass; real-account acceptance, OS-specific browser handling and distribution eligibility remain to be verified.
+Inference is restricted to the documented OpenAI models and Responses endpoints. The Responses adapter uses `store:false`, streaming and completed-response validation; incomplete responses cannot trigger tools. This does not guarantee provider-wide zero retention. Requests include prompts and relevant tool results. Connected account modes do not automatically load or save Sci-Agent chat history; explicit exports and research-memory settings still apply. Risky tools retain approval requirements. Synthetic OAuth/JWT and Responses tests pass; real-account acceptance, OS-specific browser handling and distribution eligibility remain to be verified.
 
 ### GitHub Copilot
 
 The optional [official SDK](https://github.com/microsoft/copilot-sdk) (`@microsoft/copilot-sdk` 2.0.3) uses a signed-in user of the official Copilot CLI. Install and authenticate using the [official instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli).
 
 ```bash
-npm run cli -- auth copilot login
-npm run cli -- --copilot
-npm run cli -- auth copilot status
-npm run cli -- auth copilot models
-npm run cli -- auth copilot switch
-npm run cli -- auth copilot logout
-npm run cli -- auth copilot usage
+sci-agent auth copilot login
+sci-agent --copilot
+sci-agent auth copilot status
+sci-agent auth copilot models
+sci-agent auth copilot switch
+sci-agent auth copilot logout
+sci-agent auth copilot usage
 ```
 
-On Windows, run `copilot login` directly in the terminal. SciAgent does not extract or store GitHub tokens. Only stored GitHub.com user authentication and catalog models explicitly attributed to Copilot are accepted; environment-token, gh CLI and BYOK authentication are not accepted.
+On Windows, run `copilot login` directly in the terminal. Sci-Agent does not extract or store GitHub tokens. Only stored GitHub.com user authentication and catalog models explicitly attributed to Copilot are accepted; environment-token, gh CLI and BYOK authentication are not accepted.
 
-The SDK uses an empty isolated working directory, with its native tools, repository config discovery, hooks and skills disabled. A validated JSON bridge requests SciAgent tools; the normal registry and evidence gate execute and check them. Nonconforming tool requests fail closed. SDK sessions are disconnected and deleted after each inference call; this is not a guarantee of service-wide retention behavior. For account switching or logout, use the official CLI's `/user switch` or `/logout`; revoke authorization separately in GitHub settings if needed. Actual SDK startup and unauthenticated rejection have been tested on Linux, but authenticated inference has not.
+The SDK uses an empty isolated working directory, with its native tools, repository config discovery, hooks and skills disabled. A validated JSON bridge requests Sci-Agent tools; the normal registry and evidence gate execute and check them. Nonconforming tool requests fail closed. SDK sessions are disconnected and deleted after each inference call; this is not a guarantee of service-wide retention behavior. For account switching or logout, use the official CLI's `/user switch` or `/logout`; revoke authorization separately in GitHub settings if needed. Actual SDK startup and unauthenticated rejection have been tested on Linux, but authenticated inference has not.
 
 ### OpenRouter
 
 The [official headless OAuth PKCE flow](https://openrouter.ai/docs/guides/overview/auth/oauth) exchanges the one-time authorization code for a user-owned API key. Charges use your OpenRouter credits, not an unlimited subscription.
 
 ```bash
-npm run cli -- --openrouter
-npm run cli -- auth openrouter login
-npm run cli -- auth openrouter status
-npm run cli -- auth openrouter models
-npm run cli -- auth openrouter logout
-npm run cli -- auth openrouter usage
+sci-agent --openrouter
+sci-agent auth openrouter login
+sci-agent auth openrouter status
+sci-agent auth openrouter models
+sci-agent auth openrouter logout
+sci-agent auth openrouter usage
 ```
 
 Prefill a key spending limit in USD and review the final limit and expiration (default 30 days) at the provider's consent page. The model catalog is filtered for advertised tool support. The key is stored in the existing encrypted local vault, not in project settings. Logout removes the local key; revoke the remote key using the displayed provider link. Reconnecting does not revoke an older key automatically. HTTP tests use synthetic responses. Real-account billing, login and inference acceptance remain untested.
 
 ### Claude Code and Gemini / Antigravity
 
-These are **separate native agent sessions**, not model backends for SciAgent's scientific core. Their own tools, permissions, account settings and data-retention policies apply. Their output is not certified by SciAgent's evidence gate.
+These are **separate native agent sessions**, not model backends for Sci-Agent's scientific core. Their own tools, permissions, account settings and data-retention policies apply. Their output is not certified by Sci-Agent's evidence gate.
 
 Install [Claude Code](https://code.claude.com/docs/en/setup) and use its unchanged official executable:
 
 ```bash
-npm run cli -- auth claude login
-npm run cli -- auth claude status
-npm run cli -- --claude --workspace /path/to/project
-npm run cli -- auth claude logout
-npm run cli -- auth claude usage
+sci-agent auth claude login
+sci-agent auth claude status
+sci-agent --claude --workspace /path/to/project
+sci-agent auth claude logout
+sci-agent auth claude usage
 ```
 
-Model selection and account management remain in Claude Code's terminal. SciAgent does not extract subscription tokens, replace authentication or proxy Claude.ai access. Review [Anthropic's legal and compliance guidance](https://code.claude.com/docs/en/legal-and-compliance) before distribution or commercial embedding.
+Model selection and account management remain in Claude Code's terminal. Sci-Agent does not extract subscription tokens, replace authentication or proxy Claude.ai access. Review [Anthropic's legal and compliance guidance](https://code.claude.com/docs/en/legal-and-compliance) before distribution or commercial embedding.
 
 Install [Antigravity CLI with ACP support](https://antigravity.google/docs/cli/acp):
 
 ```bash
-npm run cli -- auth gemini login
-npm run cli -- --gemini --workspace /path/to/project
-npm run cli -- auth gemini version
-npm run cli -- auth gemini status
-npm run cli -- auth gemini logout
-npm run cli -- auth gemini native
-npm run cli -- auth gemini usage
+sci-agent auth gemini login
+sci-agent --gemini --workspace /path/to/project
+sci-agent auth gemini version
+sci-agent auth gemini status
+sci-agent auth gemini logout
+sci-agent auth gemini native
+sci-agent auth gemini usage
 ```
 
-SciAgent starts unchanged `agy acp` and speaks ACP v1 over stdio with the official SDK (2.12.0). User prompts are interactive. `/model` selects a model when advertised by the agent; `/exit` closes the session. Ctrl+C cancels a turn; a second Ctrl+C closes the connection. Account status/logout are handled by the official agent; the SciAgent status command is guidance, not an OAuth status query.
+Sci-Agent starts unchanged `agy acp` and speaks ACP v1 over stdio with the official SDK (2.12.0). User prompts are interactive. `/model` selects a model when advertised by the agent; `/exit` closes the session. Ctrl+C cancels a turn; a second Ctrl+C closes the connection. Account status/logout are handled by the official agent; the Sci-Agent status command is guidance, not an OAuth status query.
 
 Client filesystem, terminal and MCP capabilities are not advertised. Concrete permission requests for the active session and turn may receive an explicit one-time grant, never an automatic permanent grant. This does not override the native agent's own previously configured permissions or provide an OS sandbox. Google documents ACP clients but restricts third-party inference-backend use; see its [FAQ](https://antigravity.google/docs/faq). Both native modes remain separate from unattended inference and sub-agent workflows.
 
@@ -205,7 +212,7 @@ Linux Bubblewrap isolates selected generated-code subprocesses on your own hardw
 ```bash
 # Debian/Ubuntu, including suitable WSL2 installations
 sudo apt install bubblewrap util-linux python3
-npm run cli -- --sandbox --workspace /path/to/project
+sci-agent --sandbox --workspace /path/to/project
 ```
 
 The mode is off by default. Set `agent.sandbox.enabled: true` in the project configuration for persistent use. It requires an unprivileged user, performs a real startup probe and fails closed if unavailable. Use `/sandbox` to inspect status.
@@ -221,10 +228,10 @@ Real Linux isolation tests cover host-file visibility, read-only project access,
 ## CLI reference
 
 ```bash
-npm run cli -- --help
-npm run cli
-npm run cli -- --prompt "Your research task"
-npm run cli -- --workspace /path/to/project
+sci-agent --help
+sci-agent
+sci-agent --prompt "Your research task"
+sci-agent --workspace /path/to/project
 npm test
 ```
 
@@ -477,4 +484,4 @@ Planned work includes live model acceptance tests, comprehensive research orches
 - [Public-release checklist](docs/public-release-checklist.md)
 - [Changelog](CHANGELOG.md)
 
-SciAgent's original source is dual-licensed under **MIT OR Apache-2.0**. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Third-party components retain their own licenses and terms.
+Sci-Agent's original source is dual-licensed under **MIT OR Apache-2.0**. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Third-party components retain their own licenses and terms.

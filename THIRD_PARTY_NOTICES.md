@@ -1,6 +1,6 @@
 # Third-party notices
 
-SciAgent's original source is offered under MIT OR Apache-2.0 (see
+Sci-Agent's original source is offered under MIT OR Apache-2.0 (see
 LICENSE-MIT and LICENSE-APACHE). Third-party components retain their own
 licenses, notices, and applicable terms; the repository's dual license does
 not relicense them.

@@ -40,7 +40,7 @@ async function runNative(kind,action,cwd){
   await new Promise((resolve,reject)=>{
     const proc=spawn(command,args,{cwd,stdio:'inherit',shell:false,windowsHide:false});
     // Let the native program handle terminal Ctrl+C instead of terminating
-    // SciAgent while it is still running.
+    // Sci-Agent while it is still running.
     const onSigint=()=>{};
     process.on('SIGINT',onSigint);
     const cleanup=()=>process.removeListener('SIGINT',onSigint);
@@ -51,7 +51,7 @@ async function runNative(kind,action,cwd){
 async function consent(kind,cwd){
   const name=kind==='claude'?'Claude Code':'Google Antigravity';
   console.log(name+' — native local agent session in '+terminalText(cwd));
-  console.log('Your own official agent controls its authentication, billing, tools, permissions, model choice and data retention. SciAgent does not take your subscription token. Native output is not certified by the SciAgent scientific evidence gate. Review all changes and native tool permissions.');
+  console.log('Your own official agent controls its authentication, billing, tools, permissions, model choice and data retention. Sci-Agent does not take your subscription token. Native output is not certified by the Sci-Agent scientific evidence gate. Review all changes and native tool permissions.');
   if(kind==='claude')console.log('Hosting Claude Code in a product requires compliance with Anthropic commercial terms: '+DOCS.claude);
   else console.log('Use only as an interactive ACP client to the official agent, not as a model backend or an automated account rotator. '+DOCS.gemini);
   if((await question('Continue on your own account and accept the provider terms (yes/no): ')).trim().toLowerCase()!=='yes')throw new Error('Cancelled');
@@ -132,7 +132,7 @@ export async function nativeAuthCommand(kind,args){
   if(action==='usage'){console.log(kind==='claude'?'https://claude.ai/settings/usage':'https://antigravity.google/docs/plans');return;}
   if(kind==='claude'&&['login','status','logout'].includes(action))return runNative(kind,action,process.cwd());
   if(kind==='gemini'&&['login','version','native'].includes(action))return runNative(kind,action,process.cwd());
-  if(kind==='gemini'&&action==='logout'){console.log('Run the official agy CLI and use /logout. SciAgent does not store the Google account token.');return;}
+  if(kind==='gemini'&&action==='logout'){console.log('Run the official agy CLI and use /logout. Sci-Agent does not store the Google account token.');return;}
   if(kind==='gemini'&&action==='status'){console.log('For account and usage status, open the official agy CLI; this is not an authentication check.');return;}
   console.log('sci-agent auth '+kind+' '+(kind==='claude'?'login | status | logout | usage':'login | status | logout | version | native | usage'));
 }

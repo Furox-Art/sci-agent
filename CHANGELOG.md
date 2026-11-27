@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to SciAgent. Versions follow the root `package.json`.
+All notable changes to Sci-Agent. Versions follow the root `package.json`.
 
 ## Unreleased
 
@@ -12,7 +12,7 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 - Optional free local Linux/WSL2 Bubblewrap process sandbox for shell, Python and scientific computations. Read-only workspace, private temporary storage, isolated networking, cleared credentials, resource limits and fail-closed startup; unsafe external CLI bridges are unavailable in this mode. This is not an application-wide sandbox. Real Linux isolation regression coverage.
 - Separate interactive native-agent entries for unmodified Claude Code and Google Antigravity. Claude uses the official local terminal; Antigravity uses the official ACP v1 SDK, agent-advertised model selection, one-time permission review and turn cancellation. No subscription-token extraction, headless model bridge or automatic scientific-evidence certification in these sessions.
 - Native-agent regression tests and real unauthenticated Antigravity ACP initialization smoke check.
-- Optional GitHub Copilot account integration using the official Microsoft Copilot SDK and stored CLI sign-in, isolated tool-free SDK sessions, explicit account/model checks and a validated SciAgent tool-request bridge.
+- Optional GitHub Copilot account integration using the official Microsoft Copilot SDK and stored CLI sign-in, isolated tool-free SDK sessions, explicit account/model checks and a validated Sci-Agent tool-request bridge.
 - OpenRouter official headless OAuth PKCE account connection, encrypted local key storage, credit-limit/expiration prefill, model selection and key-status inspection; provider selection menu. Live authenticated model requests remain untested.
 - Opt-in local CLI Sign in with ChatGPT using the documented authorization-code/PKCE flow, OIDC signature verification, separate account registrations, encrypted local credential vault, refresh, sign-out and account-specific model discovery.
 - ChatGPT plan Responses adapter with explicit completed-stream validation and local function-tool mapping; API-key and local providers unchanged. Live entitlement and cross-platform browser acceptance remain untested.
@@ -107,7 +107,7 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## 0.10.1 — 2026-11-06
 
 ### Fixed
-- **Packaged app data paths** — the installed SciAgent now writes config and sessions to the Electron userData dir (`%APPDATA%\Roaming\SciAgent`) instead of the process cwd; `SCI_AGENT_WORKSPACE` overrides (highest priority); dev mode unchanged (cwd)
+- **Packaged app data paths** — the installed Sci-Agent now writes config and sessions to the Electron userData dir (`%APPDATA%\Roaming\Sci-Agent`) instead of the process cwd; `SCI_AGENT_WORKSPACE` overrides (highest priority); dev mode unchanged (cwd)
 - **Settings modal focus trap** — Tab/Shift+Tab cycle inside the open modal and focus cannot escape; the trap is removed on close
 - **Chart legend keyboard access** — series toggles are real `<button>`s now (`aria-pressed`, identical styling); the series counter is no longer falsely click-styled
 
@@ -120,7 +120,7 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 **Tools: 42 (7 core + 35 plugin) · Tests: 134 · Plugins: 8 · Skills: 3**
 
 ### Added
-- **Electron installer** — `npm run dist` in `packages/desktop` builds a Windows NSIS installer via electron-builder (`packages/desktop/electron-builder.yml`): appId `com.furoxart.sciagent`, icon, `SciAgent-<version>-win-x64.exe`. Packaged layout verified (eq-layer sources via `extraResources`, root version via `extraFiles`); the packaged `SciAgent.exe` was smoke-tested. Unsigned (SmartScreen may warn).
+- **Electron installer** — `npm run dist` in `packages/desktop` builds a Windows NSIS installer via electron-builder (`packages/desktop/electron-builder.yml`): appId `com.furoxart.sciagent`, icon, `Sci-Agent-<version>-win-x64.exe`. Packaged layout verified (eq-layer sources via `extraResources`, root version via `extraFiles`); the packaged `Sci-Agent.exe` was smoke-tested. Unsigned (SmartScreen may warn).
 - **`lit_bm25_rank`** — offline BM25 shortlisting of supplied abstracts by query (`rank_bm25` optional; missing package returns a clean install-hint error, never a crash). Literature group now 16 tools.
 - **Accessibility pass** (web UI):
   - Settings modal: `role="dialog"`, `aria-modal`, labelled title, focus moves to the modal on open and returns to the opener on close (Esc included)

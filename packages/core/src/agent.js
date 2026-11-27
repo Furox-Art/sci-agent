@@ -364,7 +364,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
 export function buildSystemPrompt(cfg) {
   const os = `${process.platform} / ${process.arch}`;
   return [
-    'You are SciAgent, a scientific coding agent.',
+    'You are Sci-Agent, a scientific coding agent.',
     'Your job: complete the user\u2019s scientific and software tasks step by step using tools when needed.',
     `Workspace root: ${cfg.agent.workspaceRoot}`,
     `System: ${os}, date: ${new Date().toISOString().slice(0, 10)}`,

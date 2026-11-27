@@ -88,7 +88,7 @@ test('authorization uses own app identity, PKCE, exact loopback URI and saved is
   const args={hostId:'urn:uuid:fixture',redirectUri:'http://127.0.0.1:12345/auth/callback',state:'state',nonce:'nonce',verifier:'test-verifier'};
   const u=new URL(makeAuthorization(args));
   assert.equal(u.searchParams.get('client_id'),'dynamic_agent_client');
-  assert.equal(u.searchParams.get('agent_name_hint'),'SciAgent');
+  assert.equal(u.searchParams.get('agent_name_hint'),'Sci-Agent');
   assert.equal(u.searchParams.get('code_challenge_method'),'S256');
   assert.equal(u.searchParams.get('redirect_uri'),args.redirectUri);
   const next=new URL(makeAuthorization({...args,clientId:client}));

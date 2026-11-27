@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SciAgent one-command setup (Linux / macOS / WSL / Git Bash)
+# Sci-Agent one-command setup (Linux / macOS / WSL / Git Bash)
 # Usage: bash scripts/setup.sh [--skip-pip]
 # - checks Node.js >= 20
 # - npm install (workspaces)
@@ -62,6 +62,6 @@ echo "==> verification..."
 cd "$ROOT"
 node -e "import('./packages/core/src/plugins.js').then(m => { const ps = m.listPlugins(); const tools = ps.reduce((n,p) => n + (m.getPlugin(p.name)?.tools ?? []).length, 0); console.log('plugins: ' + ps.length); console.log('plugin tools: ' + tools); })"
 echo
-echo "SciAgent is ready."
+echo "Sci-Agent is ready."
 echo "  CLI:         npm run cli -- --help"
 echo "  Tests:       npm test"

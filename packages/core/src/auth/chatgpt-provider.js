@@ -1,4 +1,4 @@
-// Adapter from SciAgent's chat-completions-style history to the public Responses API.
+// Adapter from Sci-Agent's chat-completions-style history to the public Responses API.
 const need=(ok,m)=>{if(!ok)throw new Error(m);};
 function parseArgs(raw){
   try{const a=JSON.parse(raw);return a&&typeof a==='object'&&!Array.isArray(a)?a:{_raw:raw};}catch{return {_raw:String(raw??'')};}

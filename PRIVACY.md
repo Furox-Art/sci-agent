@@ -1,6 +1,6 @@
 # Privacy and data handling
 
-SciAgent is a local CLI, not a hosted account service. Its source code does not
+Sci-Agent is a local CLI, not a hosted account service. Its source code does not
 implement a maintainer-operated prompt collection or analytics server. This
 statement does not cover optional dependencies, downloaded skills, external
 agents or a user's own deployment.
@@ -19,7 +19,7 @@ guarantee that every optional tool is offline.
 
 Review each service's terms and privacy controls before submitting unpublished,
 personal, confidential or regulated information. Provider billing and retention
-are not controlled by SciAgent. No zero-retention guarantee is offered.
+are not controlled by Sci-Agent. No zero-retention guarantee is offered.
 
 ## Local storage
 
@@ -27,7 +27,7 @@ Normal CLI history may be stored in .sci-agent-sessions/ in the workspace.
 Explicit exports, scientific memory and lesson records may contain sensitive
 text, tool arguments and outputs. Scientific memory is plaintext, not an
 encrypted research database. Connected account modes suppress automatic
-conversation-history loading and saving in SciAgent; explicit exports and
+conversation-history loading and saving in Sci-Agent; explicit exports and
 research-memory options remain available. Native agents may retain their own
 sessions.
 

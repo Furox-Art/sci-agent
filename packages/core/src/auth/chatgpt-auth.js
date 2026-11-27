@@ -37,7 +37,7 @@ export async function verifyIdentity(token,clientId,nonce,fetcher=fetch){
 export function makeAuthorization({hostId,clientId,redirectUri,state,nonce,verifier,reconsent=false}){
   const u=new URL(AUTHORIZE);
   for(const [k,v] of Object.entries({client_id:clientId??'dynamic_agent_client',ext_agent_host_id:hostId,response_type:'code',redirect_uri:redirectUri,scope:SCOPES,resource:RESOURCE,state,nonce,code_challenge_method:'S256',code_challenge:createHash('sha256').update(verifier).digest('base64url')}))u.searchParams.set(k,v);
-  if(!clientId)u.searchParams.set('agent_name_hint','SciAgent');
+  if(!clientId)u.searchParams.set('agent_name_hint','Sci-Agent');
   if(reconsent)u.searchParams.set('prompt','consent');
   return u.href;
 }
@@ -63,10 +63,10 @@ export async function loopback(state,clientId,signal){
     if(req.method!=='GET'||req.headers.host!=='127.0.0.1:'+server.address()?.port||!req.url?.startsWith('/auth/callback?')){res.writeHead(404,headers);res.end('Not found');return;}
     try{
       const value=parseCallback(req.url,state,clientId);
-      res.writeHead(200,headers);res.end('Authorization received. Return to SciAgent to complete sign-in.');
+      res.writeHead(200,headers);res.end('Authorization received. Return to Sci-Agent to complete sign-in.');
       finish(null,value);
     }catch(e){
-      res.writeHead(400,headers);res.end('Authorization could not be accepted. Return to SciAgent.');
+      res.writeHead(400,headers);res.end('Authorization could not be accepted. Return to Sci-Agent.');
       // Unrelated or forged callbacks must not terminate the legitimate attempt.
       if(e.message!=='OAuth state mismatch'&&new URL(req.url,'http://127.0.0.1').searchParams.get('state')===state)finish(e);
     }

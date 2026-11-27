@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { LocalModels, LOCAL_RUNTIMES } from '@sci/core';
+import { LocalModels, LOCAL_RUNTIMES } from '../../core/src/index.js';
 import { question, clean } from './chatgpt-cli.js';
 
 const hints={

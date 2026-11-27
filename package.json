@@ -1,19 +1,64 @@
 {
   "name": "sci-agent",
   "version": "0.10.7",
-  "private": true,
-  "description": "Model-agnostic scientific research and coding agent: core engine and CLI",
+  "description": "Sci-Agent - model-agnostic scientific research and coding agent for the terminal, with evidence-linked claims, scientific tools, local models and optional execution isolation",
   "type": "module",
   "license": "(MIT OR Apache-2.0)",
+  "author": "Furox-Art",
+  "homepage": "https://github.com/Furox-Art/Sci-Agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Furox-Art/Sci-Agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Furox-Art/Sci-Agent/issues"
+  },
+  "keywords": [
+    "scientific-computing",
+    "ai-agent",
+    "cli",
+    "llm",
+    "research",
+    "mcp",
+    "terminal"
+  ],
   "engines": {
     "node": ">=20"
   },
-  "workspaces": [
+  "bin": {
+    "sci-agent": "packages/cli/bin/sci-agent.js"
+  },
+  "files": [
+    "packages/cli",
     "packages/core",
-    "packages/cli"
+    "sci-agent.config.example.json",
+    "CHANGELOG.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "README.md"
   ],
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
     "cli": "node packages/cli/bin/sci-agent.js"
-  }
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "2.12.0",
+    "jose": "6.2.18",
+    "zod": "4.6.7"
+  },
+  "optionalDependencies": {
+    "@microsoft/copilot-sdk": "2.0.3"
+  },
+  "bundleDependencies": [
+    "@agentclientprotocol/sdk",
+    "jose",
+    "zod"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/cli"
+  ]
 }

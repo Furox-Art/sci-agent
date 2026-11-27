@@ -1,4 +1,4 @@
-// Opt-in process isolation, not an OS sandbox for the entire SciAgent application.
+// Opt-in process isolation, not an OS sandbox for the entire Sci-Agent application.
 // A failed or unsupported setup never falls back to native execution.
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';

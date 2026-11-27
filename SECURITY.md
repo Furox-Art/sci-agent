@@ -1,6 +1,6 @@
 # Security policy
 
-SciAgent is an experimental, locally executed scientific agent. Do not use it
+Sci-Agent is an experimental, locally executed scientific agent. Do not use it
 as a security boundary for untrusted tenants, regulated data or production
 systems. Security fixes target the current main branch.
 

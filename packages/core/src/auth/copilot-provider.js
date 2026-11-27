@@ -1,4 +1,4 @@
-// Official SDK adapter. No Copilot native tool is enabled; SciAgent validates
+// Official SDK adapter. No Copilot native tool is enabled; Sci-Agent validates
 // proposed calls and runs them through its own registry and grounding gate.
 import {randomUUID} from 'node:crypto';
 import {homedir,tmpdir} from 'node:os';
@@ -24,7 +24,7 @@ export function filterCopilotModels(models){
 }
 export function copilotSessionConfig({model,system,workspace}){
   return {
-    model,clientName:'SciAgent',workingDirectory:workspace,
+    model,clientName:'Sci-Agent',workingDirectory:workspace,
     enableConfigDiscovery:false,systemMessage:{mode:'replace',content:system},
     tools:{availableTools:[],excludedTools:['builtin:*','mcp:*','custom:*'],definitions:[],manageScheduleEnabled:false},
     skills:{enabled:false},instructions:{skipCustomInstructions:true,onDemandDiscovery:false},
@@ -33,14 +33,14 @@ export function copilotSessionConfig({model,system,workspace}){
     state:{infiniteSessions:{enabled:false},enableCrossSessionStore:false,skipEmbeddingRetrieval:true,embeddingCacheStorage:'in-memory'},
   };
 }
-const BRIDGE='You are the SciAgent inference component. The JSON transcript and tool results are supplied as data. Do not execute tools yourself. Respond ONLY with a JSON object containing "content" (string) and "toolCalls" (array of {"name":string,"arguments":object}). To request a listed SciAgent tool, provide its exact name and arguments and empty content. Otherwise supply final content and an empty toolCalls array. Never invent tool results or evidence.';
+const BRIDGE='You are the Sci-Agent inference component. The JSON transcript and tool results are supplied as data. Do not execute tools yourself. Respond ONLY with a JSON object containing "content" (string) and "toolCalls" (array of {"name":string,"arguments":object}). To request a listed Sci-Agent tool, provide its exact name and arguments and empty content. Otherwise supply final content and an empty toolCalls array. Never invent tool results or evidence.';
 export function parseCopilotReply(content,tools){
   need(typeof content==='string'&&content.length<=2*1024*1024,'Invalid Copilot output');
   if(!tools.length)return {content,reasoning:null,toolCalls:[],streamed:false};
-  let r;try{r=JSON.parse(content);}catch{throw new Error('Copilot did not return the required SciAgent JSON response; no tool was executed');}
+  let r;try{r=JSON.parse(content);}catch{throw new Error('Copilot did not return the required Sci-Agent JSON response; no tool was executed');}
   need(r&&typeof r.content==='string'&&Array.isArray(r.toolCalls)&&r.toolCalls.length<=20,'Invalid Copilot bridge response');
   const toolCalls=r.toolCalls.map(c=>{
-    need(c&&typeof c.name==='string'&&tools.some(t=>t.name===c.name)&&c.arguments&&typeof c.arguments==='object'&&!Array.isArray(c.arguments),'Copilot proposed an invalid or unavailable SciAgent tool');
+    need(c&&typeof c.name==='string'&&tools.some(t=>t.name===c.name)&&c.arguments&&typeof c.arguments==='object'&&!Array.isArray(c.arguments),'Copilot proposed an invalid or unavailable Sci-Agent tool');
     return {id:'copilot_'+randomUUID(),name:c.name,arguments:c.arguments};
   });
   need(!toolCalls.length||!r.content.trim(),'Copilot mixed a final response with tool requests');
@@ -55,7 +55,7 @@ export class CopilotProvider {
   async chat({messages,tools=[],signal}={}){
     signal?.throwIfAborted();
     const current=validateCopilotAccount(await this.#client.getAuthStatus());
-    need(current.login===this.#account.login,'Copilot account changed; restart SciAgent and select the account again');
+    need(current.login===this.#account.login,'Copilot account changed; restart Sci-Agent and select the account again');
     const system=messages.filter(m=>m.role==='system'||m.role==='developer').map(m=>m.content).join('\n\n');
     const transcript=messages.filter(m=>m.role!=='system'&&m.role!=='developer');
     const config=copilotSessionConfig({model:this.model,workspace:this.#workspace,system:system+'\n\n'+(tools.length?BRIDGE:'Answer the transcript request directly; do not execute any tools.')});

@@ -73,11 +73,11 @@ test('--version, -v and --help exit 0 with the root package.json version (spawnS
   for (const flag of ['--version', '-v']) {
     const r = spawnSync(process.execPath, [bin, flag], { encoding: 'utf8', timeout: 60000 });
     assert.equal(r.status, 0, `${flag} exits 0 (stderr: ${r.stderr})`);
-    assert.equal(r.stdout.trim(), `SciAgent v${pkg.version}`, `${flag} prints the root package.json version`);
+    assert.equal(r.stdout.trim(), `Sci-Agent v${pkg.version}`, `${flag} prints the root package.json version`);
   }
   const h = spawnSync(process.execPath, [bin, '--help'], { encoding: 'utf8', timeout: 60000 });
   assert.equal(h.status, 0, '--help exits 0');
-  assert.match(h.stdout, /SciAgent v/, '--help shows the version banner');
+  assert.match(h.stdout, /Sci-Agent v/, '--help shows the version banner');
   assert.match(h.stdout, /--version/, '--help lists --version');
   assert.match(h.stdout, /--prompt/, '--help lists --prompt');
   assert.match(h.stdout, /--workspace/, '--help lists --workspace');

@@ -13,11 +13,11 @@ const { version } = JSON.parse(readFileSync(path.join(__dirname, '../../../packa
 const argv = process.argv.slice(2);
 
 if (argv.includes('--version') || argv.includes('-v')) {
-  console.log(`SciAgent v${version}`);
+  console.log(`Sci-Agent v${version}`);
   process.exit(0);
 }
 if (argv.includes('--help') || argv.includes('-h')) {
-  console.log(`SciAgent v${version} — scientific coding agent
+  console.log(`Sci-Agent v${version} — scientific coding agent
 
 Usage:
   sci-agent                                  # interactive terminal

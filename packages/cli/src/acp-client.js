@@ -1,4 +1,4 @@
-// Interactive native ACP client. This is deliberately NOT a SciAgent model
+// Interactive native ACP client. This is deliberately NOT a Sci-Agent model
 // provider: no chat() adapter, automatic subagents, credential extraction,
 // headless inference, or forwarding native-agent output into the evidence gate.
 import { client, methods, ndJsonStream, PROTOCOL_VERSION } from '@agentclientprotocol/sdk';
@@ -41,7 +41,7 @@ export class NativeAcpSession{
   #connection;#sessionId;#active=false;#turnAbort;#permissionQueue=Promise.resolve();#onUpdate;#ask;#write;#options=[];#closed=false;
   constructor(target,{ask,write=console.log,onUpdate}={}){
     this.#ask=ask;this.#write=write;this.#onUpdate=onUpdate;
-    const app=client({name:'SciAgent native ACP client'});
+    const app=client({name:'Sci-Agent native ACP client'});
     app.onRequest(C.session.requestPermission,({params,signal})=>{
       const turn=this.#active?this.#turnAbort:null;
       if(!turn)return cancelled();
@@ -68,7 +68,7 @@ export class NativeAcpSession{
   async initialize(cwd){
     need(!this.#closed&&!this.#sessionId,'ACP session already initialized or closed');
     const timeout=()=>({cancellationSignal:AbortSignal.timeout(30000),stopWaitingOnCancel:true});
-    const init=await this.#connection.agent.request(A.initialize,{protocolVersion:PROTOCOL_VERSION,clientCapabilities:{fs:{readTextFile:false,writeTextFile:false},terminal:false},clientInfo:{name:'sci-agent',title:'SciAgent',version:'0.10.7'}},timeout());
+    const init=await this.#connection.agent.request(A.initialize,{protocolVersion:PROTOCOL_VERSION,clientCapabilities:{fs:{readTextFile:false,writeTextFile:false},terminal:false},clientInfo:{name:'sci-agent',title:'Sci-Agent',version:'0.10.7'}},timeout());
     need(init.protocolVersion===PROTOCOL_VERSION,'Unsupported ACP protocol version');
     let session;
     try{session=await this.#connection.agent.request(A.session.new,{cwd,mcpServers:[]},timeout());}
