@@ -62,7 +62,6 @@ const manifest = {
   bin: { 'sci-agent': 'packages/cli/bin/sci-agent.js' },
   dependencies: pkg.dependencies,
   optionalDependencies: pkg.optionalDependencies,
-  bundleDependencies: pkg.bundleDependencies,
   files: [
     'packages/cli',
     'packages/core',
@@ -75,15 +74,6 @@ const manifest = {
   publishConfig: { access: 'public' },
 };
 writeFileSync(path.join(stage, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-
-// Install the bundled runtime dependencies so the package runs with `node`
-// alone, without a follow-up `npm install`.
-const npmBin = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
-execFileSync(
-  process.execPath,
-  [npmBin, 'install', '--omit=dev', '--omit=optional', '--no-package-lock', '--ignore-scripts', '--no-audit', '--no-fund'],
-  { cwd: stage, stdio: 'inherit' },
-);
 
 const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
 if (existsSync(npmCli)) {

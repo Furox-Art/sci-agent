@@ -15,14 +15,14 @@ A model-agnostic scientific research and coding agent for the terminal. Sci-Agen
 
 ## Package
 
-Install from npm - version **0.10.8**:
+Install from npm - version **0.10.9**:
 
 ```bash
 npm install -g sci-agent
 sci-agent --version
 ```
 
-See [sci-agent on npm](https://www.npmjs.com/package/sci-agent). The package bundles its runtime dependencies, so no separate `npm install` is needed after installation.
+See [sci-agent on npm](https://www.npmjs.com/package/sci-agent). Runtime dependencies are declared normally, so npm installs only what the package needs.
 
 ## Releasing
 
