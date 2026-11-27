@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { resolveSafe } from './fs-tools.js';
 
 const OUT_CAP = 50_000;
@@ -16,7 +17,8 @@ export const run_command = {
     required: ['command'],
   },
   needsApproval: true,
-  async execute({ command, cwd = '.', timeoutMs = 120_000 }, { workspaceRoot }) {
+  async execute({ command, cwd = '.', timeoutMs = 120_000 }, { workspaceRoot, cfg, signal }) {
+    if(sandboxEnabled(cfg))return sandboxOutput({workspaceRoot,cwd,kind:'shell',code:command,timeoutMs,signal});
     const absCwd = resolveSafe(workspaceRoot, cwd);
     const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
     return await new Promise((resolve) => {

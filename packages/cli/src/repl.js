@@ -2,7 +2,7 @@ import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin, saveResearch, getResearch, searchResearch, lessonGate } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin, saveResearch, getResearch, searchResearch, lessonGate, sandboxEnabled, probeSandbox } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -21,6 +21,7 @@ const HELP = [
   '  /research inspect latest run evidence, hypotheses and reviews',
   '  /memory save [label] | search [query] | get <id>',
   '  /lesson stats | preflight | export',
+  '  /sandbox  local process isolation status',
   '  /test     test model connection',
   '  /exit     exit',
 ].join('\n');
@@ -31,6 +32,12 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
   process.chdir(workspace);
 
   const cfg = loadConfig(workspace);
+  if(argv.includes('--sandbox'))cfg.agent.sandbox={enabled:true};
+  let sandboxStatus={enabled:false};
+  if(sandboxEnabled(cfg)){
+    sandboxStatus=await probeSandbox(cfg.agent.workspaceRoot);
+    console.log('Local process sandbox enabled: Bubblewrap | read-only project | isolated network');
+  }
   if(connection){
     // Never store plan access tokens in workspace settings or pass them to tools.
     cfg.model={provider:connection.kind??'chatgpt-plan',baseUrl:connection.provider.baseUrl,name:connection.model,stream:true};
@@ -237,12 +244,13 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
       // eq-layer steering: runs before the model call; silently skipped on error.
       let systemExtra;
       try {
-        const steer = await buildSteering({ messages: messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
+        const steer = sandboxEnabled(cfg)?null:await buildSteering({ messages: messages.slice(-6), workspaceRoot: cfg.agent.workspaceRoot });
         if (steer?.steering) {
           systemExtra = steer.steering;
           console.log(dim(`eq-layer: steering applied (${steer.source})`));
         }
       } catch {}
+      if(sandboxEnabled(cfg))systemExtra=[systemExtra,'Local process sandbox is enabled for run_command, python_eval and furox_compute. Project is mounted read-only at /workspace; use /tmp for temporary output. Network is isolated. Use approved file tools for persistent changes. External CLI bridges are disabled. Other trusted tools and the model provider run outside this subprocess sandbox.'].filter(Boolean).join('\n');
       const provider = providerForTurn();
       const result = await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
       latestResearch = result.research;
@@ -291,6 +299,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
         return;
       }
       if (input === '/help') console.log(HELP);
+      else if (input === '/sandbox') console.log(JSON.stringify(sandboxStatus,null,2));
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(set)' : '' }, null, 2));
       } else if (input === '/memory' || input.startsWith('/memory ')) {

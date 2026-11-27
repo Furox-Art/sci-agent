@@ -5,6 +5,7 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- Optional free local Linux/WSL2 Bubblewrap process sandbox for shell, Python and Furox computations. Read-only workspace, private temporary storage, isolated networking, cleared credentials, resource limits and fail-closed startup; unsafe external CLI bridges are unavailable in this mode. This is not an application-wide sandbox. Real Linux isolation regression coverage.
 - Separate interactive native-agent entries for unmodified Claude Code and Google Antigravity. Claude uses the official local terminal; Antigravity uses the official ACP v1 SDK, agent-advertised model selection, one-time permission review and turn cancellation. No subscription-token extraction, headless model bridge or automatic scientific-evidence certification in these sessions.
 - Native-agent regression tests and real unauthenticated Antigravity ACP initialization smoke check.
 - Optional GitHub Copilot account integration using the official Microsoft Copilot SDK and stored CLI sign-in, isolated tool-free SDK sessions, explicit account/model checks and a validated SciAgent tool-request bridge.

@@ -21,6 +21,9 @@
     "toolRouting": {
       "enabled": true,
       "shortlist": false
+    },
+    "sandbox": {
+      "enabled": false
     }
   },
   "plugins": [

@@ -1,6 +1,7 @@
 import { MockProvider, OpenAICompatProvider } from './provider.js';
 import { DEFAULT_CONFIG, loadConfig } from './config.js';
 import { ToolRegistry, defaultTools } from './tools/index.js';
+import { sandboxEnabled, sandboxBlockedTool } from './sandbox/local.js';
 import { getPlugin, listPlugins } from './plugins.js';
 
 export { DEFAULT_CONFIG, loadConfig } from './config.js';
@@ -41,6 +42,7 @@ export function createRegistry({ cfg, approve, disableTools = [] } = {}) {
     const p = getPlugin(name);
     if (p) tools = tools.concat(p.tools);
   }
+  if (sandboxEnabled(cfg)) tools = tools.filter(t => !sandboxBlockedTool(t.name));
   if (disableTools.length) tools = tools.filter((t) => !disableTools.includes(t.name));
   return new ToolRegistry({
     tools,
@@ -67,3 +69,5 @@ export { ChatGPTPlanProvider } from './auth/chatgpt-provider.js';
 
 export { OpenRouterAuth, openRouterAuthorization, OPENROUTER_KEYS } from './auth/openrouter.js';
 export { CopilotProvider, createCopilotConnection, COPILOT_USAGE, copilotEnvironment, filterCopilotModels } from './auth/copilot-provider.js';
+
+export { sandboxEnabled, sandboxBlockedTool, probeSandbox, runSandboxed } from './sandbox/local.js';

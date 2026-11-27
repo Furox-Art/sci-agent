@@ -1,3 +1,4 @@
+import { sandboxEnabled, sandboxBlockedTool } from '../sandbox/local.js';
 import { read_file, write_file, edit_file, list_dir, search_files } from './fs-tools.js';
 import { run_command } from './shell-tool.js';
 import { research_hypothesis } from '../science/research-state.js';
@@ -43,6 +44,7 @@ export class ToolRegistry {
   }
 
   async invoke(name, args = {}, extraCtx = {}) {
+    if(sandboxEnabled(this.cfg)&&sandboxBlockedTool(name))return {ok:false,output:'External CLI bridge disabled in local sandbox mode; no unsandboxed fallback.'};
     const tool = this.tools.find((t) => t.name === name);
     if (!tool) return { ok: false, output: `Unknown tool: ${name}` };
     if (this._needs(name, tool.needsApproval)) {
@@ -55,7 +57,7 @@ export class ToolRegistry {
       if (!ok) return { ok: false, output: 'User denied the approval; action not performed.' };
     }
     try {
-      const ctx = { workspaceRoot: this.workspaceRoot, cfg: this.cfg, approve: this.approve, registry: this, ...extraCtx };
+      const ctx = { ...extraCtx, workspaceRoot: this.workspaceRoot, cfg: this.cfg, approve: this.approve, registry: this };
       const output = await tool.execute(args, ctx);
       const text = String(output);
       return { ok: true, output: text.slice(0, MAX_OUTPUT), ...(text.length > MAX_OUTPUT ? { truncated: true } : {}) };

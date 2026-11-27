@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { resolvePython, findPythonScript } from './pybridge.js';
+import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { buildSteering } from '../eq/eq-layer.js';
 
 /**
@@ -73,7 +74,8 @@ export const furox_compute = {
   },
   needsApproval: true,
   parallel: true,
-  async execute({ code, timeoutMs = 120_000 }, { workspaceRoot }) {
+  async execute({ code, timeoutMs = 120_000 }, { workspaceRoot, cfg, signal }) {
+    if(sandboxEnabled(cfg))return sandboxOutput({workspaceRoot,kind:'python',code:PRELUDE+'\n'+code,timeoutMs,signal});
     const py = resolvePython();
     if (!py) return 'Error: Python not found. Install it or provide the path via SCI_AGENT_PYTHON.';
     const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);

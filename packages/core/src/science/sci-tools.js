@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { resolveSafe } from '../tools/fs-tools.js';
+import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { resolvePython } from './pybridge.js';
 
 /** Scientific tool pack: model-agnostic, locally running computation tools. */
@@ -18,7 +19,8 @@ export const python_eval = {
     required: ['code'],
   },
   needsApproval: true,
-  async execute({ code, timeoutMs = 120_000 }, { workspaceRoot }) {
+  async execute({ code, timeoutMs = 120_000 }, { workspaceRoot, cfg, signal }) {
+    if(sandboxEnabled(cfg))return sandboxOutput({workspaceRoot,kind:'python',code,timeoutMs,signal});
     const timeout = Math.min(Number(timeoutMs) || 120_000, 600_000);
     const exe = resolvePython();
     if (!exe) return 'Error: Python not found. Install it or provide the path via SCI_AGENT_PYTHON.';

@@ -148,6 +148,27 @@ Google, Antigravity'nin resmî ACP istemcisi olarak kullanımı belgelendirir an
 
 Doğrulama: Linux cihazında Claude Code 2.1.332 ve Antigravity CLI 1.5.11 sürümleri görüldü. Boş kullanıcı dizininde gerçek Antigravity ACP v1 initialize bağlantısı doğrulandı; gerçek abonelikle oturum açma, model seçme ve çıkarım kabul testi yapılmadı. Sentetik ACP oturumlarında izin reddi, model seçimi, iptal, bağlantı ve protokol uyumsuzluğu test edildi. Windows/macOS yerel terminal devri ayrıca test edilmelidir.
 
+## Ücretsiz yerel çalışma izolasyonu (isteğe bağlı)
+
+SciAgent normalde kullanıcının onayıyla yerel süreçleri çalıştırır. İsteğe bağlı sandbox modu, üretilen shell ve Python kodlarını kullanıcının kendi bilgisayarında Linux Bubblewrap ile izole eder. Bulut sunucusu, ek hesap veya ücretli sandbox hizmeti gerekmez; model sağlayıcısının normal ücret ve kota koşulları değişmez.
+
+Linux veya WSL2 içinde Bubblewrap, util-linux ve sistem Python'u kurulu olmalıdır. Örneğin Debian/Ubuntu:
+
+```bash
+sudo apt install bubblewrap util-linux python3
+npm run cli -- --sandbox --workspace /path/to/project
+```
+
+Kurulum komutu yalnızca örnektir; SciAgent paketleri otomatik yüklemez. Sandbox root kullanıcısıyla çalıştırılmaz. Başlangıçta gerçek izolasyon testi yapılır ve başarısız olursa güvenli olmayan yürütmeye dönülmez. Kalıcı tercih için `sci-agent.config.json` dosyasında `"agent": {"sandbox":{"enabled":true}}` ayarlanabilir. Varsayılan kapalıdır. CLI içinde `/sandbox` durumunu gösterir.
+
+- `run_command`, `python_eval` ve `furox_compute` ayrı Linux süreç/ağ/user namespace'lerinde çalışır. Ana makinenin ortam değişkenleri aktarılmaz; ev dizini bağlanmaz. Proje `/workspace` konumunda salt okunurdur, her çalıştırmada yeni 64 MiB geçici `/tmp` vardır. Kalıcı proje değişiklikleri mevcut kullanıcı onaylı dosya araçlarıyla yapılır.
+- Sistem kabuğu ve `/usr/bin/python3` kullanılır; ev dizinindeki Python sanal ortamları ve kullanıcı paketleri görünmez. Sistemde kurulu kütüphaneler kullanılabilir. Kod boyutu, çalışma süresi, çıktı boyutu ve süreç başına adres alanı, CPU, dosya boyutu ve dosya tanıtıcıları sınırlandırılır; kullanıcı süreç sayısı limiti de uygulanır. Bunlar toplam kaynak tüketimine ilişkin cgroup garantileri değildir.
+- Keyfî argüman kabul eden harici CLI köprüleri (`*_cli`, `plan_audit`, `eq_route`) bu modda devre dışıdır; aksi halde izole olmayan komut çalıştırma yolu kalırdı. Normal modda mevcut araçlar değişmez.
+- Bu **tüm uygulama için güvenlik sınırı değildir**. Model API çağrıları, sabit amaçlı literatür ve diğer araştırma araçları, dosya düzenleme, Lesson-gate ve kimlik doğrulama kendi mevcut davranışlarıyla sandbox dışında çalışır. Projede bulunan gizli dosyalar, özel aygıtlar, socket'ler veya bağlı dosya sistemleri ayrıca risk oluşturabilir; yalnız güvenilen ve sınırlı proje dizinlerini kullanın. Kernel hatalarına karşı mutlak izolasyon iddiası yoktur.
+- Claude Code ve Antigravity'nin ayrı resmî ajan oturumları bu izolasyonu kullanmaz; kendi sağlayıcı güvenlik ve izin ayarları geçerlidir. `--sandbox` doğrudan bu yerel ajan modlarına geçirilemez. Windows'ta WSL2 içinde Linux sürümü kullanılmalıdır; doğrudan Windows/macOS backend'i henüz yoktur. WSL2 ve macOS üzerinde gerçek cihaz testi yapılmamıştır.
+
+Doğrulama: Linux'ta gerçek Bubblewrap ile salt okunur proje, gizli ortam değişkeninin aktarılmaması, örnek proje dışı dosyaya erişememe, ana makine loopback erişiminin engellenmesi, geçici dosya izolasyonu, süre ve çıktı limitleri, iptal ve başarısız süreçlerin reddi test edilmiştir.
+
 ## Model bağlama
 
 1. `sci-agent.config.example.json` dosyasını `sci-agent.config.json` olarak kopyalayın ve düzenleyin (bu dosya git'e girmez).

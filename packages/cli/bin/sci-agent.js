@@ -30,6 +30,7 @@ Kullanım:
   sci-agent --chatgpt                        # Continue with ChatGPT (local interactive)
   sci-agent auth login | status | switch | models | logout | usage
   sci-agent --prompt "görev"                 # tek seferlik görev
+  sci-agent --sandbox                        # opt-in local process sandbox (Linux/WSL2)
   sci-agent --workspace <dizin>              # çalışma alanını belirle
   sci-agent --version | --help
 
