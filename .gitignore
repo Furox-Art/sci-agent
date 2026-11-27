@@ -7,3 +7,4 @@ sci-agent.config.json
 .sci-agent-sessions/
 sciagent-sohbet*.md
 .sci-agent-research/
+.sci-agent-auth/

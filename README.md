@@ -30,6 +30,40 @@ sci-agent/
 npm install
 ```
 
+## ChatGPT aboneliğiyle giriş (isteğe bağlı, yerel CLI)
+
+Kendi ChatGPT hesabınızı SciAgent ile bağlayarak, hesabınız ve uygulama uygun olduğu takdirde ChatGPT planınızın izin verdiği AI isteklerini yapabilirsiniz. API anahtarınız gerekmez. Bu özellik OpenAI'nin [resmî Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) akışını kullanır. SciAgent özel depodur; kişisel yerel kullanımın dışındaki dağıtımların uygunluğu ve gerekli OpenAI onayı kullanıcı/geliştirici tarafından doğrulanmalıdır. [Kullanım şartları](https://openai.com/policies/sign-in-with-chatgpt-terms/). Bu entegrasyon OpenAI'nin onayladığı veya sponsor olduğu iddiasında değildir.
+
+```bash
+npm ci
+npm run cli -- --chatgpt
+```
+
+İlk girişte yerel kasanız için bir parola oluşturun (ChatGPT parolanız değil). Kendi cihazınızda ve uygun kullanım kapsamında olduğunuzu doğrulayın. Tarayıcı OpenAI giriş sayfasını açar; hesabınızı seçip abonelik kullanımı iznini verin. Terminal hesabın kullanılabilir model kataloğunu getirir. Sonraki açılışlarda yerel kasayı açıp model seçebilirsiniz.
+
+Hesap yönetimi:
+```bash
+npm run cli -- auth login    # yeni hesap ekle veya kayıtlı hesabı yeniden yetkilendir
+npm run cli -- auth status   # kayıtlı hesaplar ve izin durumu
+npm run cli -- auth switch   # açıkça bir kayıtlı hesabı seç
+npm run cli -- auth models   # aktif hesabın model kataloğu
+npm run cli -- auth logout   # aktif hesabın yenilenebilir oturumunu sonlandır
+npm run cli -- auth usage    # kullanım ve bağlantı yönetimi URL'si
+```
+
+ChatGPT modu yalnızca etkileşimli terminalde, açıkça `--chatgpt` seçildiğinde çalışır; `--prompt` ile gözetimsiz kullanıma izin vermez. Abonelik limitleri ve krediler OpenAI tarafından yönetilir. Hesaplar ayrı kayıtlar halinde tutulur; kota aşmak için hesap döndürme veya başkasının isteğini sizin aboneliğinizle yürütme desteklenmez. Kullanım ayarları: https://chatgpt.com/settings/usage. Mevcut API anahtarı/yerel model yolu (`npm run cli`) değişmez.
+
+### Kimlik ve veri güvenliği
+
+- Resmî OAuth Authorization Code + PKCE S256; rastgele state/nonce; sadece 127.0.0.1 üzerinde kısa ömürlü callback; OpenID issuer/audience/expiry/nonce ve JWKS imza kontrolü. Kimlik doğrulaması, plan kullanımı izniyle aynı şey değildir; açıkça verilen iki ilgili kapsam aranır.
+- Tokenlar `~/.sci-agent-auth/chatgpt.enc` dosyasında scrypt + AES-256-GCM ile yerel parolanıza bağlı şifreli saklanır; çalışma alanı ayarlarına, oturum geçmişine veya araçlara geçirilmez. Parolayı unutursanız kasayı açamazsınız. Hesap bağlantısını ChatGPT ayarlarından iptal edip yeni bir yerel kasa oluşturun. Eşzamanlı işlem kilidi vardır; çökme sonrası `active.lock` kalırsa yalnızca diğer SciAgent işlemlerinin kapalı olduğunu doğrulayıp kilit dosyasını kaldırın. Kimlik doğrulanamayan token rotasyonunda yeniden giriş gerekir.
+- Model çağrıları yalnızca resmî `https://api.openai.com/v1/models` ve `https://api.openai.com/v1/responses` adreslerine gider. Responses akışı `store:false, stream:true` ile yürütülür; tamamlanmamış akışlar araç yürütmez. API tokenı komut satırına veya ortam değişkenlerine konulmaz. Bu, sağlayıcının veri saklama politikalarının tümü için bir garanti değildir.
+- İstemler ve araştırma için kullanılan araç çıktıları seçilen model sağlayıcısına gönderilir. Yapılandırılmış bağımsız hakem modelleri kendi uç noktalarını kullanabilir. ChatGPT modu eski sohbetleri yüklemez veya otomatik sohbet geçmişi yazmaz; açık kullanıcı `/save` komutu ve isteğe bağlı bilimsel bellek politikaları geçerlidir.
+- Shell/Python ve değişiklik yapan araçların mevcut onay gereklilikleri korunur; otomatik onay yalnızca okuma araçlarıyla sınırlandırılır. SciAgent'in genel amaçlı yerel kod yürütmesi tam işletim sistemi sandbox'ı değildir. Güvenmediğiniz projeleri veya komutları çalıştırmayın. Şifreli kasa, cihazınıza veya çalışan sürece tam erişimi olan saldırgana karşı garanti değildir.
+- Çıkışta mümkün olduğunda yenileme tokenı iptal edilir ve yerel tokenlar temizlenir; uzaktan iptal doğrulanamazsa açıkça belirtilir. OpenAI ayarlarından da bağlantıyı kaldırabilirsiniz.
+
+Bu ilk entegrasyon sentetik OAuth/JWT verisi ve simüle edilmiş Responses akışıyla test edilmiştir. Gerçek kullanıcı hesabı ve model uç noktasıyla uçtan uca kabul testi yapılmamıştır. Windows/macOS tarayıcı açma ve terminal gizli parola girişi gerçek cihazlarda ayrıca sınanmalıdır. Kullanılabilirlik, model kataloğu ve plan izni OpenAI'nin sunucu tarafındaki kararına bağlıdır.
+
 ## Model bağlama
 
 1. `sci-agent.config.example.json` dosyasını `sci-agent.config.json` olarak kopyalayın ve düzenleyin (bu dosya git'e girmez).

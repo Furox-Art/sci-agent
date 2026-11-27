@@ -16,6 +16,7 @@ export { getPlugin, listPlugins } from './plugins.js';
 
 /** Yapılandırmaya göre uygun sağlayıcıyı oluşturur. */
 export function createProvider(modelCfg = {}) {
+  if (modelCfg.provider === 'chatgpt-plan') throw new Error('ChatGPT subscription requires an explicitly unlocked local connection: launch sci-agent --chatgpt');
   if (modelCfg.provider === 'mock') {
     let script;
     if (process.env.SCI_AGENT_MOCK) {
@@ -59,3 +60,7 @@ export { routeTools } from './science/tool-routing.js';
 
 export { analyzeNaturalLanguage } from './science/semantic-nli.js';
 export { auditCausalModels } from './science/causal-audit.js';
+
+export { openVault, vaultExists } from './auth/vault.js';
+export { ChatGPTAuth, USAGE_URL } from './auth/chatgpt-auth.js';
+export { ChatGPTPlanProvider } from './auth/chatgpt-provider.js';

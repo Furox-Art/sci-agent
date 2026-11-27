@@ -5,6 +5,8 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- Opt-in local CLI Sign in with ChatGPT using the documented authorization-code/PKCE flow, OIDC signature verification, separate account registrations, encrypted local credential vault, refresh, sign-out and account-specific model discovery.
+- ChatGPT plan Responses adapter with explicit completed-stream validation and local function-tool mapping; API-key and local providers unchanged. Live entitlement and cross-platform browser acceptance remain untested.
 - Natural-language scientific claim extraction and pairwise model-assisted NLI with exact source quotations, offsets, content hashes, modality and context abstention.
 - Candidate causal DAG audit with observational partial-correlation/Fisher-z tests, Holm adjustment, temporal constraints and adjustment-set robustness.
 - Independent numerical replay for matrix multiplication/inverse, basic arithmetic, canonical unit conversions and direct covariance propagation.

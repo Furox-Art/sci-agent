@@ -25,12 +25,19 @@ const HELP = [
   '  /exit     exit',
 ].join('\n');
 
-export async function startRepl(argv = []) {
+export async function startRepl(argv = [], { chatgpt } = {}) {
   const wi = argv.indexOf('--workspace');
   const workspace = wi !== -1 && argv[wi + 1] ? path.resolve(argv[wi + 1]) : process.cwd();
   process.chdir(workspace);
 
   const cfg = loadConfig(workspace);
+  if(chatgpt){
+    // Never store plan access tokens in workspace settings or pass them to tools.
+    cfg.model={provider:'chatgpt-plan',baseUrl:'https://api.openai.com/v1',name:chatgpt.model,stream:true};
+    // Keep risky tool approval mandatory in subscription mode.
+    cfg.policies={...cfg.policies,autoApprove:['read_file','list_dir','search_files']};
+  }
+  const providerForTurn=()=>chatgpt?.provider??createProvider(cfg.model);
   const messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
 
   // Session history: most recent session file
@@ -39,6 +46,7 @@ export async function startRepl(argv = []) {
   let sessionTitle = 'default';
   let loadedMsgs = 0;
   try {
+    if(chatgpt)throw new Error('Separate ephemeral ChatGPT chat');
     const sorted = readdirSync(sessionsDir)
       .filter((f) => f.endsWith('.json'))
       .map((f) => {
@@ -60,6 +68,7 @@ export async function startRepl(argv = []) {
     }
   } catch {}
   const saveHistory = () => {
+    if(chatgpt)return;
     try {
       if (sessionFile) {
         writeFileSync(
@@ -234,7 +243,7 @@ export async function startRepl(argv = []) {
           console.log(dim(`eq-layer: steering applied (${steer.source})`));
         }
       } catch {}
-      const provider = createProvider(cfg.model);
+      const provider = providerForTurn();
       const result = await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
       latestResearch = result.research;
       latestResearchStatus = result.unverified ? 'withheld' : result.done ? 'completed' : 'partial';
@@ -253,6 +262,7 @@ export async function startRepl(argv = []) {
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
   console.log(`Workspace: ${cfg.agent.workspaceRoot} | Tools: ${registry.tools.length}`);
   console.log(dim(HELP));
+  if(chatgpt)console.log('ChatGPT: '+chatgpt.label+' '+chatgpt.email+' | plan usage: enabled | '+chatgpt.usageUrl);
   if (loadedMsgs) console.log(dim(`Previous session loaded (${loadedMsgs - 1} messages) — /clear to reset.`));
 
   const once = argv.indexOf('--prompt');
@@ -340,6 +350,8 @@ export async function startRepl(argv = []) {
         } catch (e) {
           console.log(red(`Error: ${e.message}`));
         }
+      } else if (input.startsWith('/sessions') && chatgpt) {
+        console.log(dim('ChatGPT plan mode uses separate ephemeral chat history. Exit and switch accounts with sci-agent auth switch.'));
       } else if (input.startsWith('/sessions')) {
         const parts = input.split(/\s+/);
         const arg = parts[1];
@@ -491,7 +503,7 @@ export async function startRepl(argv = []) {
           const signal = AbortSignal.timeout(15_000);
           try {
             console.log(dim('Testing model connection…'));
-            const provider = createProvider(cfg.model);
+            const provider = providerForTurn();
             const out = await provider.chat({ messages: [{ role: 'user', content: 'Reply with only "ok".' }], signal });
             console.log(`${cyan('✓ connection ok')} (${Date.now() - t0} ms) — sample response: ${trunc(out.content, 40)}`);
           } catch (e) {
@@ -530,6 +542,8 @@ export async function startRepl(argv = []) {
       if (input !== '/exit' && !rl.closed) rl.prompt();
     }
   });
+  let resolveClosed;
+  const closed = new Promise(resolve=>{resolveClosed=resolve;});
   rl.on('close', () => {
     // Don't exit immediately while something is running (e.g. a /skills network request); wait for it to finish
     const wait = () => {
@@ -538,8 +552,9 @@ export async function startRepl(argv = []) {
         return;
       }
       console.log(dim('Bye.'));
-      process.exit(0);
+      if(chatgpt)resolveClosed();else process.exit(0);
     };
     wait();
   });
+  if(chatgpt)await closed;
 }
