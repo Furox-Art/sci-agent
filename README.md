@@ -315,7 +315,7 @@ The default registry contains **53 tools** (18 core and 35 plugin tools) in seve
 | `math_eval` | No | Parsed arithmetic without eval |
 | `unit_convert` | No | Unit conversions |
 | `physical_constants` | No | CODATA physical constants |
-| `stats_calc` | No | Descriptive statistics, correlation and regression |
+| `stats_calc` | No | Descriptive statistics, correlation and regression using exact binary64 moment accumulation |
 | `matrix_ops` | No | Determinant, inverse and multiplication |
 | `molar_mass` | No | Formula-based molar mass for 118 elements |
 | `scientific_compute` | Yes | Python scientific stack |
@@ -414,7 +414,7 @@ A matching quotation does not establish faithful interpretation. Two calls to th
 | Determinant (up to 7×7) | Laplace/cofactor expansion |
 | Matrix inverse (up to 7×7) | Adjugate/cofactors |
 | Matrix multiplication (up to 10×10) | Outer-product accumulation |
-| Descriptive statistics | Welford variance and sorted median |
+| Descriptive statistics | Shifted/scaled Welford variance, compensated mean and sorted median |
 | Basic arithmetic | Operator stack with signs, parentheses and scientific notation |
 | Unit conversion | Direct ratios or affine temperature conversion |
 | Uncertainty propagation | Direct quadratic covariance form |

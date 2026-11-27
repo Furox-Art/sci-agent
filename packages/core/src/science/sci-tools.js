@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readSafeText } from '../tools/fs-tools.js';
 import { parseCsv, parseNumericCell } from './csv-parser.js';
+import { describeNumbers } from './numeric-stats.js';
 import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { resolvePython } from './pybridge.js';
 
@@ -66,7 +67,7 @@ export const python_eval = {
 export const csv_stats = {
   name: 'csv_stats',
   description:
-    'Computes basic statistics for the numeric columns of a CSV file (n, mean, standard deviation, min, max). Supports quoted fields, escaped quotes and multiline records.',
+    'Computes basic statistics for the numeric columns of a CSV file (n, mean, sample standard deviation (undefined for one value), min, max). Supports quoted fields, escaped quotes and multiline records.',
   parameters: {
     type: 'object',
     properties: {
@@ -97,11 +98,9 @@ export const csv_stats = {
         out.push(`${name}: no numeric data`);
         continue;
       }
-      const n = nums.length;
-      const mean = nums.reduce((a, b) => a + b, 0) / n;
-      const sd = Math.sqrt(nums.reduce((a, b) => a + (b - mean) ** 2, 0) / (n > 1 ? n - 1 : 1));
+      const { n, mean, sd, min, max } = describeNumbers(nums, { includeVariance: false, includeMedian: false });
       out.push(
-        `${name}: n=${n}, mean=${mean.toPrecision(6)}, sd=${sd.toPrecision(6)}, min=${Math.min(...nums)}, max=${Math.max(...nums)}`,
+        `${name}: n=${n}, mean=${mean.toPrecision(6)}, sd=${sd === null ? 'undefined (requires at least 2 values)' : sd.toPrecision(6)}, min=${min}, max=${max}`,
       );
     }
     return `file: ${p} (${rows.length} rows)\n${out.join('\n')}`;

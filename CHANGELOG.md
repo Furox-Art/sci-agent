@@ -2,6 +2,13 @@
 
 All notable changes to Sci-Agent. Versions follow the root `package.json`.
 
+## Unreleased
+
+### Fixed
+- Use exact integer accumulation of finite binary64 observations for descriptive statistics and linear regression, rounding only at the output boundary. Reject nonnumeric inline inputs and report unrepresentable nonzero results instead of silently returning zero, NaN or infinity.
+- Report sample standard deviation as undefined for a single CSV observation. Retain a separate floating-point Welford replay implementation; disagreements are still reported rather than suppressed.
+- Add eight numerical regression tests covering cancellation, extreme scales, large offsets, invalid observations, sample variance, regression and large arrays.
+
 ## 0.10.10 - 2026-11-27
 
 ### Changed

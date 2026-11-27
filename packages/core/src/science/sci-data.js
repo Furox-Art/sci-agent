@@ -1,5 +1,6 @@
 import { readSafeText } from '../tools/fs-tools.js';
 import { parseCsv, parseNumericCell as parseCell } from './csv-parser.js';
+import { describeNumbers, linearFit, finiteNumber } from './numeric-stats.js';
 
 /** Scientific data analysis tools: descriptive statistics + small matrix ops (Node built-ins only). */
 
@@ -21,13 +22,8 @@ const finiteResult = (v) => {
 function describe(name, nums) {
   const n = nums.length;
   if (n < 2) throw new Error(`'${name}': at least 2 numeric data points required (found: ${n})`);
-  const mean = nums.reduce((a, b) => a + b, 0) / n;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(n / 2);
-  const median = n % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-  const variance = nums.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
-  const sd = Math.sqrt(variance);
-  const line = `${name}: n=${n}, mean=${f6(mean)}, median=${f6(median)}, sd=${f6(sd)}, variance=${f6(variance)}, min=${f6(Math.min(...nums))}, max=${f6(Math.max(...nums))}`;
+  const { mean, median, variance, sd, min, max } = describeNumbers(nums);
+  const line = `${name}: n=${n}, mean=${f6(mean)}, median=${f6(median)}, sd=${f6(sd)}, variance=${f6(variance)}, min=${f6(min)}, max=${f6(max)}`;
   return { mean, line };
 }
 
@@ -66,7 +62,7 @@ export const stats_calc = {
       numbers: {
         type: 'array',
         items: { type: 'number' },
-        description: 'Direct list of numbers (if given, path and columns are ignored)',
+        description: 'Direct list of at most 100000 finite numbers (if given, path and columns are ignored)',
       },
       path: { type: 'string', description: 'CSV file relative to the workspace' },
       columns: {
@@ -79,8 +75,11 @@ export const stats_calc = {
   needsApproval: false,
   parallel: true,
   async execute({ numbers, path: p, columns }, { workspaceRoot }) {
-    if (Array.isArray(numbers) && numbers.length) {
-      const nums = numbers.map(Number).filter((v) => Number.isFinite(v));
+    if (numbers !== undefined) {
+      if (!Array.isArray(numbers) || numbers.length > 100000 || !Array.from(numbers).every(finiteNumber)) {
+        throw new Error('numbers must contain only finite numeric values (maximum 100000)');
+      }
+      const nums = numbers;
       const { line } = describe('data', nums);
       return line;
     }
@@ -93,22 +92,11 @@ export const stats_calc = {
 
     // Correlation + OLS regression on pairwise-complete rows.
     if (pairs.length < 2) throw new Error('at least 2 matched data pairs required for correlation');
-    const xs = pairs.map(([x]) => x);
-    const ys = pairs.map(([, y]) => y);
-    const n = pairs.length;
-    const mx = xs.reduce((a, b) => a + b, 0) / n;
-    const my = ys.reduce((a, b) => a + b, 0) / n;
-    const sxx = xs.reduce((a, x) => a + (x - mx) ** 2, 0);
-    const syy = ys.reduce((a, y) => a + (y - my) ** 2, 0);
-    const sxy = pairs.reduce((a, [x, y]) => a + (x - mx) * (y - my), 0);
-    if (sxx === 0 || syy === 0) throw new Error('correlation undefined: constant column');
-    const r = Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy)));
+    if (pairs.length < 3) throw new Error('at least 3 data pairs required for linear regression');
+    const { r, slope, intercept, r2 } = linearFit(pairs);
     out.push(`Pearson correlation r = ${f6(r)}`);
-    if (n < 3) throw new Error('at least 3 data pairs required for linear regression');
-    const slope = sxy / sxx;
-    const intercept = my - slope * mx;
     out.push(`regression: y = ${f6(slope)}·x + ${f6(intercept)} (slope a=${f6(slope)}, intercept b=${f6(intercept)})`);
-    out.push(`r² = ${f6(r * r)}`);
+    out.push(`r² = ${f6(r2)}`);
     return out.join('\n');
   },
 };

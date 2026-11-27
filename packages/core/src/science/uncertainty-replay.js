@@ -39,10 +39,26 @@ function determinant(a) {
   return result;
 }
 function stats(numbers) {
-  let n=0,mean=0,m2=0;
-  for(const x of numbers){n++;const d=x-mean;mean+=d/n;m2+=d*(x-mean);}
-  const ordered=[...numbers].sort((a,b)=>a-b), mid=Math.floor(n/2);
-  return {n,mean,median:n%2?ordered[mid]:(ordered[mid-1]+ordered[mid])/2,sd:Math.sqrt(m2/(n-1)),variance:m2/(n-1),min:ordered[0],max:ordered[n-1]};
+  const ordered=[...numbers].sort((a,b)=>a<b?-1:a>b?1:0), n=numbers.length, mid=Math.floor(n/2);
+  const min=ordered[0], max=ordered[n-1];
+  // Independent floating-point implementation: shift close same-sign
+  // values before scaling; use compensated mean and Welford variance.
+  const largest=Math.max(Math.abs(min),Math.abs(max));
+  const center=min>=0&&max-min<=largest/2||max<=0&&max-min<=largest/2?min:0;
+  const scale=Math.max(Math.abs(min-center),Math.abs(max-center))||1;
+  let count=0, online=0, m2=0, sum=0, correction=0;
+  for(const x of numbers){
+    const z=(x-center)/scale;
+    const next=sum+z;
+    correction+=Math.abs(sum)>=Math.abs(z)?(sum-next)+z:(z-next)+sum;
+    sum=next;
+    count++;const delta=z-online;online+=delta/count;m2+=delta*(z-online);
+  }
+  const mean=center+((sum+correction)/n)*scale;
+  const sd=Math.sqrt(Math.max(0,m2)/(n-1))*scale;
+  const lo=ordered[mid-1], hi=ordered[mid], middleSum=lo+hi;
+  const median=n%2?hi:finite(middleSum)?middleSum/2:lo/2+hi/2;
+  return {n,mean,median,sd,variance:sd*sd,min,max};
 }
 function numericOutput(output,key) {
   const escaped=key.replace(/[.*+?^${ }()|[\]\\]/g,'\\$&');
@@ -59,7 +75,7 @@ export function reproduceEvidence(entry) {
     values={determinant:determinant(a)};algorithm='Laplace cofactor expansion (independent of Gaussian elimination)';digits=10;
   } else if(tool==='stats_calc'&&Array.isArray(args?.numbers)){
     fail(args.numbers.length>=2&&args.numbers.length<=100000&&args.numbers.every(finite),'Independent statistics require 2–100000 finite inline values');
-    values=stats(args.numbers);algorithm='Welford online variance and sorted median (independent of original two-pass moments)';digits=6;
+    values=stats(args.numbers);algorithm='Shifted/scaled Welford variance and compensated mean (independent of exact integer moments)';digits=6;
   } else {
     const replay=extraReplay(entry);
     if(!replay)return {status:'unsupported',evidenceId:entry.id,reason:'No independent implementation for this input; arbitrary code and mutable file replay are excluded'};
