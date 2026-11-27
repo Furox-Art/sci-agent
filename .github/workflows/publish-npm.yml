@@ -45,4 +45,5 @@ jobs:
         run: node scripts/build-packages.mjs
 
       - name: Publish to npm with provenance
-        run: npm publish dist-npm/sci-agent-*.tgz --provenance --access public
+        working-directory: dist-npm/package
+        run: npm publish --provenance --access public
