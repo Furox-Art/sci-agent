@@ -53,7 +53,7 @@ test('plan_audit schema and description', () => {
     'validate',
   ];
   for (const c of subcommands) {
-    assert.ok(plan_audit.description.includes(c), `açıklamada alt komut eksik: ${c}`);
+    assert.ok(plan_audit.description.includes(c), `missing subcommand in description: ${c}`);
   }
 });
 
@@ -63,7 +63,7 @@ test('plan_audit --help returns usage', { skip: hasPlanAuditor ? false : 'plan-a
   const s = await r.invoke('plan_audit', { args: ['--help'] });
   assert.ok(s.ok, s.output);
   assert.equal(typeof s.output, 'string');
-  assert.ok(s.output.trim().length >= 20, 'çıktı 20+ karakter olmalı');
+  assert.ok(s.output.trim().length >= 20, 'output must contain at least 20 characters');
   assert.match(s.output.toLowerCase(), /usage/);
   // Help output must include the actual subcommands.
   assert.match(s.output, /supervisor/);

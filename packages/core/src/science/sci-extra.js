@@ -198,44 +198,44 @@ const UNIT_TABLES = {
 };
 
 const UNIT_ALIASES = {
-  mm: ['milimetre', 'millimeter'],
-  cm: ['santimetre', 'centimetre', 'centimeter'],
+  mm: ['millimeter', 'millimetre'],
+  cm: ['centimetre', 'centimeter'],
   m: ['metre', 'meter'],
   km: ['kilometre', 'kilometer'],
-  in: ['inch', 'inç'],
-  ft: ['foot', 'feet', 'ayak'],
+  in: ['inch'],
+  ft: ['foot', 'feet'],
   yd: ['yard', 'yards'],
-  mi: ['mile', 'mil'],
-  mg: ['miligram', 'milligram'],
-  g: ['gram', 'grams', 'gr'],
+  mi: ['mile'],
+  mg: ['milligram'],
+  g: ['gram', 'grams'],
   kg: ['kilogram', 'kilograms'],
   t: ['ton', 'tonne'],
   lb: ['pound', 'pounds', 'lbs'],
   oz: ['ounce', 'ounces'],
-  ms: ['milisaniye', 'millisecond', 'milliseconds'],
-  s: ['second', 'seconds', 'sec', 'sn', 'saniye'],
-  min: ['minute', 'minutes', 'dakika', 'dk'],
-  h: ['hour', 'hours', 'saat', 'sa'],
-  d: ['day', 'days', 'gün', 'gun'],
-  J: ['joule', 'joules', 'jul'],
+  ms: ['millisecond', 'milliseconds'],
+  s: ['second', 'seconds', 'sec'],
+  min: ['minute', 'minutes'],
+  h: ['hour', 'hours'],
+  d: ['day', 'days'],
+  J: ['joule', 'joules'],
   kJ: ['kilojoule', 'kilojoules'],
-  cal: ['calorie', 'calories', 'kalori'],
-  kcal: ['kilocalorie', 'kilocalories', 'kilokalori'],
-  eV: ['electronvolt', 'elektronvolt'],
+  cal: ['calorie', 'calories'],
+  kcal: ['kilocalorie', 'kilocalories'],
+  eV: ['electronvolt'],
   Wh: ['watthour', 'watt-hour'],
   kWh: ['kilowatthour', 'kilowatt-hour'],
   Pa: ['pascal', 'pascals'],
   kPa: ['kilopascal', 'kilopascals'],
   bar: ['bars'],
-  atm: ['atmosphere', 'atmospheres', 'atmosfer'],
-  mmHg: ['milimetreciva'],
-  deg: ['degree', 'degrees', 'derece', '°'],
-  rad: ['radian', 'radians', 'radyan'],
-  grad: ['gradian', 'gradyan', 'gon'],
+  atm: ['atmosphere', 'atmospheres'],
+  mmHg: ['millimeters of mercury', 'millimetres of mercury'],
+  deg: ['degree', 'degrees', '°'],
+  rad: ['radian', 'radians'],
+  grad: ['gradian', 'gon'],
 };
 
 const TEMP_UNITS = ['C', 'K', 'F'];
-const TEMP_ALIASES = { C: ['celsius', 'celcius', 'santigrat', '°c'], K: ['kelvin', '°k'], F: ['fahrenheit', '°f'] };
+const TEMP_ALIASES = { C: ['celsius', 'celcius', '°c'], K: ['kelvin', '°k'], F: ['fahrenheit', '°f'] };
 const TEMP_TO_C = { C: (v) => v, K: (v) => v - 273.15, F: (v) => ((v - 32) * 5) / 9 };
 const TEMP_FROM_C = { C: (c) => c, K: (c) => c + 273.15, F: (c) => (c * 9) / 5 + 32 };
 
@@ -332,26 +332,26 @@ const CONSTANTS = [
 ];
 
 const CONST_ALIASES = {
-  c: ['ışıkhızı'],
+  c: ['speedoflight'],
   h: ['planck'],
-  g: ['yerçekimi', 'gravite'],
+  g: ['standardgravity'],
   Na: ['avogadro'],
-  R: ['gazsabiti'],
+  R: ['gasconstant'],
   kB: ['boltzmann'],
-  e: ['elementelyük', 'elementarycharge'],
-  me: ['elektronkütlesi', 'electronmass'],
-  mp: ['protonkütlesi'],
-  mn: ['nötronkütlesi'],
-  epsilon0: ['eps0', 'elektrikgeçirgenliği'],
-  mu0: ['mu', 'manyetikgeçirgenlik'],
+  e: ['elementarycharge'],
+  me: ['electronmass'],
+  mp: ['protonmass'],
+  mn: ['neutronmass'],
+  epsilon0: ['eps0', 'vacuumpermittivity'],
+  mu0: ['mu', 'vacuumpermeability'],
   sigma: ['stefan', 'stefanboltzmann'],
-  atm: ['atmosfer', 'standardatmosfer'],
-  T0: ['standartsıcaklık'],
-  u: ['amu', 'dalton', 'atomikkutlebirimi'],
-  eV: ['elektronvolt', 'electronvolt'],
-  Ry: ['rydberg', 'rydbergenerjisi'],
-  Rinf: ['rydbergsabiti'],
-  alpha: ['inceyapısabiti'],
+  atm: ['standardatmosphere'],
+  T0: ['standardtemperature'],
+  u: ['amu', 'dalton', 'atomicmassunit'],
+  eV: ['electronvolt'],
+  Ry: ['rydberg', 'rydbergenergy'],
+  Rinf: ['rydbergconstant'],
+  alpha: ['finestructureconstant'],
 };
 
 const normConst = (s) => String(s ?? '').trim().toLowerCase().replace(/[\s_\-]/g, '');
@@ -367,7 +367,7 @@ const fmtConst = (c) => {
   return `${label} — ${c.desc}: ${c.value} ${c.unit}`;
 };
 
-const LIST_WORDS = new Set(['', 'liste', 'list', 'all', 'hepsi', 'tumu', 'tümü']);
+const LIST_WORDS = new Set(['', 'list', 'all']);
 
 export const physical_constants = {
   name: 'physical_constants',

@@ -237,7 +237,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
   async function handle(input) {
     latestResearch = null;
     messages.push({ role: 'user', content: input });
-    console.log(dim(`[${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}]`));
+    console.log(dim(`[${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}]`));
     mdLineBuf = '';
     mdInCode = false;
     try {
@@ -485,7 +485,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
           }
         }
       } else if (input === '/save') {
-        const lines = ['# SciAgent Chat', '', new Date().toLocaleString('tr-TR'), ''];
+        const lines = ['# SciAgent Chat', '', new Date().toLocaleString('en-US'), ''];
         for (const m of messages) {
           if (m.role === 'user') lines.push(`## User\n\n${m.content}\n`);
           else if (m.role === 'assistant') {

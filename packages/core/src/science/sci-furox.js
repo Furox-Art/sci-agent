@@ -178,7 +178,7 @@ export const polyglot_cli = cliTool({
   script: 'polyglot-python',
   installHint: 'Install: pip install polyglot-python',
   description:
-    'polyglot-python CLI: write Python in your own language — deterministic keyword transpiler (run/translate/check/locales; 8 languages incl. TR; explore with ["--help"]).',
+    'polyglot-python CLI: write Python in your own language — deterministic keyword transpiler (run/translate/check/locales; 8 languages; explore with ["--help"]).',
 });
 
 export const eq_route = {

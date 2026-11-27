@@ -34,7 +34,7 @@ test('runAgentLoop behavior is unchanged without systemExtra', async () => {
   await runAgentLoop({ provider, registry: fakeRegistry, messages, maxSteps: 3, grounding: false });
 
   assert.equal(provider.calls.length, 1);
-  assert.equal(provider.calls[0].messages, messages); // birebir aynı dizi gönderilir
+  assert.equal(provider.calls[0].messages, messages); // the same array is passed
   assert.equal(provider.calls[0].messages[0].content, 'sistem istemi');
 });
 
@@ -43,7 +43,7 @@ test('buildSteering returns null when disabled', async () => {
   process.env.SCI_AGENT_EQ_DISABLE = '1';
   try {
     const r = await buildSteering({
-      messages: [{ role: 'user', content: 'Randevum üç kez değiştirildi, devam et.' }],
+      messages: [{ role: 'user', content: 'My appointment was changed three times; continue.' }],
     });
     assert.equal(r, null);
   } finally {
@@ -55,7 +55,7 @@ test('buildSteering returns null when disabled', async () => {
 test('buildSteering returns string or null without throwing', async () => {
   const r = await buildSteering({
     messages: [
-      { role: 'user', content: 'Randevum üç kez değiştirildi, artık sinirleniyorum.' },
+      { role: 'user', content: 'My appointment was changed three times; I am frustrated.' },
       { role: 'assistant', content: 'Kontrol ediyorum.' },
       { role: 'user', content: 'devam et' },
     ],
@@ -71,7 +71,7 @@ test('buildSteering filters tool messages and returns null without user messages
   const r = await buildSteering({
     messages: [
       { role: 'system', content: 'sistem' },
-      { role: 'tool', tool_call_id: '1', content: 'araç çıktısı' },
+      { role: 'tool', tool_call_id: '1', content: 'tool output' },
     ],
   });
   assert.equal(r, null);

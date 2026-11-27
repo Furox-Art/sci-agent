@@ -11,7 +11,7 @@ import { ToolRegistry, MockProvider, runAgentLoop, findUngroundedClaims } from '
 test('findUngroundedClaims detects statistical, measurement and literature claims', () => {
   const kinds = (t) => findUngroundedClaims(t).map((c) => c.kind);
   assert.ok(kinds('The effect was significant (p = 0.03).').includes('statistics'));
-  assert.ok(kinds('n = 48 katılımcı vardı').includes('statistics'));
+  assert.ok(kinds('n = 48 participants').includes('statistics'));
   assert.ok(kinds('Doz 25 mg/kg olarak verildi.').includes('measurement'));
   assert.ok(kinds('Verim %87.5 bulundu.').includes('measurement'));
   assert.ok(kinds('E = 2.718 sonucu elde edilir.').includes('equation'));
@@ -19,17 +19,17 @@ test('findUngroundedClaims detects statistical, measurement and literature claim
 });
 
 test('findUngroundedClaims returns no matches for claim-free text', () => {
-  assert.deepEqual(findUngroundedClaims('Merhaba, bugün nasılsın?'), []);
-  assert.deepEqual(findUngroundedClaims('Dosyayı okudum ve özeti aşağıya yazdım.'), []);
+  assert.deepEqual(findUngroundedClaims('Hello, how are you today?'), []);
+  assert.deepEqual(findUngroundedClaims('I read the file and wrote the summary below.'), []);
   assert.deepEqual(findUngroundedClaims(''), []);
   assert.deepEqual(findUngroundedClaims(undefined), []);
 });
 
 test('evidence gate requests verification for unsupported numeric claims', async () => {
-  const provider = new MockProvider([{ content: 'Ortalama 12.4 mg/L ve p = 0.01.' }, { content: 'Araçla doğruladım.' }]);
+  const provider = new MockProvider([{ content: 'Mean 12.4 mg/L and p = 0.01.' }, { content: 'Verified with a tool.' }]);
   const messages = [
     { role: 'system', content: 'test' },
-    { role: 'user', content: 'ölçümü söyle' },
+    { role: 'user', content: 'report the measurement' },
   ];
   const events = [];
   const res = await runAgentLoop({
@@ -42,7 +42,7 @@ test('evidence gate requests verification for unsupported numeric claims', async
 
   assert.equal(res.done, true);
   assert.equal(res.unverified, undefined);
-  assert.equal(provider.calls.length, 2, 'kanıt kapısı ikinci bir model turu ister');
+  assert.equal(provider.calls.length, 2, 'evidence gate requests another model turn');
   const warnings = events.filter((e) => e.type === 'warning');
   assert.equal(warnings.length, 1);
   assert.equal(warnings[0].reason, 'ungrounded_claims');
@@ -70,7 +70,7 @@ test('evidence gate marks the response unverified after an unsuccessful retry', 
   assert.equal(res.done, false);
   assert.equal(res.unverified, true);
   assert.ok(res.unverifiedClaims.length >= 1);
-  assert.equal(provider.calls.length, 2, 'düzeltici tur yalnızca bir kez yapılır');
+  assert.equal(provider.calls.length, 2, 'one corrective turn only');
   assert.equal(events.filter((e) => e.type === 'warning').length, 2);
 });
 

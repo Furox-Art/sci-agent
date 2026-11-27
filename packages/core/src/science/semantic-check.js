@@ -1,11 +1,11 @@
 // Structured semantic assertions: normalized subject, relation, context and quantity.
 // No free-text entailment claim. Relations with different context are not compared.
 const aliases = new Map(Object.entries({
-  'increase':'increase','increases':'increase','raises':'increase','artırır':'increase','arttırır':'increase','yükseltir':'increase',
-  'decrease':'decrease','decreases':'decrease','reduces':'decrease','azaltır':'decrease','düşürür':'decrease',
-  'no_change':'no_change','no change':'no_change','değiştirmez':'no_change',
-  'equals':'equals','equal':'equals','eşittir':'equals','is':'is','dır':'is',
-  'causes':'causes','neden olur':'causes','associated with':'associated_with','associated_with':'associated_with','ilişkili':'associated_with'
+  'increase':'increase','increases':'increase','raises':'increase',
+  'decrease':'decrease','decreases':'decrease','reduces':'decrease',
+  'no_change':'no_change','no change':'no_change',
+  'equals':'equals','equal':'equals','is':'is',
+  'causes':'causes','associated with':'associated_with','associated_with':'associated_with'
 }));
 const normalize = s => String(s).normalize('NFKC').trim().toLocaleLowerCase('en-US').replace(/\s+/g,' ');
 const finite = x => typeof x==='number'&&Number.isFinite(x);

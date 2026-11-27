@@ -33,11 +33,11 @@ test('ten tools have schemas and support parallel execution without approval', (
     assert.equal(typeof t.name, 'string');
     assert.ok(t.name.length > 0);
     assert.equal(typeof t.description, 'string');
-    assert.ok(t.description.length > 20, 'açıklama boş olamaz');
+    assert.ok(t.description.length > 20, 'description must not be empty');
     assert.equal(t.needsApproval, false);
     assert.equal(t.parallel, true);
     assert.equal(typeof t.execute, 'function');
-    assert.equal(t.execute.constructor.name, 'AsyncFunction', 'execute async olmalı');
+    assert.equal(t.execute.constructor.name, 'AsyncFunction', 'execute must be async');
   }
   assert.deepEqual(
     TOOLS.map((t) => t.name),
@@ -50,7 +50,7 @@ test('schemas are valid and JSON-serializable', () => {
     assert.equal(t.parameters.type, 'object');
     assert.equal(typeof t.parameters.properties, 'object');
     const roundTrip = JSON.parse(JSON.stringify(t.parameters));
-    assert.deepEqual(roundTrip, t.parameters, 'parameters JSON serileştirilebilir olmalı');
+    assert.deepEqual(roundTrip, t.parameters, 'parameters must be JSON serializable');
   }
   assert.deepEqual(lit_audit.parameters.required, ['pmcid', 'outcome']);
   assert.deepEqual(lit_audit.parameters.properties.study_design.enum, ['randomized_trial', 'observational']);
@@ -60,7 +60,7 @@ test('schemas are valid and JSON-serializable', () => {
   assert.equal(lit_screen.parameters.properties.criteria.type, 'array');
   assert.equal(lit_screen.parameters.properties.criteria.items.type, 'string');
   assert.equal(lit_screen.parameters.properties.max_results.type, 'number');
-  assert.ok(!lit_ledger.parameters.required, 'lit_ledger için required yok');
+  assert.ok(!lit_ledger.parameters.required, 'lit_ledger has no required properties');
   assert.equal(lit_ledger.parameters.properties.path.type, 'string');
   assert.deepEqual(lit_bib.parameters.required, ['papers']);
   assert.equal(lit_bib.parameters.properties.papers.type, 'array');
@@ -92,8 +92,8 @@ test('schemas are valid and JSON-serializable', () => {
   // Parameter descriptions must be present and non-trivial.
   for (const t of TOOLS) {
     for (const [key, prop] of Object.entries(t.parameters.properties)) {
-      assert.equal(typeof prop.description, 'string', `${t.name}.${key} açıklaması olmalı`);
-      assert.ok(prop.description.length > 10, `${t.name}.${key} açıklaması çok kısa`);
+      assert.equal(typeof prop.description, 'string', `${t.name}.${key} must have a description`);
+      assert.ok(prop.description.length > 10, `${t.name}.${key} description is too short`);
     }
   }
 });
@@ -101,7 +101,7 @@ test('schemas are valid and JSON-serializable', () => {
 test('ToolRegistry exposes tool schemas', async () => {
   const registry = await makeRegistry();
   const names = registry.schemas().map((s) => s.name);
-  for (const t of TOOLS) assert.ok(names.includes(t.name), `${t.name} kayıtlı olmalı`);
+  for (const t of TOOLS) assert.ok(names.includes(t.name), `${t.name} must be registered`);
   const list = registry.list();
   assert.ok(list.every((l) => l.needsApproval === false));
 });
@@ -129,7 +129,7 @@ test('invalid values return a readable English error instead of throwing (ok:tru
     outcome: 'mortality',
     study_design: 'case_report',
   });
-  assert.equal(r1.ok, true, 'geçersiz design throw etmemeli');
+  assert.equal(r1.ok, true, 'invalid design must not throw');
   assert.equal(typeof r1.output, 'string');
   assert.ok(r1.output.startsWith('Error:'), `unexpected output: ${r1.output}`);
   assert.ok(/randomized_trial|observational/.test(r1.output), 'desteklenen designlar listelenmeli');
@@ -172,7 +172,7 @@ test('new tools return readable errors for missing or incorrectly typed argument
 
   const r6 = await registry.invoke('lit_evidence', { kind: 'x', payload: { a: 1 } });
   assert.equal(r6.ok, true);
-  assert.ok(r6.output.startsWith('Error:'), 'çok kısa kind reddedilmeli');
+  assert.ok(r6.output.startsWith('Error:'), 'reject a kind that is too short');
 });
 
 test('lit_quote_text reports input length limit violations (ok:true)', async () => {
@@ -182,7 +182,7 @@ test('lit_quote_text reports input length limit violations (ok:true)', async () 
     source_text: 'some source text',
     source_id: 'src',
   });
-  assert.equal(r.ok, true, 'limit aşımı throw etmemeli');
+  assert.equal(r.ok, true, 'limit violation must not throw');
   assert.ok(r.output.startsWith('Error:'), `unexpected output: ${r.output}`);
 
   const r2 = await registry.invoke('lit_quote_text', {
@@ -280,13 +280,13 @@ test('lit_ledger resolves relative paths under workspaceRoot', async (t) => {
   assert.equal(typeof r.output, 'string');
   assert.ok(r.output.length > 0);
   if (/package was not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; ledger testi atlandı');
+    t.skip('literature-evidence-mcp is not installed; ledger test skipped');
     return;
   }
   // With the package installed, a missing file returns VALID_EMPTY deterministically.
   if (!r.output.startsWith('Error:')) {
     assert.ok(/VALID_EMPTY/.test(r.output), `VALID_EMPTY beklenirdi: ${r.output}`);
-    assert.ok(r.output.includes('missing-ledger.jsonl'), 'çözümlenen yol çıktıda görünmeli');
+    assert.ok(r.output.includes('missing-ledger.jsonl'), 'resolved path must appear in output');
   }
 });
 
@@ -303,10 +303,10 @@ test('lit_quote_text deterministic offline literal matching', async (t) => {
   assert.equal(typeof r.output, 'string');
   assert.ok(r.output.length > 0);
   if (/package was not found|Python interpreter not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; çevrimdışı eşleşme testi atlandı');
+    t.skip('literature-evidence-mcp is not installed; offline matching test skipped');
     return;
   }
-  assert.ok(/TEXTUAL_MATCH_ONLY/.test(r.output), `eşleşme beklenirdi: ${r.output}`);
+  assert.ok(/TEXTUAL_MATCH_ONLY/.test(r.output), `expected a match: ${r.output}`);
   assert.ok(/characters 24-51/.test(r.output), `offset beklenirdi: ${r.output}`);
 
   const miss = await registry.invoke('lit_quote_text', {
@@ -335,13 +335,13 @@ test('lit_bib deterministic offline BibTeX formatting', async (t) => {
   assert.equal(typeof r.output, 'string');
   assert.ok(r.output.length > 0);
   if (/package was not found|Python interpreter not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; bibliography testi atlandı');
+    t.skip('literature-evidence-mcp is not installed; bibliography test skipped');
     return;
   }
-  assert.ok(/Bibliography export \(bibtex, 1 records/.test(r.output), `başlık beklenirdi: ${r.output.slice(0, 300)}`);
+  assert.ok(/Bibliography export \(bibtex, 1 records/.test(r.output), `expected a title: ${r.output.slice(0, 300)}`);
   assert.ok(/@article\{lem1,/.test(r.output), `bibtex girdisi beklenirdi: ${r.output.slice(0, 400)}`);
-  assert.ok(r.output.includes('title = {CRISPR off-target effects}'), 'başlık çıktıda görünmeli');
-  assert.ok(r.output.includes('journal = {Nature Methods}'), 'dergi adı çıktıda görünmeli');
+  assert.ok(r.output.includes('title = {CRISPR off-target effects}'), 'title must appear in output');
+  assert.ok(r.output.includes('journal = {Nature Methods}'), 'journal name must appear in output');
 });
 
 test('lit_evidence append and lit_ledger verify a temporary hash chain', async (t) => {
@@ -355,12 +355,12 @@ test('lit_evidence append and lit_ledger verify a temporary hash chain', async (
     assert.equal(typeof r.output, 'string');
     assert.ok(r.output.length > 0);
     if (/package was not found|Python interpreter not found/.test(r.output)) {
-      t.skip('literature-evidence-mcp kurulu değil; defter ekleme testi atlandı');
+      t.skip('literature-evidence-mcp is not installed; ledger append test skipped');
       return;
     }
     assert.ok(/RECORDED/.test(r.output), `RECORDED beklenirdi: ${r.output}`);
     assert.ok(r.output.includes('Entry number: 1'), `ilk girdi beklenirdi: ${r.output}`);
-    assert.ok(r.output.includes('lit_ledger'), 'lit_ledger işaret edilmeli');
+    assert.ok(r.output.includes('lit_ledger'), 'lit_ledger must be referenced');
 
     // Verify the same chain with an independent lit_ledger call and an absolute path.
     const v = await registry.invoke('lit_ledger', { path: ledgerPath });
@@ -386,12 +386,12 @@ test('live audit returns a summary or readable error', async (t) => {
   });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
+  assert.ok(r.output.length > 0, 'output must not be empty');
   if (/package was not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı denetim atlandı');
+    t.skip('literature-evidence-mcp is not installed; live audit skipped');
     return;
   }
-  assert.ok(process.pid > 0); // süreç köprü çağrısından sonra ayakta kalmalı
+  assert.ok(process.pid > 0); // process must survive bridge call
 });
 
 test('live screening returns a PRISMA-style list or readable error', async (t) => {
@@ -403,14 +403,14 @@ test('live screening returns a PRISMA-style list or readable error', async (t) =
   });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
+  assert.ok(r.output.length > 0, 'output must not be empty');
   if (/package was not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı eleme atlandı');
+    t.skip('literature-evidence-mcp is not installed; live screening skipped');
     return;
   }
   if (!r.output.startsWith('Error:')) {
     // Successful results must include the PRISMA flow line.
-    assert.ok(/Flow: identified/.test(r.output), `akış satırı beklenirdi: ${r.output.slice(0, 400)}`);
+    assert.ok(/Flow: identified/.test(r.output), `expected flow line: ${r.output.slice(0, 400)}`);
   }
   assert.ok(process.pid > 0);
 });
@@ -420,9 +420,9 @@ test('live ledger returns a verification summary or readable error', async (t) =
   const r = await registry.invoke('lit_ledger', {});
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
+  assert.ok(r.output.length > 0, 'output must not be empty');
   if (/package was not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı defter testi atlandı');
+    t.skip('literature-evidence-mcp is not installed; live ledger test skipped');
     return;
   }
   if (!r.output.startsWith('Error:')) {

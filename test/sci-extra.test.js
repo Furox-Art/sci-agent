@@ -108,7 +108,7 @@ test('unit_convert length and aliases', async () => {
   const cases = [
     [{ value: 1, from: 'mi', to: 'km' }, 1.609344],
     [{ value: 1, from: 'MILE', to: 'KM' }, 1.609344],
-    [{ value: 1, from: 'mil', to: 'kilometre' }, 1.609344],
+    [{ value: 1, from: 'mile', to: 'kilometre' }, 1.609344],
     [{ value: 1, from: 'metre', to: 'm' }, 1],
     [{ value: 1, from: 'ft', to: 'in' }, 12],
   ];
@@ -122,7 +122,7 @@ test('unit_convert length and aliases', async () => {
 test('unit_convert time, energy and pressure', async () => {
   const r = await makeRegistry();
   const cases = [
-    [{ value: 2, from: 'dk', to: 's' }, 120],
+    [{ value: 2, from: 'minute', to: 's' }, 120],
     [{ value: 1, from: 'kcal', to: 'J' }, 4184],
     [{ value: 1, from: 'kWh', to: 'J' }, 3600000],
     [{ value: 1, from: 'atm', to: 'Pa' }, 101325],
@@ -142,7 +142,7 @@ test('unit_convert temperature (offset conversion)', async () => {
     [{ value: 0, from: 'C', to: 'K' }, 273.15],
     [{ value: 32, from: 'F', to: 'C' }, 0],
     [{ value: -40, from: 'C', to: 'F' }, -40],
-    [{ value: 100, from: 'santigrat', to: 'kelvin' }, 373.15],
+    [{ value: 100, from: 'celsius', to: 'kelvin' }, 373.15],
   ];
   for (const [args, expected] of cases) {
     const s = await r.invoke('unit_convert', args);
@@ -212,7 +212,7 @@ test('physical_constants case-insensitive search and aliases', async () => {
 
 test('physical_constants list mode returns 20+ rows', async () => {
   const r = await makeRegistry();
-  for (const args of [{}, { name: 'liste' }]) {
+  for (const args of [{}, { name: 'list' }]) {
     const s = await r.invoke('physical_constants', args);
     assert.ok(s.ok, s.output);
     const lines = s.output.split('\n').filter((l) => l.trim() !== '');
@@ -223,7 +223,7 @@ test('physical_constants list mode returns 20+ rows', async () => {
 
 test('physical_constants unknown name errors and suggests names', async () => {
   const r = await makeRegistry();
-  const s = await r.invoke('physical_constants', { name: 'olmayan' });
+  const s = await r.invoke('physical_constants', { name: 'nonexistent' });
   assert.equal(s.ok, false);
   assert.match(s.output, /Unknown constant/i);
   assert.match(s.output, /Available names/i);

@@ -43,9 +43,9 @@ test('run_command returns output', async () => {
 
 test('search_files searches content', async () => {
   const r = reg();
-  const w = await r.invoke('write_file', { path: 'notes.md', content: 'hızlı tilki\nbilimsel not' });
+  const w = await r.invoke('write_file', { path: 'notes.md', content: 'quick fox\nscientific note' });
   assert.ok(w.ok, w.output);
-  const s = await r.invoke('search_files', { pattern: 'tilki' });
+  const s = await r.invoke('search_files', { pattern: 'fox' });
   assert.ok(s.ok, s.output);
   assert.match(s.output, /notes\.md/);
 });

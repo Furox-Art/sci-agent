@@ -28,11 +28,11 @@ test('six tools have schemas and support parallel execution without approval', (
     assert.equal(typeof t.name, 'string');
     assert.ok(t.name.length > 0);
     assert.equal(typeof t.description, 'string');
-    assert.ok(t.description.length > 20, 'açıklama boş olamaz');
+    assert.ok(t.description.length > 20, 'description must not be empty');
     assert.equal(t.needsApproval, false);
     assert.equal(t.parallel, true);
     assert.equal(typeof t.execute, 'function');
-    assert.equal(t.execute.constructor.name, 'AsyncFunction', 'execute async olmalı');
+    assert.equal(t.execute.constructor.name, 'AsyncFunction', 'execute must be async');
   }
   assert.deepEqual(
     TOOLS.map((t) => t.name),
@@ -45,12 +45,12 @@ test('schemas are valid and JSON-serializable', () => {
     assert.equal(t.parameters.type, 'object');
     assert.equal(typeof t.parameters.properties, 'object');
     const roundTrip = JSON.parse(JSON.stringify(t.parameters));
-    assert.deepEqual(roundTrip, t.parameters, 'parameters JSON serileştirilebilir olmalı');
+    assert.deepEqual(roundTrip, t.parameters, 'parameters must be JSON serializable');
   }
   assert.deepEqual(lit_search.parameters.required, ['query']);
   assert.equal(lit_search.parameters.properties.query.type, 'string');
   assert.equal(lit_search.parameters.properties.max_results.type, 'number');
-  assert.ok(!lit_verify.parameters.required, 'lit_verify için required yok (doi veya title)');
+  assert.ok(!lit_verify.parameters.required, 'lit_verify has no required properties (doi or title)');
   assert.equal(lit_verify.parameters.properties.doi.type, 'string');
   assert.equal(lit_verify.parameters.properties.title.type, 'string');
   assert.deepEqual(lit_quote.parameters.required, ['pmcid', 'quote']);
@@ -68,7 +68,7 @@ test('schemas are valid and JSON-serializable', () => {
 test('ToolRegistry exposes tool schemas', async () => {
   const registry = await makeRegistry();
   const names = registry.schemas().map((s) => s.name);
-  for (const t of TOOLS) assert.ok(names.includes(t.name), `${t.name} kayıtlı olmalı`);
+  for (const t of TOOLS) assert.ok(names.includes(t.name), `${t.name} must be registered`);
   const list = registry.list();
   assert.ok(list.every((l) => l.needsApproval === false));
 });
@@ -110,14 +110,14 @@ test('missing arguments return an error string without throwing', async () => {
 test('invalid values return a readable English error instead of throwing (ok:true)', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_fulltext', { pmcid: 'not-a-pmcid' });
-  assert.equal(r1.ok, true, 'geçersiz PMCID throw etmemeli');
+  assert.equal(r1.ok, true, 'invalid PMCID must not throw');
   assert.equal(typeof r1.output, 'string');
   assert.ok(r1.output.startsWith('Error:'), `unexpected output: ${r1.output}`);
 
   const r2 = await registry.invoke('lit_cite_graph', { seed_doi: '10.1/xyz', directions: 'sideways' });
   assert.equal(r2.ok, true);
   assert.ok(r2.output.startsWith('Error:'), `unexpected output: ${r2.output}`);
-  assert.ok(/forward|backward|both/.test(r2.output), 'desteklenen yönler listelenmeli');
+  assert.ok(/forward|backward|both/.test(r2.output), 'supported directions must be listed');
 });
 
 // --- Python-start failure attribution: honest dedicated message, NOT the network wording ---
@@ -218,9 +218,9 @@ test('live search returns text without crashing regardless of network result', a
   const r = await registry.invoke('lit_search', { query: 'CRISPR off-target effects', max_results: 2 });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
-  if (/paketini bulunamadı|paketi bulunamadı|paket bulunamadı/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı arama atlandı');
+  assert.ok(r.output.length > 0, 'output must not be empty');
+  if (/package not found|package is not installed/.test(r.output)) {
+    t.skip('literature-evidence-mcp is not installed; live search skipped');
     return;
   }
   // Process survived the bridge call; a further trivial assertion proves it.
@@ -232,9 +232,9 @@ test('live DOI verification returns retraction summary or readable error', async
   const r = await registry.invoke('lit_verify', { doi: '10.1038/nature12373' });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
-  if (/paketini bulunamadı|paketi bulunamadı|paket bulunamadı/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı doğrulama atlandı');
+  assert.ok(r.output.length > 0, 'output must not be empty');
+  if (/package not found|package is not installed/.test(r.output)) {
+    t.skip('literature-evidence-mcp is not installed; live verification skipped');
     return;
   }
   assert.ok(process.pid > 0);
@@ -245,9 +245,9 @@ test('live title verification extracts a DOI candidate and returns text', async 
   const r = await registry.invoke('lit_verify', { title: 'Characterizing CRISPR off-target effects' });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
-  if (/paketini bulunamadı|paketi bulunamadı|paket bulunamadı/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı doğrulama atlandı');
+  assert.ok(r.output.length > 0, 'output must not be empty');
+  if (/package not found|package is not installed/.test(r.output)) {
+    t.skip('literature-evidence-mcp is not installed; live verification skipped');
     return;
   }
   assert.ok(process.pid > 0);
@@ -258,14 +258,14 @@ test('live full text returns summary and text or readable error', async (t) => {
   const r = await registry.invoke('lit_fulltext', { pmcid: 'PMC4136957', max_chars: 3000 });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
+  assert.ok(r.output.length > 0, 'output must not be empty');
   if (/package was not found|Python interpreter not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı tam metin atlandı');
+    t.skip('literature-evidence-mcp is not installed; live full-text test skipped');
     return;
   }
   if (!r.output.startsWith('Error:')) {
-    assert.ok(/Full text \(Europe PMC OA XML\)/.test(r.output), `tam metin başlığı beklenirdi: ${r.output.slice(0, 300)}`);
-    assert.ok(/Paragraphs:/.test(r.output), 'paragraf sayısı beklenirdi');
+    assert.ok(/Full text \(Europe PMC OA XML\)/.test(r.output), `expected full-text heading: ${r.output.slice(0, 300)}`);
+    assert.ok(/Paragraphs:/.test(r.output), 'expected paragraph count');
   }
   assert.ok(process.pid > 0);
 });
@@ -280,14 +280,14 @@ test('live citation graph returns nodes or readable error', async (t) => {
   });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
+  assert.ok(r.output.length > 0, 'output must not be empty');
   if (/package was not found|Python interpreter not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı atıf grafiği atlandı');
+    t.skip('literature-evidence-mcp is not installed; live citation graph skipped');
     return;
   }
   if (!r.output.startsWith('Error:')) {
-    assert.ok(/Citation graph \(OpenAlex/.test(r.output), `graf başlığı beklenirdi: ${r.output.slice(0, 300)}`);
-    assert.ok(/Nodes:/.test(r.output) && /Edges:/.test(r.output), 'düğüm/kenar sayısı beklenirdi');
+    assert.ok(/Citation graph \(OpenAlex/.test(r.output), `expected graph heading: ${r.output.slice(0, 300)}`);
+    assert.ok(/Nodes:/.test(r.output) && /Edges:/.test(r.output), 'expected node and edge counts');
   }
   assert.ok(process.pid > 0);
 });
@@ -297,14 +297,14 @@ test('live data and code lookup returns links or readable error', async (t) => {
   const r = await registry.invoke('lit_data_code', { doi: '10.1038/nature12373' });
   assert.equal(typeof r.ok, 'boolean');
   assert.equal(typeof r.output, 'string');
-  assert.ok(r.output.length > 0, 'çıktı boş olamaz');
+  assert.ok(r.output.length > 0, 'output must not be empty');
   if (/package was not found|Python interpreter not found/.test(r.output)) {
-    t.skip('literature-evidence-mcp kurulu değil; canlı veri/kod testi atlandı');
+    t.skip('literature-evidence-mcp is not installed; live data/code test skipped');
     return;
   }
   if (!r.output.startsWith('Error:')) {
-    assert.ok(/Data\/code links \(Crossref metadata/.test(r.output), `başlık beklenirdi: ${r.output.slice(0, 300)}`);
-    assert.ok(/DOI 10\.1038\/nature12373/.test(r.output), 'istenen DOI çıktıda görünmeli');
+    assert.ok(/Data\/code links \(Crossref metadata/.test(r.output), `expected a title: ${r.output.slice(0, 300)}`);
+    assert.ok(/DOI 10\.1038\/nature12373/.test(r.output), 'requested DOI must appear in output');
   }
   assert.ok(process.pid > 0);
 });

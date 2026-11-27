@@ -5,7 +5,7 @@ dist/
 sci-agent.config.json
 .sci-agent-history.json
 .sci-agent-sessions/
-sciagent-sohbet*.md
+sciagent-*.md
 .sci-agent-research/
 .sci-agent-auth/
 

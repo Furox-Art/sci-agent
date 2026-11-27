@@ -9,7 +9,7 @@ test('agent loop calls tools and responds', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const provider = new MockProvider([
     { toolCalls: [{ name: 'write_file', arguments: { path: 'rapor.txt', content: 'veri' } }] },
-    { content: 'rapor yazıldı' },
+    { content: 'report written' },
   ]);
   const events = [];
   const registry = new ToolRegistry({ workspaceRoot: root, approve: async () => true });
@@ -20,7 +20,7 @@ test('agent loop calls tools and responds', async () => {
   const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), maxSteps: 5 });
   assert.equal(res.done, true);
   assert.equal(await fs.readFile(path.join(root, 'rapor.txt'), 'utf8'), 'veri');
-  assert.equal(messages.at(-1).content, 'rapor yazıldı');
+  assert.equal(messages.at(-1).content, 'report written');
   assert.equal(messages.at(-2).role, 'tool');
   assert.equal(events.find((e) => e.type === 'tool_call')?.name, 'write_file');
   // Step events are emitted sequentially for each turn.
@@ -70,7 +70,7 @@ test('tool execution errors return observations without stopping the loop', asyn
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const boom = {
     name: 'boom',
-    description: 'her çağrıda patlayan araç',
+    description: 'tool that throws on each call',
     parameters: { type: 'object' },
     needsApproval: false,
     async execute() {
@@ -146,7 +146,7 @@ test('abort during tool execution skips remaining calls and records observations
   const ac = new AbortController();
   const stopper = {
     name: 'stopper',
-    description: 'abort tetikleyen araç',
+    description: 'tool triggering cancellation',
     parameters: { type: 'object' },
     needsApproval: false,
     async execute() {
@@ -164,7 +164,7 @@ test('abort during tool execution skips remaining calls and records observations
   const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), signal: ac.signal, maxSteps: 5 });
   assert.equal(res.done, false);
   assert.equal(res.aborted, true);
-  assert.equal(provider.calls.length, 1); // ikinci model çağrısı hiç yapılmadı
+  assert.equal(provider.calls.length, 1); // the second model call never occurred
   const toolMsgs = messages.filter((m) => m.role === 'tool');
   assert.equal(toolMsgs.length, 2);
   assert.deepEqual(JSON.parse(toolMsgs[1].content), { error: 'Aborted before execution.' });
@@ -177,11 +177,11 @@ test('malformed tool calls produce clean observations and the loop continues', a
   const provider = new MockProvider([
     {
       toolCalls: [
-        { name: 'yok_boyle_arac', arguments: {} }, // bilinmeyen araç adı
-        { name: 'list_dir', arguments: { _raw: '{"path":' } }, // geçersiz JSON argüman
+        { name: 'nonexistent_tool', arguments: {} }, // unknown tool name
+        { name: 'list_dir', arguments: { _raw: '{"path":' } }, // invalid JSON arguments
       ],
     },
-    { content: 'toparlandı' },
+    { content: 'recovered' },
   ]);
   const events = [];
   const messages = [{ role: 'user', content: 'x' }];
@@ -191,7 +191,7 @@ test('malformed tool calls produce clean observations and the loop continues', a
   assert.equal(toolMsgs.length, 2);
   assert.match(toolMsgs[0].content, /unknown tool/);
   assert.match(toolMsgs[1].content, /not valid JSON/);
-  assert.equal(messages.at(-1).content, 'toparlandı');
+  assert.equal(messages.at(-1).content, 'recovered');
   // Preserve malformed calls in assistant history for protocol-consistent response matching.
   const assistant = messages.find((m) => m.role === 'assistant');
   assert.equal(assistant.tool_calls.length, 2);
@@ -218,7 +218,7 @@ test('three consecutive malformed tool calls stop the loop', async () => {
   });
   assert.equal(res.done, false);
   assert.equal(res.steps, 3);
-  assert.equal(provider.calls.length, 3); // 4. tur hiç çağrılmadı
+  assert.equal(provider.calls.length, 3); // the fourth turn was never called
   assert.ok(events.some((e) => e.type === 'error' && /malformed/i.test(e.text)));
 });
 
@@ -242,7 +242,7 @@ test('a valid step resets the malformed-call counter', async () => {
 // records peak concurrency; each call completes after a short delay.
 const concurrencyTool = (state) => ({
   name: 'slow_paralel',
-  description: 'eşzamanlılık ölçen araç',
+  description: 'concurrency measuring tool',
   parameters: { type: 'object' },
   parallel: true,
   needsApproval: false,
@@ -266,13 +266,13 @@ test('parallel pool respects maxConcurrent', async () => {
   assert.equal(res.done, true);
   // Ten calls respect and fully utilize the concurrency limit of four.
   assert.equal(state.peak, 4);
-  assert.equal(state.active, 0); // döngü bittiğinde sızan yürütme kalmaz
+  assert.equal(state.active, 0); // no active execution remains when the loop ends
 });
 
 test('parallel results preserve tool-call IDs and assistant order', async () => {
   const state = { active: 0, peak: 0 };
   const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
-  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'eşleşme tamam' }]);
+  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'matching completed' }]);
   const messages = [{ role: 'user', content: 'x' }];
   const events = [];
   const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), maxConcurrent: 4, maxSteps: 5 });
@@ -296,11 +296,11 @@ test('parallel results preserve tool-call IDs and assistant order', async () => 
 test('parallel pool defaults to four concurrent calls', async () => {
   const state = { active: 0, peak: 0 };
   const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
-  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'varsayılan bitti' }]);
+  const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'default completed' }]);
   const messages = [{ role: 'user', content: 'x' }];
   const res = await runAgentLoop({ provider, registry, messages, onEvent: () => {}, maxSteps: 5 });
   assert.equal(res.done, true);
-  assert.equal(state.peak, 4); // seçenek yokken DEFAULT_MAX_CONCURRENT devrede
+  assert.equal(state.peak, 4); // DEFAULT_MAX_CONCURRENT applies when omitted
   assert.equal(state.active, 0);
 });
 
@@ -308,13 +308,13 @@ test('parallel cancellation skips and records unstarted calls', async () => {
   const ac = new AbortController();
   const pabort = {
     name: 'pabort',
-    description: 'ilk çağrıda abort tetikleyen paralel araç',
+    description: 'parallel tool that cancels on the first call',
     parameters: { type: 'object' },
     parallel: true,
     needsApproval: false,
     async execute() {
       ac.abort();
-      return 'ilk çalıştı';
+      return 'first executed';
     },
   };
   const registry = new ToolRegistry({ tools: [pabort], workspaceRoot: '.' });
@@ -325,12 +325,12 @@ test('parallel cancellation skips and records unstarted calls', async () => {
   const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), signal: ac.signal, maxConcurrent: 4, maxSteps: 5 });
   assert.equal(res.done, false);
   assert.equal(res.aborted, true);
-  assert.equal(provider.calls.length, 1); // ikinci model çağrısı hiç yapılmadı
+  assert.equal(provider.calls.length, 1); // the second model call never occurred
   const assistant = messages.find((m) => m.role === 'assistant');
   const toolMsgs = messages.filter((m) => m.role === 'tool');
-  assert.equal(toolMsgs.length, 6); // her çağrı için yanıt var: geçmiş protokolü tutarlı
+  assert.equal(toolMsgs.length, 6); // each call has a response; history remains consistent
   toolMsgs.forEach((m, idx) => assert.equal(m.tool_call_id, assistant.tool_calls[idx].id));
-  assert.equal(toolMsgs[0].content, 'ilk çalıştı');
+  assert.equal(toolMsgs[0].content, 'first executed');
   for (const m of toolMsgs.slice(1)) {
     assert.deepEqual(JSON.parse(m.content), { error: 'Aborted before execution.' });
   }

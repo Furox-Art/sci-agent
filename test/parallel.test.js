@@ -5,7 +5,7 @@ import { ToolRegistry, MockProvider, runAgentLoop } from '@sci/core';
 function gateTool(name, registry) {
   return {
     name,
-    description: 'paralellik testi aracı',
+    description: 'parallel execution test tool',
     parameters: { type: 'object' },
     parallel: true,
     needsApproval: false,
@@ -16,7 +16,7 @@ function gateTool(name, registry) {
       await Promise.race([
         registry.gate,
         new Promise((_, rej) => {
-          const t = setTimeout(() => rej(new Error('paralel çalışmadı')), 2000);
+          const t = setTimeout(() => rej(new Error('did not execute in parallel')), 2000);
           t.unref?.();
         }),
       ]);
@@ -53,19 +53,19 @@ test('parallel-safe tools execute concurrently in one step', async () => {
 
 test('task runs a sub-agent and returns its summary', async () => {
   const provider = new MockProvider([
-    { toolCalls: [{ name: 'task', arguments: { prompt: 'alt görev A' } }] },
-    'alt ajanın özeti',
+    { toolCalls: [{ name: 'task', arguments: { prompt: 'subtask A' } }] },
+    'sub-agent summary',
     { content: 'ana ajan bitti' },
   ]);
   const registry = new ToolRegistry({ workspaceRoot: '.' });
-  const messages = [{ role: 'user', content: 'görevi böl' }];
+  const messages = [{ role: 'user', content: 'split the task' }];
   const events = [];
   const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), maxSteps: 5 });
   assert.equal(res.done, true);
   assert.equal(messages.at(-1).content, 'ana ajan bitti');
   const toolMsg = messages.find((m) => m.role === 'tool');
   assert.match(toolMsg.content, /Sub-agent finished/);
-  assert.match(toolMsg.content, /alt ajanın özeti/);
+  assert.match(toolMsg.content, /sub-agent summary/);
   assert.equal(events.filter((e) => e.type === 'task_start').length, 1);
   assert.equal(events.filter((e) => e.type === 'task_end').length, 1);
   assert.ok(events.some((e) => e.type === 'sub_event' && e.ev?.type === 'text'));
@@ -75,16 +75,16 @@ test('multiple task calls execute concurrently', async () => {
   const provider = new MockProvider([
     {
       toolCalls: [
-        { name: 'task', arguments: { prompt: 'görev A' } },
-        { name: 'task', arguments: { prompt: 'görev B' } },
+        { name: 'task', arguments: { prompt: 'task A' } },
+        { name: 'task', arguments: { prompt: 'task B' } },
       ],
     },
-    'özet A',
-    'özet B',
+    'summary A',
+    'summary B',
     { content: 'ikisi de tamam' },
   ]);
   const registry = new ToolRegistry({ workspaceRoot: '.' });
-  const messages = [{ role: 'user', content: 'paralel çalış' }];
+  const messages = [{ role: 'user', content: 'execute concurrently' }];
   const events = [];
   const res = await runAgentLoop({ provider, registry, messages, onEvent: (e) => events.push(e), maxSteps: 6 });
   assert.equal(res.done, true);
@@ -92,21 +92,21 @@ test('multiple task calls execute concurrently', async () => {
   const toolMsgs = messages.filter((m) => m.role === 'tool');
   assert.equal(toolMsgs.length, 2);
   const combined = toolMsgs.map((m) => m.content).join('\n');
-  assert.match(combined, /özet A/);
-  assert.match(combined, /özet B/);
+  assert.match(combined, /summary A/);
+  assert.match(combined, /summary B/);
   assert.equal(events.filter((e) => e.type === 'task_end').length, 2);
 });
 
 test('sub-agents cannot recursively invoke task', async () => {
   const provider = new MockProvider([
-    { toolCalls: [{ name: 'task', arguments: { prompt: 'iç görev' } }] },
+    { toolCalls: [{ name: 'task', arguments: { prompt: 'nested task' } }] },
     'ok',
     { content: 'bitti' },
   ]);
   const registry = new ToolRegistry({ workspaceRoot: '.' });
   const messages = [{ role: 'user', content: 'x' }];
   await runAgentLoop({ provider, registry, messages, maxSteps: 4 });
-  const childCall = provider.calls[1]; // alt ajanın ilk çağrısı
+  const childCall = provider.calls[1]; // first sub-agent call
   const childTools = childCall.tools.map((t) => t.name);
   assert.ok(childTools.includes('read_file'));
   assert.equal(childTools.includes('task'), false);

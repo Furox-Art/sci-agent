@@ -19,18 +19,18 @@ test('sci-tools is registered and its tools load', () => {
   assert.ok(names.includes('csv_stats'));
 });
 
-test('csv_stats temel istatistikleri hesaplar', async () => {
+test('csv_stats computes descriptive statistics', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
-  await fs.writeFile(path.join(root, 'veri.csv'), 'x,y,etiket\n1,10,a\n2,20,b\n3,40,c\n', 'utf8');
+  await fs.writeFile(path.join(root, 'weather.csv'), 'x,y,label\n1,10,a\n2,20,b\n3,40,c\n', 'utf8');
   const r = createRegistry({
     cfg: { agent: { workspaceRoot: root }, plugins: ['sci-tools'], policies: DEFAULT_CONFIG.policies },
   });
-  const s = await r.invoke('csv_stats', { path: 'veri.csv' });
+  const s = await r.invoke('csv_stats', { path: 'weather.csv' });
   assert.ok(s.ok, s.output);
   assert.match(s.output, /x: n=3, mean=2\.0000/);
   assert.match(s.output, /y: n=3, mean=23\.3333/);
   assert.match(s.output, /max=40/);
-  assert.match(s.output, /etiket: no numeric data/);
+  assert.match(s.output, /label: no numeric data/);
 });
 
 const pyExe = resolvePython();

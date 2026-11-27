@@ -76,7 +76,7 @@ function assertions(){
   state.record('E1','lit_fulltext',{}, {ok:true,output:'--- Full text (section: paragraph text) ---\nIntervention increases survival. Mass is one gram.\nNote: paragraph ids'});
   state.record('E2','lit_fulltext',{}, {ok:true,output:'--- Full text (section: paragraph text) ---\nIntervention reduces survival. Mass is two grams.\nNote: paragraph ids'});
   const base={subject:'Intervention',object:'Survival',context:'Population A; 6 weeks',negated:false};
-  return {state,a:{...base,id:'A',relation:'raises',evidenceId:'E1',quote:'Intervention increases survival.'},b:{...base,id:'B',relation:'azaltır',evidenceId:'E2',quote:'Intervention reduces survival.'}};
+  return {state,a:{...base,id:'A',relation:'raises',evidenceId:'E1',quote:'Intervention increases survival.'},b:{...base,id:'B',relation:'reduces',evidenceId:'E2',quote:'Intervention reduces survival.'}};
 }
 test('semantic conflict recognizes controlled synonyms and opposite polarity, respects context',()=>{
   const {state,a,b}=assertions();
@@ -116,7 +116,7 @@ test('memory rejects symbolic-link stores', {skip:process.platform==='win32'},as
 
 test('router ranks relevant tools, restores full catalog and never changes registry approvals',()=>{
   const registry=createRegistry({cfg:DEFAULT_CONFIG}), schemas=registry.schemas();
-  const result=routeTools(schemas,'nedensellik ve belirsizlik',{shortlist:true});
+  const result=routeTools(schemas,'causality and uncertainty',{shortlist:true});
   assert.equal(result.mode,'shortlist');
   assert.ok(result.schemas.some(s=>s.name==='research_causal'));
   assert.ok(result.schemas.some(s=>s.name==='research_uncertainty'));

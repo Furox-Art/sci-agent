@@ -251,13 +251,13 @@ npm test
 | `/clear` | Clear current conversation |
 | `/exit` | Exit |
 
-Normal session history is stored in `.sci-agent-sessions/`. Connected account and dedicated local-provider modes use separate ephemeral conversation history. Existing session files remain compatible.
+Normal session history is stored in `.sci-agent-sessions/`. Connected account and dedicated local-provider modes use separate ephemeral conversation history.
 
 ### Example datasets
 
 | File | Description |
 |---|---|
-| `examples/veri.csv` | Monthly temperature, humidity and pressure data (legacy filename and headers retained for compatibility) |
+| `examples/weather.csv` | Monthly temperature, humidity and pressure data |
 | `examples/kinetics.csv` | First-order reaction: concentration and ln concentration |
 | `examples/titration.csv` | Weak-acid titration (0.010 M acetic acid) |
 
@@ -372,7 +372,7 @@ Outputs appear in the latest `/research` record under `analyses`. Persistent mem
 | Conflicts | assertions with subject, relation, object, context, negation, evidence ID, exact quote and optional unit interval | Rule-based candidate detection; interpretation requires scientific review |
 | Routing | Ranked tools with optional first-step shortlist | Unknown requests and later steps use full catalog; approval policy unchanged |
 
-Structured conflicts compare normalized subject/object/context, relation direction, negation and disjoint intervals. Supported relation aliases include English and Turkish variants; canonical units include g/kg/mg, m/cm/mm, s/min/h and fraction/%.
+Structured conflicts compare normalized subject/object/context, relation direction, negation and disjoint intervals. Supported relation aliases are English; canonical units include g/kg/mg, m/cm/mm, s/min/h and fraction/%.
 
 #### Natural-language semantic analysis
 
