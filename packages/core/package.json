@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "jose": "6.2.18"
+  },
+  "optionalDependencies": {
+    "@microsoft/copilot-sdk": "2.0.3"
   }
 }

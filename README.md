@@ -64,6 +64,51 @@ ChatGPT modu yalnızca etkileşimli terminalde, açıkça `--chatgpt` seçildiğ
 
 Bu ilk entegrasyon sentetik OAuth/JWT verisi ve simüle edilmiş Responses akışıyla test edilmiştir. Gerçek kullanıcı hesabı ve model uç noktasıyla uçtan uca kabul testi yapılmamıştır. Windows/macOS tarayıcı açma ve terminal gizli parola girişi gerçek cihazlarda ayrıca sınanmalıdır. Kullanılabilirlik, model kataloğu ve plan izni OpenAI'nin sunucu tarafındaki kararına bağlıdır.
 
+## Diğer kullanıcı hesabı sağlayıcıları
+
+Sağlayıcı seçim menüsü:
+
+```bash
+npm run cli -- --provider-menu
+```
+
+ChatGPT, GitHub Copilot, OpenRouter veya mevcut API anahtarı/yerel model yapılandırması arasından seçim yapılır. Hesap modları isteğe bağlı ve etkileşimlidir. Normal CLI akışı değişmez.
+
+### GitHub Copilot
+
+[Resmî Copilot SDK](https://github.com/microsoft/copilot-sdk) (`@microsoft/copilot-sdk` 2.0.3, isteğe bağlı bağımlılık) üzerinden cihazda oturum açmış kullanıcının Copilot hesabı kullanılır. Node 20.19+ veya 22.12+ ve uygun platform paketi gerekir. GitHub Copilot CLI kurulum ve yetkilendirme adımları için [resmî kılavuz](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli).
+
+```bash
+npm run cli -- auth copilot login
+npm run cli -- --copilot
+npm run cli -- auth copilot status
+npm run cli -- auth copilot models
+npm run cli -- auth copilot switch
+npm run cli -- auth copilot logout
+npm run cli -- auth copilot usage
+```
+
+İlk girişte resmî `copilot login` komutu kullanılır (Windows'ta doğrudan terminalde çalıştırın). SciAgent GitHub tokenlarını okumaz veya saklamaz. Yalnızca GitHub.com üzerinde kayıtlı kullanıcı kimliği kabul edilir; ortam değişkeni, gh CLI ve BYOK giriş türleri reddedilir. Model kataloğunda yalnızca Copilot sağlayıcı kimliği açıkça belirtilen ve devre dışı olmayan kayıtlar seçilebilir; kaynak atfı olmayan modeller dışarıda bırakılır. Model seçimi mevcut aboneliğinizin yetki ve kullanım sınırlarına tabidir.
+
+SDK ayrı, boş çalışma dizininde ve `empty` modunda çalışır; kendi yerel araçları, konfigürasyon keşfi, dosya kancaları ve becerileri kapalıdır. Modelden SciAgent araç çağrıları JSON protokolüyle istenir; yalnızca tanımlı araçlar SciAgent'in mevcut onay ve kanıt kapısından geçerek yürütülür. Bu, Copilot'un kendi yerel araçlarını kullanmakla aynı değildir; modelin JSON protokolüne uymaması isteğin güvenli biçimde reddedilmesine yol açar. SDK oturumları her model çağrısı sonunda kapatılır ve silinir; sağlayıcının veri saklama politikalarının tümü için garanti değildir. Kullanıcı hesabını değiştirmek/çıkış yapmak için SciAgent'i kapatıp resmî Copilot CLI'da `/user switch` veya `/logout` kullanılır. Uygulama yetkisini GitHub ayarlarından ayrıca iptal edebilirsiniz.
+
+### OpenRouter
+
+[Resmî OAuth PKCE](https://openrouter.ai/docs/guides/overview/auth/oauth) başsız terminal akışı kullanılır: tarayıcıdaki hesabınızla yetki verdikten sonra verilen tek kullanımlık kodu terminale yapıştırırsınız. Kullanıcının kendi OpenRouter kredilerine bağlı bir API anahtarı oluşturulur; bu, sınırsız abonelik değildir. Harcamalar ve fiyatlar sağlayıcıya/modelinize göre değişir.
+
+```bash
+npm run cli -- --openrouter
+npm run cli -- auth openrouter login
+npm run cli -- auth openrouter status
+npm run cli -- auth openrouter models
+npm run cli -- auth openrouter logout
+npm run cli -- auth openrouter usage
+```
+
+OAuth sırasında kullanıcı kredi limitini USD olarak önceden belirler; OpenRouter onay ekranında nihai limit ve 30 günlük varsayılan süre düzenlenebilir. Model kataloğu araç çağrısını destekleyen modelleri listeler. Anahtar mevcut yerel scrypt/AES-GCM şifreli kasada saklanır ve proje ayarlarına yazılmaz. Çıkış yerel anahtarı kaldırır; uzaktaki anahtarın iptali için gösterilen OpenRouter anahtar ayarları bağlantısını kullanın. Anahtar yeniden bağlandığında önceki anahtar otomatik iptal edilmez.
+
+Her iki mod da açık kullanıcı onayıyla istemleri ve seçilen araç çıktıları ilgili sağlayıcıya gönderir; eski sohbetleri otomatik yüklemez veya sohbet geçmişi yazmaz. Mevcut CLI bilimsel kayıtları ve açık kullanıcı kaydetme komutları geçerlidir. Gerçek abonelik/kredi hesabıyla giriş ve model çağrısı kabul testi yapılmamıştır; OpenRouter testleri sentetik HTTP yanıtları, Copilot adaptör testleri SDK taklitleri kullanır. SDK'nın gerçek başlatılması ve yetkisiz kullanıcı reddi Linux'ta doğrulanmıştır. Sağlayıcı şartları ve ticari dağıtım uygunluğu ayrıca incelenmelidir.
+
 ## Model bağlama
 
 1. `sci-agent.config.example.json` dosyasını `sci-agent.config.json` olarak kopyalayın ve düzenleyin (bu dosya git'e girmez).

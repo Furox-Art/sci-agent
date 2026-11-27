@@ -5,6 +5,8 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- Optional GitHub Copilot account integration using the official Microsoft Copilot SDK and stored CLI sign-in, isolated tool-free SDK sessions, explicit account/model checks and a validated SciAgent tool-request bridge.
+- OpenRouter official headless OAuth PKCE account connection, encrypted local key storage, credit-limit/expiration prefill, model selection and key-status inspection; provider selection menu. Live authenticated model requests remain untested.
 - Opt-in local CLI Sign in with ChatGPT using the documented authorization-code/PKCE flow, OIDC signature verification, separate account registrations, encrypted local credential vault, refresh, sign-out and account-specific model discovery.
 - ChatGPT plan Responses adapter with explicit completed-stream validation and local function-tool mapping; API-key and local providers unchanged. Live entitlement and cross-platform browser acceptance remain untested.
 - Natural-language scientific claim extraction and pairwise model-assisted NLI with exact source quotations, offsets, content hashes, modality and context abstention.

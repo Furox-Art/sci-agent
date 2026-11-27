@@ -2,9 +2,9 @@ import readline from 'node:readline';
 import { spawn } from 'node:child_process';
 import { openVault,vaultExists,ChatGPTAuth,ChatGPTPlanProvider,USAGE_URL } from '@sci/core';
 const out=process.stdout;
-const clean=s=>String(s??'').replace(/[\x00-\x1f\x7f-\x9f]/g,' ').slice(0,250);
-function question(prompt,{secret=false}={}){
-  if(!process.stdin.isTTY||!out.isTTY)throw new Error('ChatGPT account commands require an interactive local terminal');
+export const clean=s=>String(s??'').replace(/[\x00-\x1f\x7f-\x9f]/g,' ').slice(0,250);
+export function question(prompt,{secret=false}={}){
+  if(!process.stdin.isTTY||!out.isTTY)throw new Error('Account commands require an interactive local terminal');
   return new Promise((resolve,reject)=>{
     const rl=readline.createInterface({input:process.stdin,output:out,terminal:true,historySize:0});
     let answered=false;
@@ -18,14 +18,14 @@ function question(prompt,{secret=false}={}){
     rl.question(secret?'':prompt,answer=>{answered=true;rl.close();if(secret)out.write('\n');resolve(answer);});
   });
 }
-async function browser(url){
-  if(new URL(url).origin!=='https://auth.openai.com')throw new Error('Unexpected sign-in destination');
+export async function browser(url,origin='https://auth.openai.com'){
+  if(new URL(url).origin!==origin)throw new Error('Unexpected sign-in destination');
   const cmd=process.platform==='darwin'?['open',url]:process.platform==='win32'?['rundll32.exe','url.dll,FileProtocolHandler',url]:['xdg-open',url];
   try{
     await new Promise((resolve,reject)=>{const p=spawn(cmd[0],cmd.slice(1),{stdio:'ignore',windowsHide:true});p.once('error',reject);p.once('exit',code=>code===0?resolve():reject(new Error('Browser unavailable')));});
   }catch{
     // URL includes state/PKCE challenge, not access/refresh/ID tokens.
-    console.log('Open this OpenAI authorization URL in your local browser:\n'+url);
+    console.log('Open this authorization URL in your local browser:\n'+url);
   }
 }
 async function confirmEligibility(){
@@ -33,9 +33,9 @@ async function confirmEligibility(){
   console.log('Your ChatGPT plan usage is optional and subject to account eligibility and limits.\nUse this only for your own local personal project or an eligible/approved distribution. Do not share accounts, pool quota or rotate accounts to bypass limits.\nYour prompts and selected tool outputs are sent to OpenAI for SciAgent inference. Your encrypted credentials stay on this device; no ChatGPT password or API key is requested.\nTerms: https://openai.com/policies/sign-in-with-chatgpt-terms/\nUsage and access: '+USAGE_URL);
   if((await question('Confirm local use, eligibility and consent (yes/no): ')).trim().toLowerCase()!=='yes')throw new Error('ChatGPT sign-in cancelled');
 }
-async function unlock({create=false}={}){
+export async function unlock({create=false}={}){
   const exists=await vaultExists();
-  if(!exists&&!create)throw new Error('No local ChatGPT registration. Run sci-agent auth login.');
+  if(!exists&&!create)throw new Error('No local credential vault. Sign in first.');
   const pass=await question(exists?'Local vault passphrase (not your ChatGPT password): ':'Create local vault passphrase (minimum 12 characters): ',{secret:true});
   if(!exists&&pass!==await question('Confirm local vault passphrase: ',{secret:true}))throw new Error('Vault passphrases differ');
   return openVault(pass);
