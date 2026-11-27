@@ -56,3 +56,6 @@ export { semanticConflicts } from './science/semantic-check.js';
 export { saveResearch, getResearch, searchResearch } from './science/research-memory.js';
 export { lessonGate } from './science/lesson-bridge.js';
 export { routeTools } from './science/tool-routing.js';
+
+export { analyzeNaturalLanguage } from './science/semantic-nli.js';
+export { auditCausalModels } from './science/causal-audit.js';

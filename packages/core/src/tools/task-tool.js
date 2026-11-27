@@ -46,7 +46,7 @@ export const task = {
     ];
     const childRegistry = createRegistry({ cfg: ctx.cfg, approve: ctx.approve, disableTools: ['task', 'research_hypothesis', 'research_memory', 'research_lesson'] });
     if (review) {
-      const allowed = new Set(['read_file','list_dir','search_files','math_eval','unit_convert','physical_constants','stats_calc','matrix_ops','molar_mass','csv_stats','lit_search','lit_fulltext','lit_verify','lit_quote','lit_quote_text','lit_pdf_provenance','lit_stats_check','lit_audit','research_causal','research_uncertainty','research_reproduce','research_conflicts']);
+      const allowed = new Set(['read_file','list_dir','search_files','math_eval','unit_convert','physical_constants','stats_calc','matrix_ops','molar_mass','csv_stats','lit_search','lit_fulltext','lit_verify','lit_quote','lit_quote_text','lit_pdf_provenance','lit_stats_check','lit_audit','research_causal','research_causal_audit','research_uncertainty','research_reproduce','research_conflicts','research_semantic']);
       childRegistry.tools = childRegistry.tools.filter(t => allowed.has(t.name) && !t.needsApproval);
     }
     const relay = ev => {

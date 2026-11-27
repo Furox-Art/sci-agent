@@ -1,11 +1,11 @@
 // Intent-based deterministic ranking. Unknown or ambiguous requests keep the full catalog.
 const routes=[
-  [/nedensel|nedensellik|causal|confound|backdoor|karıştırıcı|\bdag\b/i,['research_causal','research_hypothesis','research_conflicts','lit_search','stats_calc']],
+  [/nedensel|nedensellik|causal|confound|backdoor|karıştırıcı|\bdag\b/i,['research_causal_audit','research_causal','research_hypothesis','research_conflicts','lit_search','stats_calc']],
   [/deney tasar|randomi[sz]|experiment design|clinical trial|sample size|örneklem|power analysis|güç analizi/i,['research_experiment','research_causal','research_uncertainty','research_hypothesis','stats_calc','lit_search']],
   [/belirsizlik|uncertaint|covariance|correlation matrix|hata yayılımı|error propagation/i,['research_uncertainty','stats_calc','matrix_ops','axiomize_cli','research_reproduce']],
   [/reproduc|replicat|tekrarlanabilir|yeniden hesap|determinant|matri[ksx]/i,['research_reproduce','matrix_ops','stats_calc','math_eval','research_hypothesis']],
-  [/çelişki|contradict|inconsisten|semantic|semantik/i,['research_conflicts','lit_fulltext','lit_search','research_hypothesis','task']],
-  [/literatür|literature|\bdoi\b|makale|paper|citation|atıf|systematic review/i,['lit_search','lit_verify','lit_fulltext','lit_quote','lit_audit','lit_screen','research_conflicts','task']],
+  [/çelişki|contradict|inconsisten|semantic|semantik/i,['research_semantic','research_conflicts','lit_fulltext','lit_search','research_hypothesis','task']],
+  [/literatür|literature|\bdoi\b|makale|paper|citation|atıf|systematic review/i,['lit_search','lit_verify','lit_fulltext','lit_quote','lit_audit','lit_screen','research_semantic','research_conflicts','task']],
   [/bellek|memory|önceki araştırma|prior research/i,['research_memory','research_hypothesis']],
   [/lesson.gate|geçmiş hata|mistake ledger|regresyon testi/i,['research_lesson','read_file','list_dir','plan_audit']],
   [/istatistik|statistic|regress|korelasyon|correlation|\bcsv\b/i,['stats_calc','csv_stats','research_uncertainty','research_reproduce','research_causal']],

@@ -116,10 +116,12 @@ CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples
 | `task` | hayır* | Alt ajan başlatır; aynı adımdakiler paralel yürür (*alt ajanın tehlikeli çağrıları yine onay ister) |
 | `research_hypothesis` | hayır | Hipotez kaydı, önceden tanımlı testler, kanıta bağlı değerlendirme |
 | `research_causal` | hayır | Verilen DAG üzerinde backdoor koşulu ve asgari gözlenen düzeltme kümeleri |
+| `research_causal_audit` | hayır | Aday DAGların veriyle uyumu, koşullu bağımsızlık testleri, Holm düzeltmesi, zaman sırası ve düzeltme duyarlılığı |
 | `research_experiment` | hayır | Kontrollü deney protokolü, tohumlu dengeli rastgeleleştirme, yaklaşık güç analizi |
 | `research_uncertainty` | hayır | Gradyan ve korelasyonla birinci mertebe belirsizlik yayılımı |
 | `research_reproduce` | hayır | Önceki hesaplamayı bağımsız algoritmayla yeniden üretme |
 | `research_conflicts` | hayır | Yapılandırılmış iddialarda bağlama, yön ve birimlere göre çelişki adayları |
+| `research_semantic` | hayır | Doğal dilden kaynak alıntılı iddia çıkarımı ve model destekli semantik karşılaştırma (NLI) |
 | `research_memory` | evet | Kalıcı yerel araştırma kaydı: sakla, ara, getir |
 | `research_lesson` | evet | Gerçek Lesson-gate defterini denetle veya hata kaydı ekle |
 | `research_route` | hayır | Problem türüne göre araç sıralaması ve tam araç kataloğu |
@@ -159,7 +161,7 @@ CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples
 | `polyglot_cli` | evet | polyglot-python CLI: kendi dilinde Python — TR dahil 8 dil transpiler (run/translate/check/locales) |
 | `eq_route` | hayır | eq-layer routing: mesaj için niyet/duygu/repair analizi ve yönlendirme önerisi |
 
-Kayıtlı toplam **51 araç** (16 çekirdek + 35 eklenti aracı); CLI yedi gruba ayırır (`packages/core/src/tools/grouping.js`):
+Kayıtlı toplam **53 araç** (18 çekirdek + 35 eklenti aracı); CLI yedi gruba ayırır (`packages/core/src/tools/grouping.js`):
 
 - **File & code** — core file and shell operations: read, write, edit, list, search, run.
 - **AI agents** — parallel sub-agents via `task`, each with its own context.
@@ -203,18 +205,46 @@ Her iki rol, ana modelden ve birbirinden farklı model adları kullanmalıdır. 
 
 ### Bilimsel yöntem ve kalıcı çalışma alanı
 
-Nedensellik, deney, belirsizlik, yeniden üretim ve çelişki analizlerinin çıktıları son turun `/research` kaydındaki `analyses` alanına yazılır. Bellek ve Lesson-gate kendi kalıcı depolarını kullanır; yönlendirme araç kataloğunu döndürür. Araştırma kaydı bir iddianın doğruluğunu otomatik kanıtlamaz.
+Nedensellik, deney, belirsizlik, yeniden üretim, yapılandırılmış çelişki ve doğal dil analizlerinin çıktıları son turun `/research` kaydındaki `analyses` alanına yazılır. Bellek ve Lesson-gate kendi kalıcı depolarını kullanır; yönlendirme araç kataloğunu döndürür. Araştırma kaydı bir iddianın doğruluğunu otomatik kanıtlamaz.
 
 | Yöntem | Girdi ve çıktı | Bilimsel sınır |
 |---|---|---|
 | Nedensellik | `nodes, edges, treatment, outcome, observed?, adjustment?`; DAG doğrulaması, d-separation/backdoor, asgari düzeltme kümeleri | Kullanıcının verdiği grafiğe koşullu; gözlenemeyen/atlanmış karıştırıcılar ve nedensel keşif çözülmüş sayılmaz. Etki büyüklüğü hesaplanmaz. 12'den fazla adayda düzeltme kümesi verilmelidir. |
 | Deney tasarımı | `arms, participants, seed, outcome, hypothesis, controls, analysisPlan`; dengeli tohumlu rastgele atama; `standardizedEffect, alpha, power` ile yaklaşık iki kollu örneklem hesabı | Sürekli sonuç, bağımsız gözlemler ve ortak varyans varsayımı; normal yaklaşım. Körleme, atama gizliliği, kayıp, etik ve ön kayıt ayrıca ele alınmalıdır. Katılımcı kodları anonim olmalıdır. |
 | Belirsizlik | `estimate, unit, gradient, standardUncertainties, correlation?, coverageFactor?`; korelasyon matrisi pozitif yarı tanımlılık denetimi, doğrusal hata yayılımı | Birinci mertebe yaklaşım. Kapsama faktörü tek başına güven düzeyi değildir. |
-| Tekrarlanabilirlik | `evidenceId`; bağımsız kofaktör açılımı (1–7 boyutlu determinant) veya Welford algoritması (sayısal liste istatistikleri) ve çıktı karşılaştırması | Sadece bu iki saf sayısal işlem. Dosya/Python/shell ve genel deneyler yeniden yürütülmez. Uyuşmazlık varsa bağlı sonuç kanıt kapısından geçemez. |
-| Çelişki | `assertions`: kimlik, özne, ilişki, nesne, bağlam, olumsuzluk, kanıt ID ve birebir alıntı; isteğe bağlı birimli aralık | Yapılandırılmış iddialarda kural tabanlı semantik karşılaştırma. Otomatik doğal dil çıkarımı veya genel NLI yok; adayların bilimsel değerlendirmesi gerekir. |
+| Tekrarlanabilirlik | `evidenceId`; bağımsız sayısal algoritmalar ve çıktı karşılaştırması (kapsam aşağıda) | Aşağıdaki genişletilmiş bağımsız sayısal işlemler. Dosya/Python/shell ve genel deneyler yeniden yürütülmez. Uyuşmazlık varsa bağlı sonuç kanıt kapısından geçemez. |
+| Çelişki | `assertions`: kimlik, özne, ilişki, nesne, bağlam, olumsuzluk, kanıt ID ve birebir alıntı; isteğe bağlı birimli aralık | Yapılandırılmış iddialarda kural tabanlı semantik karşılaştırma. Ayrı research_semantic aracı doğal dil çıkarımı ve model destekli NLI yapar; adayların bilimsel değerlendirmesi gerekir. |
 | Dinamik yönlendirme | İstem anahtar sözcükleriyle uygun araçların sıralaması; isteğe bağlı ilk adım dar liste | Bilinmeyen istemler ve sonraki araç adımları tam kataloğa döner; onay politikası değişmez. |
 
 Çelişki ilişkileri: `increase`, `decrease`, `no_change`, `equals`, `is`, `causes`, `associated_with` ve tanımlı İngilizce/Türkçe eş anlamları. Sayısal aralık birimleri: g/kg/mg, m/cm/mm, s/min/h, fraction/%, 1. Yalnızca aynı normalize özne/nesne/bağlam karşılaştırılır. Aday çelişki kanıt metninin modelce yorumlanmasının doğru olduğunu ispatlamaz.
+
+#### Doğal dil çıkarımı ve semantik denetim
+
+`research_semantic` girdileri: `evidenceIds` (mevcut turdaki `lit_fulltext` kanıtları) ve/veya `texts` (her kayıt `label`, `text` içerir). En fazla altı kaynak, toplam 48000 karakter. Araç mevcut model sağlayıcısını ayrı, araç erişimsiz çağrılarda kullanır: önce en fazla 12 doğal dil iddiası çıkarır; sonra bütün iddia çiftlerini karşılaştırır. Çıktıdaki birebir alıntı, kaynak kimliği, hash ve metin karakter aralıkları kontrol edilir. Kaynak içindeki komutlar veri olarak ele alınır. Eksik, geçersiz veya uydurma alıntılı JSON kabul edilmez.
+
+İlişkiler: çelişki, eşdeğerlik, tek yönlü içerim, uyumluluk, karşılaştırılamazlık ve belirsizlik. Belirsiz/hipotetik modalite veya farklı bağlam bildirildiğinde kesin ilişki adayları belirsiz olarak işaretlenir. Kullanıcının verdiği metin `supplied_text_not_verified` statüsündedir ve kanıt defterine otomatik alınmaz. Kaynak alıntısı doğrulanabilir; modelin önerme çıkarımı, bağlam eşdeğerliği ve semantik kararı henüz bağımsız doğrulanmaz. Aynı sağlayıcıyla yapılan iki çağrı iki bağımsız model değildir. Çelişki bulunmaması tutarlılığı kanıtlamaz. Gerçek model başarımı kullanılan modele bağlıdır.
+
+#### Bağımsız yeniden hesaplama kapsamı
+
+`research_reproduce` önceki tur-içi kanıtın kimliğiyle özgün çıktının SHA-256 bütünlüğünü denetler. Alternatif algoritmalar:
+
+| İlk hesaplama | Bağımsız algoritma |
+|---|---|
+| Determinant | Laplace/kofaktör açılımı (en fazla 7×7) |
+| Matris tersi | Adjugate/kofaktör (en fazla 7×7) |
+| Matris çarpımı | Dış çarpım biriktirme (en fazla 10×10) |
+| Betimsel istatistik | Welford çevrimiçi varyans ve sıralı medyan |
+| Temel aritmetik | Operatör yığını (+, -, *, /, parantez, işaret, ondalık ve bilimsel gösterim) |
+| Birim dönüşümü | Doğrudan oran / afin sıcaklık dönüşümü (kanonik birim sembolleri) |
+| Belirsizlik | Doğrudan kuadratik kovaryans formu |
+
+Sayısal yuvarlama kuralları ve sabit toleranslar kullanılır; uyuşmazlık bağlı iddianın yayımlanmasını engeller. Desteklenmeyen işlemler `unsupported` döner. Genel bilimsel Python kodu, değişebilir dosyalar, trigonometrik/transandantal fonksiyonlar ve fiziksel deneyler otomatik yeniden üretilmez. İkinci algoritma, bağımsız veri seti veya deney tekrarı değildir.
+
+#### Veriyle nedensel model denetimi
+
+`research_causal_audit` için `nodes`, `treatment`, `outcome`, `models` (her biri id ve yönlü edges), `data` (gözlenen değişkenlerin tam sayısal satırları) gerekir. İsteğe bağlı `observed`, `alpha`, `adjustment`, `temporalOrder` verilebilir. En fazla 20 düğüm, sekiz aday DAG, 10–5000 satır ve 200 benzersiz test. DAGların yerel Markov koşulundan türetilen gözlenebilir bağımsızlık öngörüleri, kısmi korelasyon ve asimptotik Fisher-z testleriyle karşılaştırılır. Holm düzeltmesi bütün adaylarda benzersiz test ailesine uygulanır. Gizli ebeveynler, sabit/kollineer değişkenler ve yetersiz serbestlik derecesi denetlenemeyen koşullar olarak işaretlenir. Zaman sırası ihlalleri ayrıca raporlanır.
+
+Sonuçlar `incompatible_with_assumptions`, `not_rejected` veya `untestable` olarak ayrılır. Kullanıcının verdiği adjustment kümesinin reddedilmeyen adaylar boyunca backdoor geçerliliği ayrıca karşılaştırılır. Testler bağımsız gözlemler ve Gaussian/lineer koşullu bağımsızlık varsayımıyla sınırlıdır. Markov eşdeğerliği, ölçülmemiş karıştırıcılar, yanlış ölçüm, seçim yanlılığı ve doğrusal olmayan bağımlılıkların tümü çözülmez. Gözlemsel veriden mutlak DAG doğruluğu veya nedensel etki çıkarıldığı iddia edilmez.
 
 #### Kalıcı bilimsel bellek ve Lesson-gate
 
@@ -290,7 +320,7 @@ Bu README'deki sayıları repo kökünde tek komutlarla doğrulayabilirsin:
 # Eklenti adları (beklenen: 8 eklenti)
 node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPlugins().map(p => p.name).join('\n')))"
 
-# Kayıtlı araç sayısı (beklenen: 51)
+# Kayıtlı araç sayısı (beklenen: 53)
 node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
 
 # Varsayılan beceri kaynakları (beklenen: 9 github: kaynağı)

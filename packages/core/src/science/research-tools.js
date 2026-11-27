@@ -1,3 +1,5 @@
+import { analyzeNaturalLanguage } from './semantic-nli.js';
+import { auditCausalModels } from './causal-audit.js';
 import { causalAnalysis, experimentDesign } from './causal-design.js';
 import { propagateUncertainty, reproduceEvidence } from './uncertainty-replay.js';
 import { semanticConflicts } from './semantic-check.js';
@@ -13,18 +15,38 @@ function tool(name,description,properties,required,fn,needsApproval=false){
       const fields=['standardUncertainty','variance','expandedUncertainty'];
       return fields.map(k=>k+' = '+result[k]).join('\n')+'\n'+JSON.stringify(result);
     }
+    if(name==='research_causal_audit'){
+      const lines=['testedCount = '+result.testedCount,'uniqueTests = '+result.uniqueTests];
+      // Only computed statistics, not claimed causal conclusions, become eligible evidence.
+      const seen=new Set();
+      for(const m of result.models)for(const c of m.checks??[]){
+        if(c.status!=='tested')continue;
+        const key=JSON.stringify([c.a,c.b,c.conditionedOn]);
+        if(seen.has(key))continue;seen.add(key);
+        lines.push('Test '+seen.size+': '+key+'; partialCorrelation = '+c.partialCorrelation+'; p = '+c.p+'; adjustedP = '+c.adjustedP);
+      }
+      const header=lines.join('\n');
+      const body=JSON.stringify(result);
+      if(header.length+body.length<15000)return header+'\n'+body;
+      // Keep evidence bounded; full computed results remain available in /research.
+      const preview=JSON.stringify({status:result.status,adjustmentRobustness:result.adjustmentRobustness,models:result.models.map(({id,status,testedCount,untestableCount})=>({id,status,testedCount,untestableCount})),notice:'Complete tests in /research'});
+      return lines.filter((_,i)=>i<22).map(l=>l.length<=400?l:'').join('\n')+'\n'+preview;
+    }
     return JSON.stringify(result);
   }};
 }
 function analysis(name,description,props,required,fn) {
-  return tool(name,description,props,required,(args,ctx)=>{
+  return tool(name,description,props,required,async(args,ctx)=>{
     if(!ctx.research)throw new Error('Active research run required');
-    const result=fn(args,ctx);
+    const result=await fn(args,ctx);
     ctx.research.recordAnalysis(name,args,result);
-    if(name==='research_conflicts'&&result.conflicts.length)ctx.onEvent?.({type:'warning',text:'Structured scientific conflict candidates detected; compare context and source evidence before drawing conclusions.'});
+    if(['research_conflicts','research_semantic'].includes(name)&&result.conflicts.length)ctx.onEvent?.({type:'warning',text:'Structured scientific conflict candidates detected; compare context and source evidence before drawing conclusions.'});
     if(name==='research_reproduce'&&result.status==='mismatch')ctx.onEvent?.({type:'warning',text:'Independent numerical reproduction disagreed; claims linked to this evidence cannot pass the grounding gate.'});
     if(name==='research_experiment'&&result.allocation.length>100) {
       return {...result,allocation:result.allocation.slice(0,100),allocationPreview:true,notice:'Full allocation is in /research; only first 100 shown here.'};
+    }
+    if(name==='research_semantic'&&JSON.stringify(result).length>14000){
+      return {...result,claims:result.claims.map(({id,evidenceId,proposition,context,modality})=>({id,evidenceId,proposition:proposition.slice(0,250),context:context.slice(0,150),modality})),judgments:result.judgments.slice(0,10).map(({a,b,relation,sameContext})=>({a,b,relation,sameContext})),conflicts:result.conflicts.map(({a,b,relation})=>({a,b,relation})),notice:'Preview; complete source quotes and verdicts in /research'};
     }
     return result;
   });
@@ -33,13 +55,17 @@ export const researchTools=[
   analysis('research_causal','Test backdoor identification on a supplied causal DAG; returns observed minimal adjustment sets or checks a proposed set. Does not estimate causal effects.',{
     nodes:array(string),edges:array(array(string)),treatment:string,outcome:string,observed:array(string),adjustment:array(string)
   },['nodes','edges','treatment','outcome'],a=>causalAnalysis(a)),
+  analysis('research_causal_audit','Test candidate causal DAGs against complete numeric data using local Markov partial-correlation tests with Holm correction, temporal constraints and adjustment sensitivity. Non-rejection does not prove causality.',{
+    nodes:array(string),observed:array(string),treatment:string,outcome:string,models:array({type:'object',properties:{id:string,edges:array(array(string))},required:['id','edges']}),data:array({type:'object',additionalProperties:number}),alpha:number,adjustment:array(string),temporalOrder:{type:'object',additionalProperties:number}
+  },['nodes','treatment','outcome','models','data'],a=>auditCausalModels(a)),
+  analysis('research_semantic','Extract natural-language scientific claims from prior eligible full-text evidence or supplied unverified text and compare all extracted pairs for contradiction, entailment, equivalence or uncertainty. Uses the current model in isolated no-tool calls; exact source quotes validated. Judgments are candidates, not proof.',{evidenceIds:array(string),texts:array({type:'object',properties:{label:string,text:string},required:['label','text']})},[],(a,c)=>analyzeNaturalLanguage(a,c.research,c.provider,c.signal)),
   analysis('research_experiment','Draft a randomized experimental protocol with deterministic balanced allocation and optional approximate two-arm power planning. Use pseudonymous participant IDs.',{
     arms:array(string),participants:array(string),seed:string,outcome:string,hypothesis:string,controls:string,analysisPlan:string,alpha:number,power:number,standardizedEffect:number
   },['arms','participants','seed','outcome','hypothesis','controls','analysisPlan'],a=>experimentDesign(a)),
   analysis('research_uncertainty','First-order uncertainty propagation from input standard uncertainties, gradient and optional correlation matrix. Coverage factor is not a confidence guarantee.',{
     estimate:number,unit:string,gradient:array(number),standardUncertainties:array(number),correlation:array(array(number)),coverageFactor:number
   },['estimate','unit','gradient','standardUncertainties'],a=>propagateUncertainty(a)),
-  analysis('research_reproduce','Independently recompute a prior in-run eligible evidence result by its ID using a different numerical algorithm. Currently inline determinant and descriptive statistics only.',{evidenceId:string},['evidenceId'],(a,c)=>reproduceEvidence(c.research.snapshot().evidence.find(e=>e.id===a.evidenceId))),
+  analysis('research_reproduce','Independently recompute a prior in-run eligible evidence result by its ID using a different numerical algorithm. Supports bounded inline matrix determinant/inverse/multiplication, descriptive statistics, arithmetic, canonical unit conversion and uncertainty propagation.',{evidenceId:string},['evidenceId'],(a,c)=>reproduceEvidence(c.research.snapshot().evidence.find(e=>e.id===a.evidenceId))),
   analysis('research_conflicts','Compare structured semantic assertions linked to exact eligible evidence quotes; detect opposing polarity, directions and disjoint numerical intervals within the same context. Not general natural-language entailment.',{
     assertions:array({type:'object',properties:{id:string,subject:string,relation:{type:'string',description:'increase/decrease/no_change/equals/is/causes/associated_with (or documented aliases)'},object:string,context:string,negated:boolean,evidenceId:string,quote:string,quantity:{type:'object',properties:{min:number,max:number,unit:string},required:['min','max','unit']}},required:['id','subject','relation','object','context','negated','evidenceId','quote']})
   },['assertions'],(a,c)=>semanticConflicts(a.assertions,c.research)),

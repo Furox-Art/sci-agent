@@ -1,3 +1,4 @@
+import { extraReplay } from './replay-extra.js';
 import { createHash } from 'node:crypto';
 const fail = (ok, message) => { if (!ok) throw new Error(message); };
 const finite = x => typeof x === 'number' && Number.isFinite(x);
@@ -59,7 +60,11 @@ export function reproduceEvidence(entry) {
   } else if(tool==='stats_calc'&&Array.isArray(args?.numbers)){
     fail(args.numbers.length>=2&&args.numbers.length<=100000&&args.numbers.every(finite),'Independent statistics require 2–100000 finite inline values');
     values=stats(args.numbers);algorithm='Welford online variance and sorted median (independent of original two-pass moments)';digits=6;
-  } else return {status:'unsupported',evidenceId:entry.id,reason:'Only inline matrix determinant and descriptive statistics have independent implementations; no arbitrary code or mutable file replay'};
+  } else {
+    const replay=extraReplay(entry);
+    if(!replay)return {status:'unsupported',evidenceId:entry.id,reason:'No independent implementation for this input; arbitrary code and mutable file replay are excluded'};
+    return {status:replay.comparisons.every(c=>c.pass)?'reproduced':'mismatch',evidenceId:entry.id,sourceHash:entry.sha256,...replay,limitation:'Independent numerical implementation, not independent dataset, software environment or physical experiment.'};
+  }
   const comparisons=Object.entries(values).map(([metric,value])=>{
     const original=numericOutput(output,metric);
     // Match the original formatter precision; no model-supplied tolerances.

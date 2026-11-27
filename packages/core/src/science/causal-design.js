@@ -7,7 +7,7 @@ function nodesOf(nodes) {
     new Set(nodes).size === nodes.length, 'Provide 2–50 unique node names');
   return new Set(nodes);
 }
-function closure(start, edges, reverse = false) {
+export function dagDescendants(start, edges, reverse = false) {
   const seen = new Set(start), todo = [...start];
   while (todo.length) {
     const x = todo.pop();
@@ -18,9 +18,9 @@ function closure(start, edges, reverse = false) {
   }
   return seen;
 }
-function separated(x, y, z, edges) {
+export function dagSeparated(x, y, z, edges) {
   // Ancestral moral graph criterion for d-separation (including collider descendants).
-  const anc = closure([x,y,...z], edges, true), adj = new Map([...anc].map(n => [n,new Set()]));
+  const anc = dagDescendants([x,y,...z], edges, true), adj = new Map([...anc].map(n => [n,new Set()]));
   const connect = (a,b) => { adj.get(a).add(b); adj.get(b).add(a); };
   const relevant = edges.filter(([a,b]) => anc.has(a) && anc.has(b));
   for (const [a,b] of relevant) connect(a,b);
@@ -40,16 +40,17 @@ export function causalAnalysis({ nodes, edges, treatment, outcome, observed = no
   const names = nodesOf(nodes);
   assert(names.has(treatment) && names.has(outcome) && treatment !== outcome, 'Treatment and outcome must be distinct DAG nodes');
   assert(Array.isArray(edges) && edges.length <= 500 && edges.every(e => Array.isArray(e) && e.length === 2 && names.has(e[0]) && names.has(e[1]) && e[0] !== e[1]), 'Invalid directed edges');
+  assert(new Set(edges.map(e=>JSON.stringify(e))).size===edges.length,'Duplicate directed edges');
   assert(Array.isArray(observed) && observed.every(n => names.has(n)) && observed.includes(treatment) && observed.includes(outcome), 'Observed nodes must include treatment and outcome');
   const indegree = new Map(nodes.map(n => [n,0]));
   for (const [,b] of edges) indegree.set(b,indegree.get(b)+1);
   const queue = nodes.filter(n => indegree.get(n) === 0);
   for(let i=0;i<queue.length;i++) for(const [a,b] of edges) if(a===queue[i]) { indegree.set(b,indegree.get(b)-1); if(!indegree.get(b)) queue.push(b); }
   assert(queue.length === nodes.length, 'DAG must be acyclic');
-  const descendants = closure([treatment],edges);
+  const descendants = dagDescendants([treatment],edges);
   const candidates = [...new Set(observed)].filter(n => n !== outcome && !descendants.has(n)).sort();
   const backdoor = edges.filter(([a]) => a !== treatment);
-  const check = z => separated(treatment,outcome,z,backdoor);
+  const check = z => dagSeparated(treatment,outcome,z,backdoor);
   const limitation = 'Identification is conditional on the supplied DAG, consistency, positivity and no omitted relevant confounding; no empirical causal effect is estimated.';
   if (adjustment !== undefined) {
     assert(Array.isArray(adjustment) && new Set(adjustment).size===adjustment.length && adjustment.every(n => candidates.includes(n)), 'Adjustment must contain only observed non-descendants of treatment, excluding outcome');

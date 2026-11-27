@@ -5,6 +5,10 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- Natural-language scientific claim extraction and pairwise model-assisted NLI with exact source quotations, offsets, content hashes, modality and context abstention.
+- Candidate causal DAG audit with observational partial-correlation/Fisher-z tests, Holm adjustment, temporal constraints and adjustment-set robustness.
+- Independent numerical replay for matrix multiplication/inverse, basic arithmetic, canonical unit conversions and direct covariance propagation.
+- Fourteen regression tests for extraction provenance, model abstention, causal model compatibility, replay integrity and actual agent-loop integration.
 - Eight research-methodology tools: causal DAG/backdoor analysis, reproducible experimental allocation and approximate power planning, covariance-aware uncertainty propagation, independent numerical replay, controlled semantic contradiction detection, persistent local research memory, actual pinned Lesson-gate integration, and intent-based tool routing.
 - CLI `/memory` and `/lesson` inspection; optional memory auto-save and fail-closed lesson preflight; reproduction mismatch prevents release of linked claims.
 - SHA-256 memory verification, scientific-notation grounding, and regression tests for the new methodology tools.

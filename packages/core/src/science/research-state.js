@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 // Deliberately conservative: a tool invocation or arbitrary printed text is not proof.
 // Only these built-in results are candidates for literal claim linkage.
-const COMPUTE = new Set(['math_eval', 'unit_convert', 'physical_constants', 'stats_calc', 'matrix_ops', 'molar_mass', 'csv_stats', 'research_uncertainty']);
+const COMPUTE = new Set(['math_eval', 'unit_convert', 'physical_constants', 'stats_calc', 'matrix_ops', 'molar_mass', 'csv_stats', 'research_uncertainty', 'research_causal_audit']);
 const LITERATURE = new Set(['lit_search', 'lit_fulltext']);
 const failure = /^(?:\s*(?:error\b|failed\b|unknown tool|user denied|no results|no numeric data)|.*\b(?:column not found|no numeric data|no results found)\b)/im;
 const hash = s => createHash('sha256').update(s).digest('hex');
@@ -44,6 +44,9 @@ export class ResearchState {
     let matchText = output;
     if (tool === 'research_uncertainty') {
       matchText = output.split('\n').filter(line => /^(standardUncertainty|variance|expandedUncertainty) = [-+]?\d/.test(line)).join('\n');
+    }
+    if (tool === 'research_causal_audit') {
+      matchText = output.split('\n').filter(line => /^(testedCount|uniqueTests) = \d+$/.test(line) || /^Test \d+: .*; partialCorrelation = [-+]?\d[^;]*; p = \d[^;]*; adjustedP = \d.*$/.test(line)).map(line => line.startsWith('Test ')?line.slice(line.lastIndexOf('; partialCorrelation = ')+2):line).join('\n');
     }
     if (tool === 'lit_search') {
       matchText = output.split('\n').filter(line => /^\s*DOI:\s*10\.\d{4,9}\//i.test(line)).join('\n');
