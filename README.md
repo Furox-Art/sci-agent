@@ -465,7 +465,7 @@ npm audit --omit=dev
 node -e "import('./packages/core/src/index.js').then(m => console.log(m.createRegistry({cfg:m.DEFAULT_CONFIG}).tools.length))"
 ```
 
-The local regression suite recorded 235 tests: 215 passed, zero failed and 20 skipped because optional dependencies were unavailable. These are software checks, not comparative scientific-performance benchmarks. GitHub-hosted CI has been blocked by an account billing/spending restriction; a successful hosted run remains to be verified.
+The local regression suite recorded 235 tests: 215 passed, zero failed and 20 skipped because optional dependencies were unavailable. These are software checks, not comparative scientific-performance benchmarks. GitHub-hosted CI passed on Node.js 22 and 24 with Python 3.12 after public release, including the production-dependency security audit.
 
 Planned work includes live model acceptance tests, comprehensive research orchestration, general Python experiment replay, broader sandbox support and comparative agent benchmarks.
 
