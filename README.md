@@ -148,6 +148,72 @@ Google, Antigravity'nin resmî ACP istemcisi olarak kullanımı belgelendirir an
 
 Doğrulama: Linux cihazında Claude Code 2.1.332 ve Antigravity CLI 1.5.11 sürümleri görüldü. Boş kullanıcı dizininde gerçek Antigravity ACP v1 initialize bağlantısı doğrulandı; gerçek abonelikle oturum açma, model seçme ve çıkarım kabul testi yapılmadı. Sentetik ACP oturumlarında izin reddi, model seçimi, iptal, bağlantı ve protokol uyumsuzluğu test edildi. Windows/macOS yerel terminal devri ayrıca test edilmelidir.
 
+## Yerel AI modellerini çalıştırma
+
+SciAgent, yerel model sunucularına bağlanarak kendi bilgisayarınızda bilimsel
+araçları kullanan bir ajan çalıştırabilir. Sağlayıcı menüsünde Ollama, LM Studio,
+llama.cpp ve vLLM ayrı seçeneklerdir. Modeli sunucu çalıştırır; SciAgent model
+ağırlıklarını kendi içinde yüklemez. Sunucu kurulumu, model seçimi, model
+lisansı, kuantizasyon, GPU/CPU dağılımı ve bağlam uzunluğu kullanıcının
+kontrolündedir.
+
+```bash
+npm run cli -- --provider-menu
+npm run cli -- local models --local ollama
+npm run cli -- --local ollama
+npm run cli -- --local ollama --local-start --local-model qwen3:32b
+npm run cli -- --local lmstudio
+npm run cli -- --local llamacpp
+npm run cli -- --local vllm
+npm run cli -- --local custom --local-url http://127.0.0.1:9000/v1
+```
+
+`qwen3:32b` yalnızca örnek bir kurulu model adıdır; otomatik indirilmez.
+`--local-model` ile katalogda bulunan bir modeli doğrudan seçin.
+`--local-timeout 900` gibi bir seçenek büyük modeller için istek süresini
+uzatır (saniye, 1–3600; varsayılan 600). `--sandbox` ve `--workspace`
+seçenekleri kullanılabilir. `--prompt` ile çalışırken model adı zorunludur;
+dosya/komut izinlerinin otomatik verildiği anlamına gelmez.
+
+| Yerel çalışma zamanı | Varsayılan uç nokta |
+| --- | --- |
+| Ollama | http://127.0.0.1:11434/v1 |
+| LM Studio | http://127.0.0.1:1234/v1 |
+| llama.cpp | http://127.0.0.1:8080/v1 |
+| vLLM | http://127.0.0.1:8000/v1 |
+
+Ollama'nın yerel model kataloğu ve varsa parametre/kuantizasyon/disk boyutu
+bilgileri gösterilir. Bilinen bulut model adları ve uzak model metadatası
+reddedilir; araç desteği olmadığını açıkça bildiren modeller seçilemez.
+Diğer sunucular OpenAI uyumlu model listesi ve araç çağrısı protokolü
+sunmalıdır. Katalogda yer almak araç çağrısı kalitesinin kanıtı değildir.
+`--local-start` yalnızca kullanıcı açıkça istediğinde mevcut Ollama
+uygulamasını başlatır; loopback adresi kullanılır, bulut modu kapatılması
+istenir ve SciAgent'in başlattığı süreç çıkışta durdurulur. Başka bir sunucuyu
+veya daha önce çalışan Ollama servisini durdurmaz. Model dosyaları ve runtime
+otomatik kurulmaz.
+
+Yerel bağlantı yalnızca açıkça belirtilen loopback HTTP uç noktasına gider;
+yönlendirmeler reddedilir. Gerekirse yerel sunucunun kendi API anahtarını
+`SCI_AGENT_LOCAL_API_KEY` ortam değişkeniyle verin; bulut API anahtarı
+otomatik aktarılmaz. Yerel uç nokta, sunucunun başka bir servise veri
+aktarmadığını tek başına kanıtlamaz. Literatür ve bağımsız model araçları
+ayrı ağ erişimi yapabilir. Gerçek çevrimdışı kullanım için runtime ve
+araştırma araçlarının ağ ayarlarını da denetleyin.
+
+Büyük modellerin kullanılabilirliği RAM, VRAM, kuantizasyon ve bağlam
+uzunluğuna bağlıdır. Disk boyutu çalışma belleği gereksinimi değildir.
+SciAgent donanımın kaldıramayacağı bir modeli çalıştırmayı garanti etmez.
+Yerel model çıkarımı kendi donanımınızı ve elektriğinizi kullanır; ayrıca
+bir SciAgent aboneliği gerekmez.
+
+Resmî belgeler: [Ollama](https://docs.ollama.com/api/openai-compatibility),
+[LM Studio](https://lmstudio.ai/docs/developer/core/server),
+[llama.cpp](https://github.com/ggml-org/llama.cpp),
+[vLLM](https://docs.vllm.ai/).
+Yerel HTTP protokolü ve bilimsel araç döngüsü test edilmiş olup bu cihazda
+kurulu gerçek model ağırlıklarıyla performans testi yapılmamıştır.
+
 ## Ücretsiz yerel çalışma izolasyonu (isteğe bağlı)
 
 SciAgent normalde kullanıcının onayıyla yerel süreçleri çalıştırır. İsteğe bağlı sandbox modu, üretilen shell ve Python kodlarını kullanıcının kendi bilgisayarında Linux Bubblewrap ile izole eder. Bulut sunucusu, ek hesap veya ücretli sandbox hizmeti gerekmez; model sağlayıcısının normal ücret ve kota koşulları değişmez.

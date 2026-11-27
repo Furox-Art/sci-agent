@@ -5,6 +5,7 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- Dedicated local model catalog and provider selection for Ollama, LM Studio, llama.cpp, vLLM and custom loopback endpoints; optional user-requested Ollama startup, configurable inference timeout and scientific-tool integration.
 - Public-release preparation: symlink/hardlink/special-file guards, expanded local ignore rules, configuration prototype-key rejection, pinned least-privilege CI and security/privacy/third-party documentation. Account acceptance and historical image cleanup remain maintainer checks.
 - Renamed the scientific Python stack tool to `scientific_compute` (no change to its execution behavior or library support).
 - Optional free local Linux/WSL2 Bubblewrap process sandbox for shell, Python and scientific computations. Read-only workspace, private temporary storage, isolated networking, cleared credentials, resource limits and fail-closed startup; unsafe external CLI bridges are unavailable in this mode. This is not an application-wide sandbox. Real Linux isolation regression coverage.

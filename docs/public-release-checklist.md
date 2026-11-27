@@ -16,12 +16,11 @@ provider approval.
   had no executed test steps. Do not increase spending automatically.
 - [ ] Enable GitHub private vulnerability reporting, secret scanning and
   push protection when supported by repository visibility/account.
-- [ ] Review history before publication: an obsolete desktop screenshot
-  contains a personal local workspace path. The file is absent from HEAD but
-  remains in history. Confirm historical artwork rights. If removal is needed,
-  explicitly authorize a history cleanup or publish a clean snapshot; rewriting
-  history changes commit IDs and existing clones. No history rewrite has
-  been performed.
+- [x] Review historical images and remove the obsolete screenshot containing a
+  personal local workspace path from the rewritten main history.
+- [ ] Confirm historical artwork rights; old clones must not reintroduce removed
+  history. A rewritten branch does not guarantee removal of cached objects or
+  previously downloaded copies; review GitHub's sensitive-data removal guidance.
 - [ ] Complete real-account provider acceptance checks below. Keep these
   integrations described as experimental until verified.
 - [ ] Confirm applicable provider terms, distribution eligibility and any

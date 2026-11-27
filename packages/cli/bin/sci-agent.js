@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchLocal, localCommand } from '../src/local-cli.js';
 import { startRepl } from '../src/repl.js';
 import { authCommand, launchChatGPT } from '../src/chatgpt-cli.js';
 import { launchClaude, launchGemini, nativeAuthCommand } from '../src/native-agent-cli.js';
@@ -30,6 +31,9 @@ Kullanım:
   sci-agent --chatgpt                        # Continue with ChatGPT (local interactive)
   sci-agent auth login | status | switch | models | logout | usage
   sci-agent --prompt "görev"                 # tek seferlik görev
+  sci-agent --local ollama|lmstudio|llamacpp|vllm|custom
+  sci-agent --local ollama --local-start --local-model <model>
+  sci-agent local models|status --local <runtime>
   sci-agent --sandbox                        # opt-in local process sandbox (Linux/WSL2)
   sci-agent --workspace <dizin>              # çalışma alanını belirle
   sci-agent --version | --help
@@ -39,12 +43,14 @@ REPL içindeki komutlar için /help yaz.`);
 }
 
 try {
-  const options=['--chatgpt','--openrouter','--copilot','--provider-menu','--claude','--gemini'].filter(x=>argv.includes(x));
+  const options=['--chatgpt','--openrouter','--copilot','--provider-menu','--claude','--gemini','--local'].filter(x=>argv.includes(x));
   if(options.length>1)throw new Error('Select only one provider');
-  if (argv[0] === 'auth' && ['claude','gemini'].includes(argv[1])) await nativeAuthCommand(argv[1],argv.slice(2));
+  if (argv[0] === 'local') await localCommand(argv.slice(1));
+  else if (argv[0] === 'auth' && ['claude','gemini'].includes(argv[1])) await nativeAuthCommand(argv[1],argv.slice(2));
   else if (argv[0] === 'auth' && argv[1]==='openrouter') await openRouterCommand(argv.slice(2));
   else if (argv[0] === 'auth' && argv[1]==='copilot') await copilotCommand(argv.slice(2));
   else if (argv[0] === 'auth') await authCommand(argv.slice(1));
+  else if (argv.includes('--local')) await launchLocal(argv,startRepl);
   else if (argv.includes('--claude')) await launchClaude(argv.filter(a=>a!=='--claude'));
   else if (argv.includes('--gemini')) await launchGemini(argv.filter(a=>a!=='--gemini'));
   else if (argv.includes('--openrouter')) await launchOpenRouter(argv.filter(a=>a!=='--openrouter'),startRepl);

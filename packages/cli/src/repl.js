@@ -270,7 +270,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
   console.log(`Model: ${cfg.model.provider} @ ${cfg.model.baseUrl} (${cfg.model.name})`);
   console.log(`Workspace: ${cfg.agent.workspaceRoot} | Tools: ${registry.tools.length}`);
   console.log(dim(HELP));
-  if(connection)console.log(connection.label+' '+(connection.email??'')+' | Account usage: '+connection.usageUrl);
+  if(connection)console.log(connection.label+' '+(connection.email??'')+(connection.usageUrl?' | Account usage: '+connection.usageUrl:''));
   if (loadedMsgs) console.log(dim(`Previous session loaded (${loadedMsgs - 1} messages) — /clear to reset.`));
 
   const once = argv.indexOf('--prompt');

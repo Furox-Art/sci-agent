@@ -1,3 +1,4 @@
+import { launchLocal } from './local-cli.js';
 import { launchClaude, launchGemini } from './native-agent-cli.js';
 import {spawn} from 'node:child_process';
 import {OpenRouterAuth,openRouterAuthorization,OPENROUTER_KEYS,CopilotProvider,createCopilotConnection,COPILOT_USAGE,copilotEnvironment,filterCopilotModels} from '@sci/core';
@@ -99,7 +100,7 @@ export async function launchCopilot(argv,startRepl){
   }finally{await c.close();}
 }
 export async function providerMenu(argv,startRepl){
-  console.log('SciAgent — Select provider\n[1] ChatGPT\n[2] GitHub Copilot\n[3] OpenRouter\n[4] Existing API key / local model configuration\n[5] Claude Code (native agent)\n[6] Gemini / Antigravity (native ACP agent)');
+  console.log('SciAgent — Select provider\n[1] ChatGPT\n[2] GitHub Copilot\n[3] OpenRouter\n[4] Existing API key / local model configuration\n[5] Claude Code (native agent)\n[6] Gemini / Antigravity (native ACP agent)\n[7] Ollama (local)\n[8] LM Studio (local)\n[9] llama.cpp (local)\n[10] vLLM (local)');
   const choice=(await question('Select: ')).trim();
   if(choice==='1')return launchChatGPT(argv,startRepl);
   if(choice==='2')return launchCopilot(argv,startRepl);
@@ -107,5 +108,7 @@ export async function providerMenu(argv,startRepl){
   if(choice==='4')return startRepl(argv);
   if(choice==='5')return launchClaude(argv);
   if(choice==='6')return launchGemini(argv);
+  const localRuntime={'7':'ollama','8':'lmstudio','9':'llamacpp','10':'vllm'}[choice];
+  if(localRuntime)return launchLocal(['--local',localRuntime,...argv],startRepl);
   throw new Error('Invalid provider selection');
 }

@@ -17,7 +17,7 @@ export { getPlugin, listPlugins } from './plugins.js';
 
 /** Yapılandırmaya göre uygun sağlayıcıyı oluşturur. */
 export function createProvider(modelCfg = {}) {
-  if (['chatgpt-plan','copilot-plan','openrouter-account'].includes(modelCfg.provider)) throw new Error('Account provider requires an explicitly authorized local connection; use sci-agent --provider-menu');
+  if (['chatgpt-plan','copilot-plan','openrouter-account','local-model'].includes(modelCfg.provider)) throw new Error('Account provider requires an explicitly authorized local connection; use sci-agent --provider-menu');
   if (modelCfg.provider === 'mock') {
     let script;
     if (process.env.SCI_AGENT_MOCK) {
@@ -71,3 +71,5 @@ export { OpenRouterAuth, openRouterAuthorization, OPENROUTER_KEYS } from './auth
 export { CopilotProvider, createCopilotConnection, COPILOT_USAGE, copilotEnvironment, filterCopilotModels } from './auth/copilot-provider.js';
 
 export { sandboxEnabled, sandboxBlockedTool, probeSandbox, runSandboxed } from './sandbox/local.js';
+
+export { LocalModels, LOCAL_RUNTIMES, localEndpoint } from './local-models.js';
