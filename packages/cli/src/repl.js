@@ -18,6 +18,7 @@ const HELP = [
   '  /plugins  plugin list       /skills loaded skills',
   '  /sessions [no|del no|ren no title]  list / switch / delete / rename sessions',
   '  /save     save chat as .md',
+  '  /research inspect latest run evidence, hypotheses and reviews',
   '  /test     test model connection',
   '  /exit     exit',
 ].join('\n');
@@ -182,7 +183,7 @@ export async function startRepl(argv = []) {
       console.log(cyan(`\n→ ${ev.name} ${trunc(JSON.stringify(ev.args), 300)}`));
     } else if (ev.type === 'tool_result') {
       flushLine();
-      console.log(ev.ok ? dim(`← ${trunc(ev.output, 500)}`) : red(`← ${trunc(ev.output, 500)}`));
+      console.log(ev.ok ? dim(`← ${ev.evidenceId ? '[' + ev.evidenceId + '] ' : ''}${trunc(ev.output, 500)}`) : red(`← ${trunc(ev.output, 500)}`));
     } else if (ev.type === 'error') {
       flushLine();
       console.log(red(`Error: ${ev.text}`));
@@ -213,7 +214,9 @@ export async function startRepl(argv = []) {
     }
   };
 
+  let latestResearch = null;
   async function handle(input) {
+    latestResearch = null;
     messages.push({ role: 'user', content: input });
     console.log(dim(`[${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}]`));
     mdLineBuf = '';
@@ -229,7 +232,8 @@ export async function startRepl(argv = []) {
         }
       } catch {}
       const provider = createProvider(cfg.model);
-      await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
+      const result = await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
+      latestResearch = result.research;
     } catch (e) {
       console.log(red(`Error: ${e.message}`));
     }
@@ -275,6 +279,8 @@ export async function startRepl(argv = []) {
       if (input === '/help') console.log(HELP);
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(set)' : '' }, null, 2));
+      } else if (input === '/research') {
+        console.log(latestResearch ? JSON.stringify(latestResearch, null, 2) : 'No research state for the latest run.');
       } else if (input === '/tools' || input.startsWith('/tools ')) {
         // Optional filter: terms separated
         // by | are OR'd, space-separated words are AND'd (case-insensitive substrings).

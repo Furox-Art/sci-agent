@@ -1,3 +1,4 @@
+import { ResearchState } from './science/research-state.js';
 /**
  * Ajan döngüsü: modeli çağırır, araç çağrılarını çalıştırır, sonuçları modele geri verir.
  * onEvent ile akış olayları yayınlanır: reasoning | text | tool_call | tool_result | error
@@ -46,7 +47,7 @@ const runWithConcurrency = async (items, worker, limit) => {
  * Deterministic grounding gate ("no fabrication"): patterns that mark a *verifiable*
  * claim — a statistic, a measurement with a unit, an equality to a concrete number, or a
  * literature reference. They are intentionally conservative and dependency-free: the
- * gate only fires when a run produced such a claim without executing a single tool.
+ * gate requires literal, run-local evidence linkage for each detected claim.
  */
 const CLAIM_PATTERNS = [
   { kind: 'statistics', re: /\bp\s*[=<>≤≥]\s*0?\.\d+/i },
@@ -55,69 +56,88 @@ const CLAIM_PATTERNS = [
   { kind: 'statistics', re: /\b(?:odds ratio|hazard ratio|relative risk|effect size|R²|R2|χ²|chi-square)\b/i },
   {
     kind: 'measurement',
-    re: /-?\d+(?:[.,]\d+)?\s?(?:mg|kg|µg|ug|ng|pg|mL|ml|L|µL|uL|nL|mmol|mol|µmol|umol|nmol|nM|µM|uM|mM|M|K|°C|°F|Pa|kPa|MPa|J|kJ|W|kW|Hz|kHz|MHz|GHz|eV|keV|MeV|nm|µm|um|pm|mm|cm|km|m\/s|m\/s²|rpm|Da|kDa|ppm|ppb|mol\/L)(?![\w-])/,
+    re: /-?\d+(?:[.,]\d+)?\s?(?:mg|kg|µg|ug|ng|pg|mL|ml|L|µL|uL|nL|mmol|mol|µmol|umol|nmol|nM|µM|uM|mM|M|K|°C|°F|Pa|kPa|MPa|J|kJ|W|kW|Hz|kHz|MHz|GHz|eV|keV|MeV|nm|µm|um|pm|mm|cm|km|m\/s|m\/s²|rpm|Da|kDa|ppm|ppb|mol\/L)(?:\/(?:kg|g|L|mL|m|s|min|h))?(?![\w-])/,
   },
   { kind: 'measurement', re: /\d+(?:[.,]\d+)?\s?%|%\s?\d+(?:[.,]\d+)?/ },
   { kind: 'equation', re: /[A-Za-zα-ωΑ-Ω][\w]*\s*=\s*-?\d+(?:[.,]\d+)?/ },
   { kind: 'literature', re: /\b10\.\d{4,9}\/[^\s)]+/ },
-  { kind: 'literature', re: /\b(?:et al\.|PMID:?\s*\d+|arXiv:\s*\d{4}\.\d{4,5}|doi:)/i },
+  { kind: 'literature', re: /\b(?:et al\.|PMID:?\s*\d+|arXiv:\s*\d{4}\.\d{4,5})/i },
 ];
 
-// Up to `max` distinct matching snippets, so the caller can show *why* the gate fired.
-export function findUngroundedClaims(text, max = 5) {
+// Preserve the public helper; the gate scans every occurrence, including repeated claims.
+export function scanClaims(text) {
   const s = typeof text === 'string' ? text : '';
-  if (!s) return [];
   const found = [];
   for (const { kind, re } of CLAIM_PATTERNS) {
-    const m = s.match(re);
-    if (m && !found.some((f) => f.snippet === m[0])) found.push({ kind, snippet: m[0] });
-    if (found.length >= max) break;
+    for (const m of s.matchAll(new RegExp(re.source, re.flags + 'g'))) {
+      const snippet = kind === 'literature' ? m[0].replace(/[.,;:]+$/, '') : m[0];
+      if (!snippet) continue;
+      found.push({ kind, snippet, start: m.index, end: m.index + snippet.length });
+    }
   }
-  return found;
+  // Explicit qualitative claims can be declared as CLAIM: exact source passage [E1].
+  for (const m of s.matchAll(/^CLAIM:\s*([^\n]+)$/gm)) {
+    const raw = m[1].replace(/\s*\[E\d+\]\s*$/, '').trim();
+    if (raw) {
+      const start = m.index + m[0].indexOf(raw);
+      found.push({ kind: 'declared', snippet: raw, start, end: start + raw.length });
+    }
+  }
+  // Avoid double-counting overlapping patterns (e.g. n=30, DOI marker + DOI).
+  const merged = [];
+  for (const c of found.sort((a,b) => a.start-b.start || b.end-a.end)) {
+    const last = merged.at(-1);
+    if (last && c.start < last.end) {
+      last.end = Math.max(last.end, c.end);
+      last.snippet = s.slice(last.start, last.end);
+      if (c.kind === 'literature') last.kind = 'literature';
+    } else merged.push({ ...c });
+  }
+  return merged;
 }
-
-// One-shot steering text: appended to this run's system prompt only (never persisted in
-// `messages`), so the model either verifies the claim with a tool or labels it unverified.
-const GROUNDING_NUDGE = [
-  'Grounding check failed: your previous answer contained verifiable claims (numbers, statistics,',
-  'measurements or literature references) but no tool was used in this run.',
-  'Either verify each claim now with a tool (python_eval, furox_compute, csv_stats, lit_search, …)',
-  'and report the tool output, or state explicitly that the value is an unverified estimate from memory.',
-  'Do not present unverified numbers as results.',
-].join('\n');
-
-export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent, grounding = true } = {}) {
+export function findUngroundedClaims(text, max = 5) {
+  return scanClaims(text).slice(0, max).map(({kind,snippet}) => ({kind,snippet}));
+}
+const GROUNDING_RULE = 'Grounding check: attach [E<number>] immediately after every detected scientific claim; use the exact text from a successful eligible tool result. Never invent evidence IDs. Use CLAIM: exact passage [E<number>] on its own line for qualitative source claims. Literal linkage is not semantic proof. If no evidence is available, explain that without repeating unsupported figures. For complex research, register alternatives and falsifiers with research_hypothesis; predeclare compute tests (tool, args, support/refute output criteria) where possible, then execute the tools; assess each with evidence, and use reviewer/verifier roles when configured.';
+export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent, grounding = true, requireIndependentReview = registry?.cfg?.agent?.requireIndependentReview === true } = {}) {
   // Effective tool-concurrency limit for this run: caller-provided `maxConcurrent` when
   // it is a positive integer, otherwise DEFAULT_MAX_CONCURRENT (4).
   const concurrency = Number.isInteger(maxConcurrent) && maxConcurrent >= 1 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
   // Ardışık bozuk araç çağrısı sayacı: 3'e ulaşınca döngü sonlanır (sonsuz döngü koruması).
   let malformedStreak = 0;
-  // Kanıt kapısı durumu: bu koşuda kaç araç çalıştı ve düzeltici uyarı verildi mi.
-  let toolsRun = 0;
+  // Run-local evidence graph and one repair attempt.
+  const research = new ResearchState();
+  let sequence = 0;
   let groundingNudge = false;
+  const rejectedDrafts = new Set();
+  const cleanDrafts = () => { for (let i = messages.length - 1; i >= 0; i--) if (rejectedDrafts.has(messages[i])) messages.splice(i, 1); };
   // Abort: nedeni olay olarak bildir ve düzenli sonuçla dön (hata fırlatma).
   const abortRun = (steps) => {
+    cleanDrafts();
     onEvent({ type: 'error', text: 'Run aborted before completion.', reason: 'aborted' });
-    return { done: false, aborted: true, steps };
+    return { done: false, aborted: true, steps, research: research.snapshot() };
   };
   for (let step = 0; step < maxSteps; step++) {
     if (signal?.aborted) return abortRun(step);
     onEvent({ type: 'step', step: step + 1, maxSteps });
     // systemExtra yalnızca model çağrılarına eklenir; kalıcı geçmiş kopya üzerinden korunur.
     // Kanıt kapısı uyarısı da sistem istemine eklenir (kalıcı messages dizisine yazılmaz).
-    const effectiveSystemExtra = groundingNudge ? [systemExtra, GROUNDING_NUDGE].filter(Boolean).join('\n\n') : systemExtra;
+    const effectiveSystemExtra = [systemExtra, grounding && GROUNDING_RULE, groundingNudge && 'Previous answer had unsupported claims; repair or withdraw them.', requireIndependentReview && 'Independent reviewer AND verifier must support each exact claim; use task with role and target.'].filter(Boolean).join('\n\n');
     const chatMessages =
-      effectiveSystemExtra && messages.length && typeof messages[0]?.content === 'string'
-        ? messages.map((m, i) => (i === 0 ? { ...m, content: `${m.content}\n\n${effectiveSystemExtra}` } : m))
+      effectiveSystemExtra
+        ? messages[0]?.role === 'system' && typeof messages[0].content === 'string'
+          ? messages.map((m, i) => (i === 0 ? { ...m, content: `${m.content}\n\n${effectiveSystemExtra}` } : m))
+          : [{ role: 'system', content: effectiveSystemExtra }, ...messages]
         : messages;
     let res;
+    const textChunks = [];
     try {
       res = await provider.chat({
         messages: chatMessages,
         tools: registry.schemas(),
         signal,
         onChunk: (c) => {
-          if (c.type === 'text_delta') onEvent({ type: 'text_delta', text: c.text });
+          if (c.type === 'text_delta') { if (grounding) textChunks.push(c.text); else onEvent({ type: 'text_delta', text: c.text }); }
           else if (c.type === 'reasoning_delta') onEvent({ type: 'reasoning_delta', text: c.text });
           else if (c.type === 'info') onEvent({ type: 'info', text: c.text });
         },
@@ -125,6 +145,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     } catch (e) {
       // Abort hatası döngüyü çökertmez: nedeni bildirip çık; diğer sağlayıcı hataları aynen yayılır.
       if (signal?.aborted || e?.name === 'AbortError' || /abort/i.test(String(e?.message ?? ''))) return abortRun(step);
+      cleanDrafts();
       throw e;
     }
 
@@ -139,20 +160,24 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     }
     messages.push(assistant);
 
-    // Deltalar akış sırasında gösterildi; yalnızca akışsız yanıtta tam metni yayınla.
+    // Grounding buffers final text until validation; ungrounded mode preserves live streaming.
     if (res.reasoning && !res.streamed) onEvent({ type: 'reasoning', text: res.reasoning });
-    if (res.content && !res.streamed) onEvent({ type: 'text', text: res.content });
+    const publishText = () => {
+      if (grounding && res.streamed) for (const text of textChunks) onEvent({ type: 'text_delta', text });
+      else if (res.content && !res.streamed) onEvent({ type: 'text', text: res.content });
+    };
     if (!toolCalls.length) {
-      // Kanıt kapısı: hiç araç çalışmadan sayısal/literatür iddiası içeren final yanıt.
-      const claims = grounding ? findUngroundedClaims(res.content) : [];
-      if (claims.length && toolsRun === 0) {
+      // Every detected claim must link to its own eligible evidence.
+      const claims = grounding ? research.checkClaims(res.content ?? '', scanClaims(res.content), requireIndependentReview) : [];
+      if (claims.length) {
+        rejectedDrafts.add(assistant);
         const detail = claims.map((c) => `${c.kind}: ${JSON.stringify(c.snippet)}`).join('; ');
-        if (!groundingNudge) {
+        if (!groundingNudge && step + 1 < maxSteps) {
           groundingNudge = true;
           onEvent({
             type: 'warning',
             reason: 'ungrounded_claims',
-            text: `Ungrounded claims without any tool call (${detail}). Asking the model to verify them with a tool.`,
+            text: `Ungrounded claims without matching evidence or required review (${detail}). Asking the model to verify them with a tool.`,
             claims,
           });
           continue;
@@ -160,14 +185,19 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
         onEvent({
           type: 'warning',
           reason: 'ungrounded_claims',
-          text: `Answer marked unverified: still no tool call after the grounding check (${detail}).`,
+          text: `Answer marked unverified: still unsupported after the grounding check (${detail}).`,
           claims,
         });
-        return { done: true, steps: step + 1, unverified: true, unverifiedClaims: claims };
+        cleanDrafts();
+        messages.push({ role: 'assistant', content: 'Scientific result withheld: evidence or review was insufficient.' });
+        return { done: false, steps: step + 1, unverified: true, unverifiedClaims: claims, research: research.snapshot() };
       }
-      return { done: true, steps: step + 1 };
+      cleanDrafts();
+      publishText();
+      return { done: true, steps: step + 1, research: research.snapshot() };
     }
 
+    if (!grounding) publishText();
     // Bozuk çağrı: adı eksik/bilinmiyor veya argümanlar geçersiz JSON. Çalıştırılmaz;
     // o çağrı için temiz hata gözlemi modele döner ve döngü sürer.
     const isMalformed = (tc) => {
@@ -198,17 +228,18 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       // Kayıt çoğu araç hatasını {ok:false} ile döndürür; invoke'un kendisi fırlarsa veya
       // geçersiz sonuç dönerse de döngü ölmesin: temiz hata gözlemi modele geri beslenir.
       let result;
+      const evidenceId = `E${++sequence}`;
       try {
-        toolsRun++;
-        result = await registry.invoke(tc.name, tc.arguments, { provider, onEvent, maxSteps, signal });
+        result = await registry.invoke(tc.name, tc.arguments, { provider, onEvent, maxSteps, signal, research });
         if (!result || typeof result !== 'object' || typeof result.output !== 'string') {
           result = { ok: false, output: JSON.stringify({ error: 'Tool returned an invalid result.' }) };
         }
       } catch (e) {
         result = { ok: false, output: JSON.stringify({ error: String(e?.message ?? e) }) };
       }
-      onEvent({ type: 'tool_result', id: tc.id, name: tc.name, ok: result.ok, output: result.output });
-      return result.output;
+      const id = research.record(evidenceId, tc.name, tc.arguments, result);
+      onEvent({ type: 'tool_result', id: tc.id, name: tc.name, ok: result.ok, output: result.output, ...(id ? { evidenceId: id } : {}) });
+      return id ? `${result.output}\n[Evidence ID: ${id}]` : result.output;
     };
     // Abort arada tetiklendiyse kalan çağrılar çalıştırılmaz; geçmiş tutarlı kalsın diye
     // her biri için 'aborted' gözlemi yazılır.
@@ -267,12 +298,14 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     }
     malformedStreak = malformedThisStep > 0 ? malformedStreak + malformedThisStep : 0;
     if (malformedStreak >= 3) {
+      cleanDrafts();
       onEvent({ type: 'error', text: 'Stopped after 3 consecutive malformed tool calls.', reason: 'malformed_tool_calls' });
-      return { done: false, steps: step + 1 };
+      return { done: false, steps: step + 1, research: research.snapshot() };
     }
   }
+  cleanDrafts();
   onEvent({ type: 'error', text: `Step limit exceeded (${maxSteps}); loop stopped.` });
-  return { done: false, steps: maxSteps };
+  return { done: false, steps: maxSteps, research: research.snapshot() };
 }
 
 export function buildSystemPrompt(cfg) {

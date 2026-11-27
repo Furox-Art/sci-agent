@@ -67,36 +67,27 @@ test('kanıt kapısı: uyarıdan sonra da araç yoksa yanıt doğrulanmamış i�
     maxSteps: 4,
   });
 
-  assert.equal(res.done, true);
+  assert.equal(res.done, false);
   assert.equal(res.unverified, true);
   assert.ok(res.unverifiedClaims.length >= 1);
   assert.equal(provider.calls.length, 2, 'düzeltici tur yalnızca bir kez yapılır');
   assert.equal(events.filter((e) => e.type === 'warning').length, 2);
 });
 
-test('kanıt kapısı: araç çalıştıysa iddia uyarısı vermez', async () => {
+test('unrelated write is not evidence', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-grounding-'));
   const provider = new MockProvider([
     { toolCalls: [{ name: 'write_file', arguments: { path: 'olcum.txt', content: '12.4' } }] },
-    { content: 'Araç çıktısı: ortalama 12.4 mg/L (p = 0.01).' },
+    { content: 'p = 0.01 [E1].' },
+    { content: 'p = 0.01 [E1].' },
   ]);
   const registry = new ToolRegistry({ workspaceRoot: root, approve: async () => true });
   const events = [];
-  const res = await runAgentLoop({
-    provider,
-    registry,
-    messages: [
-      { role: 'system', content: 'test' },
-      { role: 'user', content: 'yaz ve raporla' },
-    ],
-    onEvent: (e) => events.push(e),
-    maxSteps: 4,
-  });
-
-  assert.equal(res.done, true);
-  assert.equal(res.unverified, undefined);
-  assert.equal(provider.calls.length, 2, 'ek model turu yok');
-  assert.equal(events.some((e) => e.type === 'warning'), false);
+  const res = await runAgentLoop({ provider, registry, messages: [{ role: 'system', content: 'test' }, { role: 'user', content: 'x' }], onEvent: e => events.push(e), maxSteps: 4 });
+  assert.equal(res.done, false);
+  assert.equal(res.unverified, true);
+  assert.equal(res.research.evidence.length, 0);
+  assert.equal(events.filter(e => e.type === 'text_delta' || e.type === 'text').length, 0);
 });
 
 test('kanıt kapısı: grounding:false ile kapatılabilir', async () => {

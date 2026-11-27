@@ -82,6 +82,7 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/sessions <no>` | oturuma geç |
 | `/sessions del <no>` | oturumu sil |
 | `/sessions ren <no> <başlık>` | yeniden adlandır |
+| `/research` | Son araştırma turunun kanıtlarını, hipotezlerini ve hakem kararlarını JSON olarak göster |
 | `/save` | sohbeti zaman damgalı `sciagent-sohbet-*.md` olarak kaydet |
 | `/test` | model bağlantısını test et |
 | `/clear` | sohbeti temizle (dosya kaydı da sıfırlanır) |
@@ -110,6 +111,7 @@ CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples
 | `edit_file` | evet | Bul-değiştir ile dosya düzenler (çoklu eşleşme koruması) |
 | `run_command` | evet | Kabuk komutu çalıştırır |
 | `task` | hayır* | Alt ajan başlatır; aynı adımdakiler paralel yürür (*alt ajanın tehlikeli çağrıları yine onay ister) |
+| `research_hypothesis` | hayır | Hipotez kaydı, önceden tanımlı testler, kanıta bağlı değerlendirme |
 | `python_eval` | evet | Python kodu çalıştırır (PATH'ten bağımsız Python çözücü: `pybridge`) |
 | `csv_stats` | hayır | CSV sütunları için n/ortalama/ss/min/maks |
 | `math_eval` | hayır | Güvenli matematik ifade değerlendirici (parser'lı, eval'siz) |
@@ -146,7 +148,7 @@ CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples
 | `polyglot_cli` | evet | polyglot-python CLI: kendi dilinde Python — TR dahil 8 dil transpiler (run/translate/check/locales) |
 | `eq_route` | hayır | eq-layer routing: mesaj için niyet/duygu/repair analizi ve yönlendirme önerisi |
 
-Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI altı gruba ayırır (`packages/core/src/tools/grouping.js`):
+Kayıtlı toplam **43 araç** (8 çekirdek + 35 eklenti aracı); CLI altı gruba ayırır (`packages/core/src/tools/grouping.js`):
 
 - **File & code** — core file and shell operations: read, write, edit, list, search, run.
 - **AI agents** — parallel sub-agents via `task`, each with its own context.
@@ -157,7 +159,37 @@ Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI altı gruba
 
 **Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
 
-**Deterministik kanıt kapısı (v0.10.7):** "uydurmaya yasak" yalnızca prompt düzeyinde değil. Bir koşuda **hiç araç çalışmadan** sayısal/istatistik/ölçüm/literatür iddiası içeren bir final yanıt gelirse ajan döngüsü (`packages/core/src/agent.js`) iddiayı yakalar, `warning` olayı yayınlar ve modeli tek turda aracıyla doğrulamaya zorlar; ikinci turda da araç çağrılmazsa sonuç `unverified: true` + `unverifiedClaims` ile işaretlenir ve CLI uyarıyı kırmızı gösterir. `runAgentLoop({ grounding: false })` ile kapatılabilir.
+### Araştırma protokolü
+
+**İddia–kanıt kapısı:** Her araştırma turunda uygun bilimsel araçların başarılı çıktıları, araç adı, argümanları, benzersiz tur içi kimliği ve SHA-256 özetiyle kaydedilir. Sonuçtaki algılanan sayısal, istatistiksel ve literatür iddiaları kendi çıktılarına bağlanmalıdır. Örneğin `determinant = 4.000000000 [E1]` ancak E1 çıktısında bu ifade bulunuyorsa geçer. Nitel bir iddiayı denetlemek için ayrı satırda `CLAIM: kaynak metnindeki birebir ifade [E1]` kullanılır. Başarısız veya ilgisiz araç çağrıları kanıt yerine geçmez. İlk başarısızlıkta düzeltme istenir; ikinci başarısızlıkta sonuç gösterilmez ve `done: false, unverified: true` döner. Son metin denetlenmeden önce terminale aktarılmaz; araç olayları ve akıl yürütme akışı devam eder. `grounding: false` ile kapı programatik olarak kapatılabilir.
+
+**Hipotez motoru:** `research_hypothesis` aracında `action: add` ile kimlik, hipotez, öngörü ve yanlışlayıcı tanımlanır. İsteğe bağlı `test` alanı; `tool`, `args`, `support`, `refute` içerir. Bu belirli hesaplama aracı aynı argümanlarla hipotez kaydından sonra çağrıldığında, önceden belirlenen çıktı ölçütleri otomatik değerlendirilir. Testsiz hipotezlerde `action: assess` ile `id`, `evidenceId`, `quote`, `direction` (supports/refutes) ve `rationale` verilir. Durumlar `active`, `supported_candidate`, `refuted_candidate`, `contested` olabilir. `action: list` durumları gösterir; çelişen kanıtlar silinmez. Aday durumları bilimsel doğruluk garantisi değildir.
+
+**Hakem ve doğrulayıcı:** `task` aracı `researcher`, `reviewer`, `verifier` rollerini destekler. Son iki rol kendi model adı ve uç noktasıyla yapılandırılmalıdır. Örnek `sci-agent.config.json` ayarı (yer tutucuları kendi modellerinizle değiştirin):
+
+```json
+{
+  "agent": {
+    "requireIndependentReview": true,
+    "roleModels": {
+      "reviewer": {
+        "name": "review-model",
+        "baseUrl": "http://localhost:8001/v1",
+        "stream": false
+      },
+      "verifier": {
+        "name": "verify-model",
+        "baseUrl": "http://localhost:8002/v1",
+        "stream": false
+      }
+    }
+  }
+}
+```
+
+Her iki rol, ana modelden ve birbirinden farklı model adları kullanmalıdır. Uç noktalar ayrı olsa bile aynı model adı bağımsız kabul edilmez. Her rol kendine ait araç kanıtlarıyla yapılandırılmış support/reject/unresolved kararı üretir. Katı mod, algılanan her iddiada iki farklı rolün destek kararını ve geçerli kanıt bağlantısını ister; bir ret varsa sonuç tartışmalı olarak kalır. Katı mod varsayılan olarak kapalıdır (ikinci ve üçüncü model sağlanmadan genel CLI çalışabilsin). Rol uç noktaları yalnızca yapılandırılırsa çağrılır; görev içeriği ve araç gözlemleri ilgili uç noktaya gönderilir.
+
+**Sınırlar:** Bu sürüm birebir çıktı eşleşmesi ve kaynak izlenebilirliği sağlar; doğal dilde tüm iddiaları keşfetme, bağlam/negasyon, birim dönüşümlü eşdeğerlik, bilimsel nedensellik veya gerçek model ağırlıklarının bağımsızlığını otomatik kanıtlama iddiasında değildir. Python/shell çıktıları ve bibliyografik sorgu yankıları tek başlarına doğrulanmış kanıt sayılmaz. Araştırma durumu bir ajan turuyla sınırlıdır; CLI'da `/research` son turu gösterir. Kalıcı bilimsel bellek henüz yoktur.
 
 **Kullanıcının açık depolarından entegrasyon** (12 depo bağlı):
 - [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) → `sci-furox` köprü araçları (pip)
@@ -202,7 +234,7 @@ Bu README'deki sayıları repo kökünde tek komutlarla doğrulayabilirsin:
 # Eklenti adları (beklenen: 8 eklenti)
 node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPlugins().map(p => p.name).join('\n')))"
 
-# Kayıtlı araç sayısı (beklenen: 42)
+# Kayıtlı araç sayısı (beklenen: 43)
 node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
 
 # Varsayılan beceri kaynakları (beklenen: 9 github: kaynağı)

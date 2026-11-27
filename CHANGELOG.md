@@ -4,6 +4,12 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 
 ## Unreleased
 
+### Added
+- Run-local claim/evidence graph with explicit references, source output hashes, failure/truncation filtering, and withholding of unsupported final text.
+- Hypothesis state machine with optional predeclared deterministic compute criteria and conflicting findings retained.
+- Distinct configured reviewer and verifier providers, structured evidence-linked verdicts, optional strict consensus gate, and CLI `/research` inspection.
+- Regression tests for unrelated, missing, failed and nonmatching evidence, hypothesis state, and reviewer agreement/disagreement.
+
 ### Removed
 - Desktop/Electron application, local web server, UI assets, desktop-only tests and helper scripts. CLI, scientific core, session format and example datasets remain.
 

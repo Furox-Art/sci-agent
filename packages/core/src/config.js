@@ -10,7 +10,7 @@ export const DEFAULT_CONFIG = {
     temperature: 0.2,
     stream: true,
   },
-  agent: { maxSteps: 25, workspaceRoot: '.' },
+  agent: { maxSteps: 25, workspaceRoot: '.', roleModels: {}, requireIndependentReview: false },
   plugins: ['sci-tools', 'sci-extra', 'sci-data', 'sci-chem', 'sci-furox', 'sci-quantum', 'sci-lit', 'sci-audit'],
   skills: {
     sources: [

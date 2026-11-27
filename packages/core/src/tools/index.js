@@ -1,8 +1,9 @@
 import { read_file, write_file, edit_file, list_dir, search_files } from './fs-tools.js';
 import { run_command } from './shell-tool.js';
+import { research_hypothesis } from '../science/research-state.js';
 import { task } from './task-tool.js';
 
-export const defaultTools = [read_file, write_file, edit_file, list_dir, search_files, run_command, task];
+export const defaultTools = [read_file, write_file, edit_file, list_dir, search_files, run_command, task, research_hypothesis];
 
 const MAX_OUTPUT = 16_000;
 
@@ -55,7 +56,8 @@ export class ToolRegistry {
     try {
       const ctx = { workspaceRoot: this.workspaceRoot, cfg: this.cfg, approve: this.approve, ...extraCtx };
       const output = await tool.execute(args, ctx);
-      return { ok: true, output: String(output).slice(0, MAX_OUTPUT) };
+      const text = String(output);
+      return { ok: true, output: text.slice(0, MAX_OUTPUT), ...(text.length > MAX_OUTPUT ? { truncated: true } : {}) };
     } catch (e) {
       return { ok: false, output: `Error: ${e.message}` };
     }

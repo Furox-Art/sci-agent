@@ -12,7 +12,7 @@ test('runAgentLoop: systemExtra kopyadaki sistem mesajına eklenir, orijinal mes
     { role: 'system', content: 'sistem istemi' },
     { role: 'user', content: 'selam' },
   ];
-  await runAgentLoop({ provider, registry: fakeRegistry, messages, maxSteps: 3, systemExtra: 'STEER-TEST-123' });
+  await runAgentLoop({ provider, registry: fakeRegistry, messages, maxSteps: 3, grounding: false, systemExtra: 'STEER-TEST-123' });
 
   // Provider'a giden liste bir kopya: sistem mesajı suffix taşır.
   const sent = provider.calls[0].messages;
@@ -31,7 +31,7 @@ test('runAgentLoop: systemExtra verilmezse davranış değişmez', async () => {
     { role: 'system', content: 'sistem istemi' },
     { role: 'user', content: 'selam' },
   ];
-  await runAgentLoop({ provider, registry: fakeRegistry, messages, maxSteps: 3 });
+  await runAgentLoop({ provider, registry: fakeRegistry, messages, maxSteps: 3, grounding: false });
 
   assert.equal(provider.calls.length, 1);
   assert.equal(provider.calls[0].messages, messages); // birebir aynı dizi gönderilir

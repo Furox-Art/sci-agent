@@ -9,7 +9,9 @@
   },
   "agent": {
     "maxSteps": 25,
-    "workspaceRoot": "."
+    "workspaceRoot": ".",
+    "roleModels": {},
+    "requireIndependentReview": false
   },
   "plugins": [
     "sci-tools",
