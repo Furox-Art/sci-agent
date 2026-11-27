@@ -26,6 +26,7 @@ const BRIDGES = new Set([
 
 export function toolGroup(name) {
   if (name === 'task' || name === 'research_hypothesis') return 'AI agents';
+  if (name.startsWith('research_')) return 'Research methodology';
   if (name.startsWith('lit_')) return 'Literature (evidence chain)';
   if (name === 'plan_audit') return 'Plan verification';
   if (BRIDGES.has(name)) return 'Scientific package bridges';

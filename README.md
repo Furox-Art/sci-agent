@@ -82,7 +82,10 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/sessions <no>` | oturuma geç |
 | `/sessions del <no>` | oturumu sil |
 | `/sessions ren <no> <başlık>` | yeniden adlandır |
-| `/research` | Son araştırma turunun kanıtlarını, hipotezlerini ve hakem kararlarını JSON olarak göster |
+| `/research` | Son araştırma turunun kanıt, hipotez, analiz ve hakem kayıtlarını göster |
+| `/memory save [etiket]` | Son araştırma durumunu çalışma alanında kalıcı sakla |
+| `/memory search [sorgu]` / `/memory get <id>` | Kalıcı araştırma kayıtlarını ara / hash kimliğiyle oku |
+| `/lesson stats` / `/lesson preflight` / `/lesson export` | Lesson-gate borç durumunu, ön kontrolü ve doğrulanmış kuralları göster |
 | `/save` | sohbeti zaman damgalı `sciagent-sohbet-*.md` olarak kaydet |
 | `/test` | model bağlantısını test et |
 | `/clear` | sohbeti temizle (dosya kaydı da sıfırlanır) |
@@ -112,6 +115,14 @@ CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples
 | `run_command` | evet | Kabuk komutu çalıştırır |
 | `task` | hayır* | Alt ajan başlatır; aynı adımdakiler paralel yürür (*alt ajanın tehlikeli çağrıları yine onay ister) |
 | `research_hypothesis` | hayır | Hipotez kaydı, önceden tanımlı testler, kanıta bağlı değerlendirme |
+| `research_causal` | hayır | Verilen DAG üzerinde backdoor koşulu ve asgari gözlenen düzeltme kümeleri |
+| `research_experiment` | hayır | Kontrollü deney protokolü, tohumlu dengeli rastgeleleştirme, yaklaşık güç analizi |
+| `research_uncertainty` | hayır | Gradyan ve korelasyonla birinci mertebe belirsizlik yayılımı |
+| `research_reproduce` | hayır | Önceki hesaplamayı bağımsız algoritmayla yeniden üretme |
+| `research_conflicts` | hayır | Yapılandırılmış iddialarda bağlama, yön ve birimlere göre çelişki adayları |
+| `research_memory` | evet | Kalıcı yerel araştırma kaydı: sakla, ara, getir |
+| `research_lesson` | evet | Gerçek Lesson-gate defterini denetle veya hata kaydı ekle |
+| `research_route` | hayır | Problem türüne göre araç sıralaması ve tam araç kataloğu |
 | `python_eval` | evet | Python kodu çalıştırır (PATH'ten bağımsız Python çözücü: `pybridge`) |
 | `csv_stats` | hayır | CSV sütunları için n/ortalama/ss/min/maks |
 | `math_eval` | hayır | Güvenli matematik ifade değerlendirici (parser'lı, eval'siz) |
@@ -148,7 +159,7 @@ CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples
 | `polyglot_cli` | evet | polyglot-python CLI: kendi dilinde Python — TR dahil 8 dil transpiler (run/translate/check/locales) |
 | `eq_route` | hayır | eq-layer routing: mesaj için niyet/duygu/repair analizi ve yönlendirme önerisi |
 
-Kayıtlı toplam **43 araç** (8 çekirdek + 35 eklenti aracı); CLI altı gruba ayırır (`packages/core/src/tools/grouping.js`):
+Kayıtlı toplam **51 araç** (16 çekirdek + 35 eklenti aracı); CLI yedi gruba ayırır (`packages/core/src/tools/grouping.js`):
 
 - **File & code** — core file and shell operations: read, write, edit, list, search, run.
 - **AI agents** — parallel sub-agents via `task`, each with its own context.
@@ -156,6 +167,7 @@ Kayıtlı toplam **43 araç** (8 çekirdek + 35 eklenti aracı); CLI altı gruba
 - **Scientific package bridges** — CLI bridges to the user's open scientific packages (axiomize, cds/cds2, repocraft, nomosguard, sra, polyguard, polyglot-python) plus eq-layer routing.
 - **Literature (evidence chain)** — OpenAlex/Europe PMC/Crossref search, citation and retraction checks, full-text reading, citation-graph traversal, data/code availability, quote verification, methodology audit, PRISMA-style screening, bibliography export, hash-chained evidence ledger, statistical-reporting checks, DOI normalization, PDF page provenance, BM25 evidence shortlisting.
 - **Plan verification** — sealed-plan audit with a SHA-256 evidence chain and fail-closed completion gate.
+- **Research methodology** — causal DAGs, experimental design, uncertainty, independent numerical replay, structured conflicts, memory, Lesson-gate and dynamic routing.
 
 **Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
 
@@ -189,7 +201,51 @@ Kayıtlı toplam **43 araç** (8 çekirdek + 35 eklenti aracı); CLI altı gruba
 
 Her iki rol, ana modelden ve birbirinden farklı model adları kullanmalıdır. Uç noktalar ayrı olsa bile aynı model adı bağımsız kabul edilmez. Her rol kendine ait araç kanıtlarıyla yapılandırılmış support/reject/unresolved kararı üretir. Katı mod, algılanan her iddiada iki farklı rolün destek kararını ve geçerli kanıt bağlantısını ister; bir ret varsa sonuç tartışmalı olarak kalır. Katı mod varsayılan olarak kapalıdır (ikinci ve üçüncü model sağlanmadan genel CLI çalışabilsin). Rol uç noktaları yalnızca yapılandırılırsa çağrılır; görev içeriği ve araç gözlemleri ilgili uç noktaya gönderilir.
 
-**Sınırlar:** Bu sürüm birebir çıktı eşleşmesi ve kaynak izlenebilirliği sağlar; doğal dilde tüm iddiaları keşfetme, bağlam/negasyon, birim dönüşümlü eşdeğerlik, bilimsel nedensellik veya gerçek model ağırlıklarının bağımsızlığını otomatik kanıtlama iddiasında değildir. Python/shell çıktıları ve bibliyografik sorgu yankıları tek başlarına doğrulanmış kanıt sayılmaz. Araştırma durumu bir ajan turuyla sınırlıdır; CLI'da `/research` son turu gösterir. Kalıcı bilimsel bellek henüz yoktur.
+### Bilimsel yöntem ve kalıcı çalışma alanı
+
+Nedensellik, deney, belirsizlik, yeniden üretim ve çelişki analizlerinin çıktıları son turun `/research` kaydındaki `analyses` alanına yazılır. Bellek ve Lesson-gate kendi kalıcı depolarını kullanır; yönlendirme araç kataloğunu döndürür. Araştırma kaydı bir iddianın doğruluğunu otomatik kanıtlamaz.
+
+| Yöntem | Girdi ve çıktı | Bilimsel sınır |
+|---|---|---|
+| Nedensellik | `nodes, edges, treatment, outcome, observed?, adjustment?`; DAG doğrulaması, d-separation/backdoor, asgari düzeltme kümeleri | Kullanıcının verdiği grafiğe koşullu; gözlenemeyen/atlanmış karıştırıcılar ve nedensel keşif çözülmüş sayılmaz. Etki büyüklüğü hesaplanmaz. 12'den fazla adayda düzeltme kümesi verilmelidir. |
+| Deney tasarımı | `arms, participants, seed, outcome, hypothesis, controls, analysisPlan`; dengeli tohumlu rastgele atama; `standardizedEffect, alpha, power` ile yaklaşık iki kollu örneklem hesabı | Sürekli sonuç, bağımsız gözlemler ve ortak varyans varsayımı; normal yaklaşım. Körleme, atama gizliliği, kayıp, etik ve ön kayıt ayrıca ele alınmalıdır. Katılımcı kodları anonim olmalıdır. |
+| Belirsizlik | `estimate, unit, gradient, standardUncertainties, correlation?, coverageFactor?`; korelasyon matrisi pozitif yarı tanımlılık denetimi, doğrusal hata yayılımı | Birinci mertebe yaklaşım. Kapsama faktörü tek başına güven düzeyi değildir. |
+| Tekrarlanabilirlik | `evidenceId`; bağımsız kofaktör açılımı (1–7 boyutlu determinant) veya Welford algoritması (sayısal liste istatistikleri) ve çıktı karşılaştırması | Sadece bu iki saf sayısal işlem. Dosya/Python/shell ve genel deneyler yeniden yürütülmez. Uyuşmazlık varsa bağlı sonuç kanıt kapısından geçemez. |
+| Çelişki | `assertions`: kimlik, özne, ilişki, nesne, bağlam, olumsuzluk, kanıt ID ve birebir alıntı; isteğe bağlı birimli aralık | Yapılandırılmış iddialarda kural tabanlı semantik karşılaştırma. Otomatik doğal dil çıkarımı veya genel NLI yok; adayların bilimsel değerlendirmesi gerekir. |
+| Dinamik yönlendirme | İstem anahtar sözcükleriyle uygun araçların sıralaması; isteğe bağlı ilk adım dar liste | Bilinmeyen istemler ve sonraki araç adımları tam kataloğa döner; onay politikası değişmez. |
+
+Çelişki ilişkileri: `increase`, `decrease`, `no_change`, `equals`, `is`, `causes`, `associated_with` ve tanımlı İngilizce/Türkçe eş anlamları. Sayısal aralık birimleri: g/kg/mg, m/cm/mm, s/min/h, fraction/%, 1. Yalnızca aynı normalize özne/nesne/bağlam karşılaştırılır. Aday çelişki kanıt metninin modelce yorumlanmasının doğru olduğunu ispatlamaz.
+
+#### Kalıcı bilimsel bellek ve Lesson-gate
+
+`.sci-agent-research/memory/` SHA-256 içerik adresli, bütünlüğü kontrol edilen JSON kayıtlarıdır; farklı çalışma alanları ayrıdır. Kayıt kimliğiyle tekrar erişilir. `/memory save` açık kullanıcı komutudur; modelin `research_memory` aracı onay ister. Kayıtlar geçmiş kanıttır, mevcut turun kanıtı yerine geçmez. Varsayılan otomatik kayıt kapalıdır; araştırma verisi hassas olabilir. Kaydedilmiş araç çıktıları şifreli değildir, ancak dizin Git tarafından yok sayılır. Otomatik kayıt kullanılırsa tamamlanan, kısmi ve bloke edilmiş araştırma durumları ayrı etiketlenir.
+
+Lesson-gate 0.1.0, Furox-Art/lesson-gate'in `d947fa8d6b71fe19f11b493d885cf65958a2d6a5` commit'indeki Python çekirdeği ve MIT lisansı ile birlikte dağıtılır. Python 3.11+ gerekir. Defter `.sci-agent-research/lessons/` altındadır ve çalışma alanından ayrılmaz. Etkinleştirildiğinde bütün ilgili açık/promoted kayıtlar model çağrısından önce ve sonuç yayımlanmadan önce denetlenir; hata veya doğrulanmamış borç varsa kapı kapanır. Son kanıt kapısı başarısızlığı kullanıcı verisi içermeyen genel bir ders olarak kaydedilir. Katı mod başlangıçta kapalıdır.
+
+Fixtür komutları modelin Lesson-gate aracından yürütülmez. Kullanıcı upstream CLI ile olumlu/olumsuz testleri tanımlar ve doğrular. Proje kökünde örnek (yol ve testler kendi çalışma alanınıza ait olmalıdır):
+
+```bash
+python packages/core/src/science/vendor/lesson-gate/lesson_gate.py stats --store .sci-agent-research/lessons --json
+python packages/core/src/science/vendor/lesson-gate/lesson_gate.py --help
+```
+
+Upstream `promote` ve `verify --record` komutlarının ayrıntıları [Lesson-gate](https://github.com/Furox-Art/lesson-gate) README'sindedir. Doğrulama komutlarını çalıştırmadan önce inceleyin. Bir geçmiş proof kaydı kodun sonradan değişmediğini ispatlamaz; değişiklikten sonra fixture'ları yeniden doğrulayın. Negatif fixture'ın başarısızlık sebebinin beklenen regresyon olduğunu kontrol edin.
+
+Yapılandırma örneği:
+
+```json
+{
+  "agent": {
+    "researchMemory": { "autoSave": true },
+    "lessonGate": { "enabled": true },
+    "toolRouting": { "enabled": true, "shortlist": false }
+  }
+}
+```
+
+Varsayılan: `autoSave: false`, `lessonGate.enabled: false`, araç sıralama açık ve dar liste kapalı. Dar liste açılırsa ilk adımda ilgili araçlar sunulur; `research_route` ile tam katalog istenebilir. Bağımsız hakem modu için ayrı model uç noktaları gerekir.
+
+**Sınırlar:** Birebir çıktı eşleşmesi genel doğal dil semantiği veya bilimsel doğruluk garantisi değildir. Kaynak grafiği, ölçüm varsayımları, deney koşulları, model bağımsızlığı ve hipotezler ayrıca bilimsel denetime tabidir. Python/shell çıktıları ve bibliyografik sorgu yankıları tek başlarına doğrulanmış kanıt sayılmaz.
 
 **Kullanıcının açık depolarından entegrasyon** (12 depo bağlı):
 - [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) → `sci-furox` köprü araçları (pip)
@@ -234,7 +290,7 @@ Bu README'deki sayıları repo kökünde tek komutlarla doğrulayabilirsin:
 # Eklenti adları (beklenen: 8 eklenti)
 node -e "import('./packages/core/src/plugins.js').then(m => console.log(m.listPlugins().map(p => p.name).join('\n')))"
 
-# Kayıtlı araç sayısı (beklenen: 43)
+# Kayıtlı araç sayısı (beklenen: 51)
 node -e "import('./packages/core/src/index.js').then(async m => { const r = await m.createRegistry({ cfg: m.DEFAULT_CONFIG }); console.log(r.tools.length) })"
 
 # Varsayılan beceri kaynakları (beklenen: 9 github: kaynağı)

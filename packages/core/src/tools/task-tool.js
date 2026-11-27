@@ -44,9 +44,9 @@ export const task = {
           (review ? REVIEW_RULE : 'Finish with a concise summary.') },
       { role: 'user', content: review ? JSON.stringify({ target, task: prompt }) : prompt },
     ];
-    const childRegistry = createRegistry({ cfg: ctx.cfg, approve: ctx.approve, disableTools: ['task', 'research_hypothesis'] });
+    const childRegistry = createRegistry({ cfg: ctx.cfg, approve: ctx.approve, disableTools: ['task', 'research_hypothesis', 'research_memory', 'research_lesson'] });
     if (review) {
-      const allowed = new Set(['read_file','list_dir','search_files','math_eval','unit_convert','physical_constants','stats_calc','matrix_ops','molar_mass','csv_stats','lit_search','lit_fulltext','lit_verify','lit_quote','lit_quote_text','lit_pdf_provenance','lit_stats_check','lit_audit']);
+      const allowed = new Set(['read_file','list_dir','search_files','math_eval','unit_convert','physical_constants','stats_calc','matrix_ops','molar_mass','csv_stats','lit_search','lit_fulltext','lit_verify','lit_quote','lit_quote_text','lit_pdf_provenance','lit_stats_check','lit_audit','research_causal','research_uncertainty','research_reproduce','research_conflicts']);
       childRegistry.tools = childRegistry.tools.filter(t => allowed.has(t.name) && !t.needsApproval);
     }
     const relay = ev => {
@@ -56,7 +56,7 @@ export const task = {
     const res = await runAgentLoop({
       provider: childProvider, registry: childRegistry, messages: childMessages,
       maxSteps: Math.min(Number(ctx.maxSteps) || 15, 15), onEvent: relay, signal,
-      grounding: !review, requireIndependentReview: false,
+      grounding: !review, requireIndependentReview: false, researchHooks: false,
       systemExtra: review ? 'Eligible tool output carries [Evidence ID: E<number>]. Cite those IDs in the JSON evidence array.' : undefined,
     });
     onEvent?.({ type: 'task_end', prompt, role, done: res.done && !res.unverified });

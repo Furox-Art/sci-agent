@@ -49,3 +49,10 @@ export function createRegistry({ cfg, approve, disableTools = [] } = {}) {
     cfg,
   });
 }
+
+export { causalAnalysis, experimentDesign } from './science/causal-design.js';
+export { propagateUncertainty, reproduceEvidence } from './science/uncertainty-replay.js';
+export { semanticConflicts } from './science/semantic-check.js';
+export { saveResearch, getResearch, searchResearch } from './science/research-memory.js';
+export { lessonGate } from './science/lesson-bridge.js';
+export { routeTools } from './science/tool-routing.js';

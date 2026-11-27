@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 // Deliberately conservative: a tool invocation or arbitrary printed text is not proof.
 // Only these built-in results are candidates for literal claim linkage.
-const COMPUTE = new Set(['math_eval', 'unit_convert', 'physical_constants', 'stats_calc', 'matrix_ops', 'molar_mass', 'csv_stats']);
+const COMPUTE = new Set(['math_eval', 'unit_convert', 'physical_constants', 'stats_calc', 'matrix_ops', 'molar_mass', 'csv_stats', 'research_uncertainty']);
 const LITERATURE = new Set(['lit_search', 'lit_fulltext']);
 const failure = /^(?:\s*(?:error\b|failed\b|unknown tool|user denied|no results|no numeric data)|.*\b(?:column not found|no numeric data|no results found)\b)/im;
 const hash = s => createHash('sha256').update(s).digest('hex');
@@ -20,7 +20,7 @@ function includesLiteral(output, quote) {
   let at = s.indexOf(q);
   while (at >= 0) {
     const before = s[at - 1], after = s[at + q.length];
-    const numericContinuation = /\d$/.test(q) && /[.,]/.test(after ?? '') && /\d/.test(s[at + q.length + 1] ?? '');
+    const numericContinuation = /\d$/.test(q) && ((/[.,]/.test(after ?? '') && /\d/.test(s[at + q.length + 1] ?? '')) || /^[eE][+-]?\d/.test(s.slice(at + q.length)));
     const numericPrefix = /^\d/.test(q) && (/[+-]/.test(before ?? '') || (/[.,]/.test(before ?? '') && /\d/.test(s[at - 2] ?? '')));
     if (!numericContinuation && !numericPrefix && !(isWord(q[0]) && isWord(before)) && !(isWord(q.at(-1)) && isWord(after))) return true;
     at = s.indexOf(q, at + 1);
@@ -34,6 +34,7 @@ export class ResearchState {
   #reviews = [];
   #claims = [];
   #rejectedClaims = [];
+  #analyses = [];
   record(id, tool, args, result) {
     if (this.#evidence.has(id) || (!COMPUTE.has(tool) && !LITERATURE.has(tool))) return null;
     if (result?.ok !== true || result.truncated || typeof result.output !== 'string' ||
@@ -41,6 +42,9 @@ export class ResearchState {
     const output = result.output;
     // Search headers echo the query; only returned paper metadata is evidence.
     let matchText = output;
+    if (tool === 'research_uncertainty') {
+      matchText = output.split('\n').filter(line => /^(standardUncertainty|variance|expandedUncertainty) = [-+]?\d/.test(line)).join('\n');
+    }
     if (tool === 'lit_search') {
       matchText = output.split('\n').filter(line => /^\s*DOI:\s*10\.\d{4,9}\//i.test(line)).join('\n');
     }
@@ -76,6 +80,9 @@ export class ResearchState {
       const linked = this.evidence(ref, claim.snippet, claim.kind);
       this.#claims.push({ ...claim, evidenceId: linked ? ref : null, linkage: linked ? 'literal_match' : 'unsupported', review: this.consensus(claim.snippet) });
       if (!linked) return [{ ...claim, reason: 'missing_or_nonmatching_evidence' }];
+      if (this.#analyses.some(a => a.tool === 'research_reproduce' && a.result.evidenceId === ref && a.result.status === 'mismatch')) {
+        return [{ ...claim, reason: 'independent_reproduction_mismatch' }];
+      }
       if (this.consensus(claim.snippet) === 'contested') return [{ ...claim, reason: 'review_contested' }];
       if (requireReview && this.consensus(claim.snippet) !== 'supported') {
         return [{ ...claim, reason: 'independent_review_required' }];
@@ -135,11 +142,15 @@ export class ResearchState {
     const verifiers = relevant.filter(r => r.role === 'verifier' && r.verdict === 'support');
     return reviewers.some(a => verifiers.some(b => distinctModels(a.model, b.model))) ? 'supported' : 'unresolved';
   }
+  recordAnalysis(tool,args,result) {
+    this.#analyses.push(structuredClone({tool,args,result}));
+  }
   snapshot() {
     return structuredClone({
       evidence: [...this.#evidence.values()].sort((a,b) => Number(a.id.slice(1)) - Number(b.id.slice(1))),
       claims: this.#claims,
       rejectedClaims: this.#rejectedClaims,
+      analyses: this.#analyses,
       hypotheses: [...this.#hypotheses.values()],
       reviews: this.#reviews,
       consensus: [...new Set(this.#reviews.map(r => r.target))].map(target => ({ target, status: this.consensus(target) })),

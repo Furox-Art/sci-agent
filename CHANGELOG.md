@@ -5,6 +5,9 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- Eight research-methodology tools: causal DAG/backdoor analysis, reproducible experimental allocation and approximate power planning, covariance-aware uncertainty propagation, independent numerical replay, controlled semantic contradiction detection, persistent local research memory, actual pinned Lesson-gate integration, and intent-based tool routing.
+- CLI `/memory` and `/lesson` inspection; optional memory auto-save and fail-closed lesson preflight; reproduction mismatch prevents release of linked claims.
+- SHA-256 memory verification, scientific-notation grounding, and regression tests for the new methodology tools.
 - Run-local claim/evidence graph with explicit references, source output hashes, failure/truncation filtering, and withholding of unsupported final text.
 - Hypothesis state machine with optional predeclared deterministic compute criteria and conflicting findings retained.
 - Distinct configured reviewer and verifier providers, structured evidence-linked verdicts, optional strict consensus gate, and CLI `/research` inspection.

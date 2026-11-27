@@ -1,3 +1,6 @@
+import { lessonGate, captureGroundingLesson } from './science/lesson-bridge.js';
+import { saveResearch } from './science/research-memory.js';
+import { routeTools } from './science/tool-routing.js';
 import { ResearchState } from './science/research-state.js';
 /**
  * Ajan döngüsü: modeli çağırır, araç çağrılarını çalıştırır, sonuçları modele geri verir.
@@ -50,16 +53,16 @@ const runWithConcurrency = async (items, worker, limit) => {
  * gate requires literal, run-local evidence linkage for each detected claim.
  */
 const CLAIM_PATTERNS = [
-  { kind: 'statistics', re: /\bp\s*[=<>≤≥]\s*0?\.\d+/i },
+  { kind: 'statistics', re: /\bp\s*[=<>≤≥]\s*(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?/i },
   { kind: 'statistics', re: /\b(?:95\s*%\s*CI|confidence interval|standard deviation|\bSD\b|\bSEM\b)/ },
   { kind: 'statistics', re: /\b(?:n|N)\s*=\s*\d+/ },
   { kind: 'statistics', re: /\b(?:odds ratio|hazard ratio|relative risk|effect size|R²|R2|χ²|chi-square)\b/i },
   {
     kind: 'measurement',
-    re: /-?\d+(?:[.,]\d+)?\s?(?:mg|kg|µg|ug|ng|pg|mL|ml|L|µL|uL|nL|mmol|mol|µmol|umol|nmol|nM|µM|uM|mM|M|K|°C|°F|Pa|kPa|MPa|J|kJ|W|kW|Hz|kHz|MHz|GHz|eV|keV|MeV|nm|µm|um|pm|mm|cm|km|m\/s|m\/s²|rpm|Da|kDa|ppm|ppb|mol\/L)(?:\/(?:kg|g|L|mL|m|s|min|h))?(?![\w-])/,
+    re: /[-+]?(?:\d+(?:[.,]\d+)?|\.\d+)(?:[eE][+-]?\d+)?\s?(?:mg|kg|µg|ug|ng|pg|mL|ml|L|µL|uL|nL|mmol|mol|µmol|umol|nmol|nM|µM|uM|mM|M|K|°C|°F|Pa|kPa|MPa|J|kJ|W|kW|Hz|kHz|MHz|GHz|eV|keV|MeV|nm|µm|um|pm|mm|cm|km|m\/s|m\/s²|rpm|Da|kDa|ppm|ppb|mol\/L)(?:\/(?:kg|g|L|mL|m|s|min|h))?(?![\w-])/,
   },
-  { kind: 'measurement', re: /\d+(?:[.,]\d+)?\s?%|%\s?\d+(?:[.,]\d+)?/ },
-  { kind: 'equation', re: /[A-Za-zα-ωΑ-Ω][\w]*\s*=\s*-?\d+(?:[.,]\d+)?/ },
+  { kind: 'measurement', re: /[-+]?(?:\d+(?:[.,]\d+)?|\.\d+)(?:[eE][+-]?\d+)?\s?%|%\s?[-+]?(?:\d+(?:[.,]\d+)?|\.\d+)(?:[eE][+-]?\d+)?/ },
+  { kind: 'equation', re: /[A-Za-zα-ωΑ-Ω][\w]*\s*=\s*[-+]?(?:\d+(?:[.,]\d+)?|\.\d+)(?:[eE][+-]?\d+)?/ },
   { kind: 'literature', re: /\b10\.\d{4,9}\/[^\s)]+/ },
   { kind: 'literature', re: /\b(?:et al\.|PMID:?\s*\d+|arXiv:\s*\d{4}\.\d{4,5})/i },
 ];
@@ -98,8 +101,8 @@ export function scanClaims(text) {
 export function findUngroundedClaims(text, max = 5) {
   return scanClaims(text).slice(0, max).map(({kind,snippet}) => ({kind,snippet}));
 }
-const GROUNDING_RULE = 'Grounding check: attach [E<number>] immediately after every detected scientific claim; use the exact text from a successful eligible tool result. Never invent evidence IDs. Use CLAIM: exact passage [E<number>] on its own line for qualitative source claims. Literal linkage is not semantic proof. If no evidence is available, explain that without repeating unsupported figures. For complex research, register alternatives and falsifiers with research_hypothesis; predeclare compute tests (tool, args, support/refute output criteria) where possible, then execute the tools; assess each with evidence, and use reviewer/verifier roles when configured.';
-export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent, grounding = true, requireIndependentReview = registry?.cfg?.agent?.requireIndependentReview === true } = {}) {
+const GROUNDING_RULE = 'Grounding check: attach [E<number>] immediately after every detected scientific claim; use the exact text from a successful eligible tool result. Never invent evidence IDs. Use CLAIM: exact passage [E<number>] on its own line for qualitative source claims. Literal linkage is not semantic proof. If no evidence is available, explain that without repeating unsupported figures. For complex research, register alternatives and falsifiers with research_hypothesis; predeclare compute tests (tool, args, support/refute output criteria) where possible, then execute the tools; assess each with evidence, and use reviewer/verifier roles when configured. For relevant tasks use research_causal (DAG), research_experiment (design), research_uncertainty (propagation), research_reproduce (independent replay), and research_conflicts (structured contradictions). Use research_memory only with approval; stored evidence is historical, not current verification. If a shortlist lacks a needed tool call research_route to recover the full catalog.';
+export async function runAgentLoop({ provider, registry, messages, onEvent = () => {}, maxSteps = 25, signal, systemExtra, maxConcurrent, grounding = true, requireIndependentReview = registry?.cfg?.agent?.requireIndependentReview === true, researchHooks = true } = {}) {
   // Effective tool-concurrency limit for this run: caller-provided `maxConcurrent` when
   // it is a positive integer, otherwise DEFAULT_MAX_CONCURRENT (4).
   const concurrency = Number.isInteger(maxConcurrent) && maxConcurrent >= 1 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
@@ -107,6 +110,43 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
   let malformedStreak = 0;
   // Run-local evidence graph and one repair attempt.
   const research = new ResearchState();
+  const agentCfg = registry?.cfg?.agent;
+  const root = registry?.workspaceRoot;
+  const lessonEnabled = researchHooks && agentCfg?.lessonGate?.enabled === true;
+  const autoMemory = researchHooks && agentCfg?.researchMemory?.autoSave === true;
+  const query = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  const finish = async result => {
+    const snapshot = result.research;
+    if (lessonEnabled && result.unverified) {
+      try {
+        const capture = await captureGroundingLesson(root);
+        if(capture.code!==0)throw new Error(capture.diagnostic || capture.output || 'Lesson capture failed');
+        result.lessonCapture = capture;
+      } catch(e) { result.lessonError = e.message; onEvent({type:'warning',text:'Lesson capture failed: '+e.message}); }
+    }
+    if (autoMemory && snapshot && ['evidence','hypotheses','reviews','analyses','rejectedClaims'].some(k=>snapshot[k]?.length)) {
+      try {
+        result.memory = await saveResearch(root,snapshot,{status:result.unverified?'withheld':result.done?'completed':'partial'});
+        onEvent({type:'info',text:'Research memory saved: '+result.memory.id});
+      } catch(e) { result.memoryError=e.message;onEvent({type:'warning',text:'Research memory save failed: '+e.message}); }
+    }
+    return result;
+  };
+  const checkLessons = async () => {
+    try {
+      const result = await lessonGate(root,'preflight');
+      if(result.code===0)return null;
+      return result;
+    } catch(e){return {code:2,output:'',diagnostic:e.message};}
+  };
+  const blockedLessons = (steps,lesson) => {
+    onEvent({type:'error',reason:'lesson_gate_blocked',text:'Lesson-gate blocked completion: '+(lesson.output || lesson.diagnostic || 'unknown failure')});
+    return finish({done:false,steps,lessonBlocked:true,lesson,research:research.snapshot()});
+  };
+  if (lessonEnabled) {
+    const failure=await checkLessons();
+    if(failure)return blockedLessons(0,failure);
+  }
   let sequence = 0;
   let groundingNudge = false;
   const rejectedDrafts = new Set();
@@ -115,7 +155,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
   const abortRun = (steps) => {
     cleanDrafts();
     onEvent({ type: 'error', text: 'Run aborted before completion.', reason: 'aborted' });
-    return { done: false, aborted: true, steps, research: research.snapshot() };
+    return finish({ done: false, aborted: true, steps, research: research.snapshot() });
   };
   for (let step = 0; step < maxSteps; step++) {
     if (signal?.aborted) return abortRun(step);
@@ -129,15 +169,20 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
           ? messages.map((m, i) => (i === 0 ? { ...m, content: `${m.content}\n\n${effectiveSystemExtra}` } : m))
           : [{ role: 'system', content: effectiveSystemExtra }, ...messages]
         : messages;
+    const schemas = registry.schemas();
+    const routed = agentCfg?.toolRouting?.enabled === true
+      ? routeTools(schemas,query,{shortlist:agentCfg.toolRouting.shortlist===true && step===0 && maxSteps>1})
+      : {schemas,prioritized:[],mode:'full'};
+    if(step===0 && routed.prioritized.length)onEvent({type:'info',text:'Research tool routing ('+routed.mode+'): '+routed.prioritized.join(', ')});
     let res;
     const textChunks = [];
     try {
       res = await provider.chat({
         messages: chatMessages,
-        tools: registry.schemas(),
+        tools: routed.schemas,
         signal,
         onChunk: (c) => {
-          if (c.type === 'text_delta') { if (grounding) textChunks.push(c.text); else onEvent({ type: 'text_delta', text: c.text }); }
+          if (c.type === 'text_delta') { if (grounding || lessonEnabled) textChunks.push(c.text); else onEvent({ type: 'text_delta', text: c.text }); }
           else if (c.type === 'reasoning_delta') onEvent({ type: 'reasoning_delta', text: c.text });
           else if (c.type === 'info') onEvent({ type: 'info', text: c.text });
         },
@@ -163,7 +208,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     // Grounding buffers final text until validation; ungrounded mode preserves live streaming.
     if (res.reasoning && !res.streamed) onEvent({ type: 'reasoning', text: res.reasoning });
     const publishText = () => {
-      if (grounding && res.streamed) for (const text of textChunks) onEvent({ type: 'text_delta', text });
+      if ((grounding || lessonEnabled) && res.streamed) for (const text of textChunks) onEvent({ type: 'text_delta', text });
       else if (res.content && !res.streamed) onEvent({ type: 'text', text: res.content });
     };
     if (!toolCalls.length) {
@@ -190,14 +235,22 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
         });
         cleanDrafts();
         messages.push({ role: 'assistant', content: 'Scientific result withheld: evidence or review was insufficient.' });
-        return { done: false, steps: step + 1, unverified: true, unverifiedClaims: claims, research: research.snapshot() };
+        return finish({ done: false, steps: step + 1, unverified: true, unverifiedClaims: claims, research: research.snapshot() });
       }
       cleanDrafts();
+      if (lessonEnabled) {
+        const failure=await checkLessons();
+        if(failure){
+          const index=messages.indexOf(assistant);
+          if(index>=0)messages.splice(index,1);
+          return blockedLessons(step+1,failure);
+        }
+      }
       publishText();
-      return { done: true, steps: step + 1, research: research.snapshot() };
+      return finish({ done: true, steps: step + 1, research: research.snapshot() });
     }
 
-    if (!grounding) publishText();
+    if (!grounding && !lessonEnabled) publishText();
     // Bozuk çağrı: adı eksik/bilinmiyor veya argümanlar geçersiz JSON. Çalıştırılmaz;
     // o çağrı için temiz hata gözlemi modele döner ve döngü sürer.
     const isMalformed = (tc) => {
@@ -300,12 +353,12 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     if (malformedStreak >= 3) {
       cleanDrafts();
       onEvent({ type: 'error', text: 'Stopped after 3 consecutive malformed tool calls.', reason: 'malformed_tool_calls' });
-      return { done: false, steps: step + 1, research: research.snapshot() };
+      return finish({ done: false, steps: step + 1, research: research.snapshot() });
     }
   }
   cleanDrafts();
   onEvent({ type: 'error', text: `Step limit exceeded (${maxSteps}); loop stopped.` });
-  return { done: false, steps: maxSteps, research: research.snapshot() };
+  return finish({ done: false, steps: maxSteps, research: research.snapshot() });
 }
 
 export function buildSystemPrompt(cfg) {

@@ -2,7 +2,7 @@ import readline from 'node:readline';
 import path from 'node:path';
 import { readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin } from '@sci/core';
+import { loadConfig, createProvider, createRegistry, runAgentLoop, buildSystemPrompt, groupTools, fetchSkill, listPlugins, getPlugin, saveResearch, getResearch, searchResearch, lessonGate } from '@sci/core';
 import { buildSteering } from '../../core/src/eq/eq-layer.js';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -19,6 +19,8 @@ const HELP = [
   '  /sessions [no|del no|ren no title]  list / switch / delete / rename sessions',
   '  /save     save chat as .md',
   '  /research inspect latest run evidence, hypotheses and reviews',
+  '  /memory save [label] | search [query] | get <id>',
+  '  /lesson stats | preflight | export',
   '  /test     test model connection',
   '  /exit     exit',
 ].join('\n');
@@ -215,6 +217,7 @@ export async function startRepl(argv = []) {
   };
 
   let latestResearch = null;
+  let latestResearchStatus = 'partial';
   async function handle(input) {
     latestResearch = null;
     messages.push({ role: 'user', content: input });
@@ -234,6 +237,7 @@ export async function startRepl(argv = []) {
       const provider = createProvider(cfg.model);
       const result = await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
       latestResearch = result.research;
+      latestResearchStatus = result.unverified ? 'withheld' : result.done ? 'completed' : 'partial';
     } catch (e) {
       console.log(red(`Error: ${e.message}`));
     }
@@ -279,6 +283,28 @@ export async function startRepl(argv = []) {
       if (input === '/help') console.log(HELP);
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(set)' : '' }, null, 2));
+      } else if (input === '/memory' || input.startsWith('/memory ')) {
+        busy = true;
+        try {
+          const [action,...tail]=input.slice('/memory'.length).trim().split(/\s+/);
+          const value=tail.join(' ');
+          if(action==='save'){
+            if(!latestResearch)throw new Error('No latest research snapshot');
+            console.log(JSON.stringify(await saveResearch(cfg.agent.workspaceRoot,latestResearch,{label:value,status:latestResearchStatus}),null,2));
+          } else if(action==='search'||!action){
+            console.log(JSON.stringify(await searchResearch(cfg.agent.workspaceRoot,value),null,2));
+          } else if(action==='get'){
+            console.log(JSON.stringify(await getResearch(cfg.agent.workspaceRoot,value),null,2));
+          } else throw new Error('Usage: /memory save [label] | search [query] | get <id>');
+        } finally { busy = false; }
+      } else if (input === '/lesson' || input.startsWith('/lesson ')) {
+        const action=input.slice('/lesson'.length).trim() || 'stats';
+        if(!['stats','preflight','export'].includes(action))throw new Error('Usage: /lesson stats | preflight | export');
+        busy = true;
+        try {
+          const result=await lessonGate(cfg.agent.workspaceRoot,action);
+          console.log(result.code===0?result.output:red(result.output||result.diagnostic));
+        } finally { busy = false; }
       } else if (input === '/research') {
         console.log(latestResearch ? JSON.stringify(latestResearch, null, 2) : 'No research state for the latest run.');
       } else if (input === '/tools' || input.startsWith('/tools ')) {
@@ -331,6 +357,7 @@ export async function startRepl(argv = []) {
               unlinkSync(f.path);
             } catch {}
             if (wasCurrent) {
+              latestResearch = null;
               messages.length = 0;
               messages.push({ role: 'system', content: buildSystemPrompt(cfg) });
               sessionFile = null;
@@ -358,6 +385,7 @@ export async function startRepl(argv = []) {
             const d = JSON.parse(readFileSync(f.path, 'utf8'));
             sessionFile = f.path;
             sessionTitle = d.title ?? 'default';
+            latestResearch = null;
             messages.length = 0;
             messages.push(...(Array.isArray(d.messages) ? d.messages : []));
             loadedMsgs = messages.length;
@@ -479,6 +507,7 @@ export async function startRepl(argv = []) {
           }
         }
       } else if (input === '/clear') {
+        latestResearch = null;
         messages.splice(1);
         saveHistory();
         console.log(dim('Chat cleared (history file was also reset).'));

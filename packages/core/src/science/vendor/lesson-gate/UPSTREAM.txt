@@ -1,0 +1,1 @@
+Unmodified upstream Furox-Art/lesson-gate, commit d947fa8d6b71fe19f11b493d885cf65958a2d6a5 (MIT).

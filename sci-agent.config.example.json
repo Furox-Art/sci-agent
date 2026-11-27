@@ -11,7 +11,17 @@
     "maxSteps": 25,
     "workspaceRoot": ".",
     "roleModels": {},
-    "requireIndependentReview": false
+    "requireIndependentReview": false,
+    "researchMemory": {
+      "autoSave": false
+    },
+    "lessonGate": {
+      "enabled": false
+    },
+    "toolRouting": {
+      "enabled": true,
+      "shortlist": false
+    }
   },
   "plugins": [
     "sci-tools",
