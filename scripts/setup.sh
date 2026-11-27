@@ -63,6 +63,5 @@ cd "$ROOT"
 node -e "import('./packages/core/src/plugins.js').then(m => { const ps = m.listPlugins(); const tools = ps.reduce((n,p) => n + (m.getPlugin(p.name)?.tools ?? []).length, 0); console.log('plugins: ' + ps.length); console.log('plugin tools: ' + tools); })"
 echo
 echo "SciAgent is ready."
-echo "  Desktop UI:  npm run server   (or: SCI_AGENT_PORT=8931 node packages/desktop/server.js)"
 echo "  CLI:         npm run cli -- --help"
 echo "  Tests:       npm test"

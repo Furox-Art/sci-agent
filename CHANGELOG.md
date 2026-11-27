@@ -2,6 +2,11 @@
 
 All notable changes to SciAgent. Versions follow the root `package.json`.
 
+## Unreleased
+
+### Removed
+- Desktop/Electron application, local web server, UI assets, desktop-only tests and helper scripts. CLI, scientific core, session format and example datasets remain.
+
 ## 0.10.7 — 2026-11-09
 
 ### Added

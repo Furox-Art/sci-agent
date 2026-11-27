@@ -68,7 +68,6 @@ Push-Location $PSScriptRoot\..
 try {
   & node -e "import('./packages/core/src/plugins.js').then(m => { const ps = m.listPlugins(); const tools = ps.reduce((n,p) => n + (m.getPlugin(p.name)?.tools ?? []).length, 0); console.log('plugins: ' + ps.length); console.log('plugin tools: ' + tools); })"
   Write-Host "`nSciAgent is ready."
-  Write-Host "  Desktop UI:  npm run server   (or: SCI_AGENT_PORT=8931 node packages/desktop/server.js)"
   Write-Host "  CLI:         npm run cli -- --help"
   Write-Host "  Tests:       npm test"
 } finally {

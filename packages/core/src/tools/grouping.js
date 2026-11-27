@@ -1,4 +1,4 @@
-// Araç kategorileri: CLI ve masaüstü aynı gruplamayı paylaşır.
+// Araç kategorileri: CLI gruplaması.
 
 const SCIENTIFIC = new Set([
   'python_eval',

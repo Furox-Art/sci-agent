@@ -30,7 +30,7 @@ export async function startRepl(argv = []) {
   const cfg = loadConfig(workspace);
   const messages = [{ role: 'system', content: buildSystemPrompt(cfg) }];
 
-  // Shared session history (same store as the desktop app): most recent session file
+  // Session history: most recent session file
   const sessionsDir = path.join(cfg.agent.workspaceRoot, '.sci-agent-sessions');
   let sessionFile = null;
   let sessionTitle = 'default';
@@ -276,7 +276,7 @@ export async function startRepl(argv = []) {
       else if (input === '/model') {
         console.log(JSON.stringify({ ...cfg.model, apiKey: cfg.model.apiKey ? '(set)' : '' }, null, 2));
       } else if (input === '/tools' || input.startsWith('/tools ')) {
-        // Optional filter, same semantics as the desktop tool search: terms separated
+        // Optional filter: terms separated
         // by | are OR'd, space-separated words are AND'd (case-insensitive substrings).
         const filter = input.slice('/tools'.length).trim().toLowerCase();
         const terms = filter.split('|').map((s) => s.trim()).filter(Boolean);

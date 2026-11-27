@@ -83,7 +83,7 @@ test('--version, -v and --help exit 0 with the root package.json version (spawnS
   assert.match(h.stdout, /--workspace/, '--help lists --workspace');
 });
 
-test('/tools [filter] narrows the listing like the desktop tool search (piped stdin, no TTY)', async (t) => {
+test('/tools [filter] narrows the tool listing (piped stdin, no TTY)', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-repl-tools-'));
   t.after(async () => {
     await fs.rm(root, { recursive: true, force: true });
@@ -95,7 +95,7 @@ test('/tools [filter] narrows the listing like the desktop tool search (piped st
   // Same registry the REPL builds: used to compute the expected filter results.
   const tools = createRegistry({ cfg: loadConfig(root), approve: async () => true }).list();
   const expectedNames = (q) => {
-    // Desktop UI semantics: terms separated by | are OR'd, space-separated words are AND'd.
+    // Filter semantics: terms separated by | are OR'd, space-separated words are AND'd.
     const terms = String(q).toLowerCase().split('|').map((s) => s.trim()).filter(Boolean);
     return tools
       .filter((t) => {

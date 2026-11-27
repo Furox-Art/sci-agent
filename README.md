@@ -2,17 +2,9 @@
   <img src="docs/assets/logo.png" alt="SciAgent — bilimsel kodlama ajanı" width="560" />
 </div>
 
-Model-bağımsız, Claude benzeri bütünleşik bir kodlama ajanı: **çekirdek motor + CLI + masaüstü arayüz**. Özel bilimsel modelinizi OpenAI uyumlu bir API üzerinden bağlarsınız; ajan dosya okuma/yazma, arama ve terminal komutlarını **onay mekanizmasıyla** çalıştırır.
+Model-bağımsız, Claude benzeri bütünleşik bir kodlama ajanı: **çekirdek motor + CLI**. Özel bilimsel modelinizi OpenAI uyumlu bir API üzerinden bağlarsınız; ajan dosya okuma/yazma, arama ve terminal komutlarını **onay mekanizmasıyla** çalıştırır.
 
 [![tests](https://github.com/Furox-Art/sci-agent/actions/workflows/test.yml/badge.svg)](https://github.com/Furox-Art/sci-agent/actions/workflows/test.yml)
-
-## Ekran Görüntüleri
-
-| Sohbet + Hero | Araçlar |
-|---|---|
-| ![Sohbet](docs/screenshots/sohbet.png) | ![Araçlar](docs/screenshots/araclar.png) |
-| **Grafikler** | **Ajanlar** |
-| ![Grafikler](docs/screenshots/grafikler.png) | ![Ajanlar](docs/screenshots/ajanlar.png) |
 
 ## Mimari
 
@@ -20,8 +12,7 @@ Model-bağımsız, Claude benzeri bütünleşik bir kodlama ajanı: **çekirdek 
 sci-agent/
 ├─ packages/
 │  ├─ core/      # Ajan motoru: sağlayıcı arayüzü, araç sistemi, onay politikası, döngü
-│  ├─ cli/       # Terminal arayüzü (sci-agent komutu)
-│  └─ desktop/   # Yerel sunucu (SSE) + web arayüzü + Electron kabuğu
+│  └─ cli/       # Terminal arayüzü (sci-agent komutu)
 └─ test/         # node:test ile otomatik testler
 ```
 
@@ -39,17 +30,10 @@ sci-agent/
 npm install
 ```
 
-Masaüstü uygulaması için (Electron ikilisini indirir):
-
-```bash
-npm install --save-dev electron --workspace packages/desktop
-```
-
 ## Model bağlama
 
 1. `sci-agent.config.example.json` dosyasını `sci-agent.config.json` olarak kopyalayın ve düzenleyin (bu dosya git'e girmez).
 2. Ya da ortam değişkenleri: `SCI_AGENT_BASE_URL`, `SCI_AGENT_API_KEY`, `SCI_AGENT_MODEL`, `SCI_AGENT_PROVIDER`.
-3. Ya da masaüstü arayüzünde **Ayarlar** panelinden girin.
 
 Örnek — Ollama:
 
@@ -60,17 +44,15 @@ SCI_AGENT_BASE_URL=http://localhost:11434/v1 SCI_AGENT_MODEL=komut-satiri-modeli
 Örnek — vLLM üzerinde barındırılan bilimsel model:
 
 ```bash
-SCI_AGENT_BASE_URL=http://sunucu:8000/v1 SCI_AGENT_API_KEY=... SCI_AGENT_MODEL=bilimsel-model npm run server
+SCI_AGENT_BASE_URL=http://sunucu:8000/v1 SCI_AGENT_API_KEY=... SCI_AGENT_MODEL=bilimsel-model npm run cli
 ```
 
-Henüz model yoksa `SCI_AGENT_PROVIDER=mock` ile betikli sahte model kullanılabilir (arayüzü denemek için).
+Henüz model yoksa `SCI_AGENT_PROVIDER=mock` ile betikli sahte model kullanılabilir (CLI’ı denemek için).
 
 ## Kullanım
 
 ```bash
 npm run cli        # terminal ajanı (sci-agent)
-npm run server     # tarayıcıda arayüz: http://127.0.0.1:8765
-npm run desktop    # Electron penceresi
 npm test           # otomatik testler
 ```
 
@@ -78,11 +60,9 @@ npm test           # otomatik testler
 
 ```bash
 gh repo clone Furox-Art/sci-agent ~/sci-agent
-cd ~/sci-agent && ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install
-SCI_AGENT_PROVIDER=mock SCI_AGENT_PORT=8932 node packages/desktop/server.js
+cd ~/sci-agent && npm ci
+SCI_AGENT_PROVIDER=mock npm run cli
 ```
-
-Not: WSL sunucusuna Windows'tan erişim WSL2 localhost forwarding ayarına bağlıdır; WSL içinde `curl http://127.0.0.1:8932/api/health` ile doğrulayabilirsin. CLI da aynı şekilde WSL'de çalışır (`node packages/cli/bin/sci-agent.js --version`).
 
 ### CLI
 
@@ -97,7 +77,7 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/help` | komut listesi |
 | `/model` | model/yapılandırma bilgisi |
 | `/tools` | araç listesi (ajan araçları turkuaz işaretli) |
-| `/tools <filtre>` | ad/açıklamada arama: boşluk = VE, `\|` = VEYA (masaüstü aramasıyla aynı) |
+| `/tools <filtre>` | ad/açıklamada arama: boşluk = VE, `\|` = VEYA |
 | `/sessions` | oturum listesi |
 | `/sessions <no>` | oturuma geç |
 | `/sessions del <no>` | oturumu sil |
@@ -107,21 +87,17 @@ node packages/cli/bin/sci-agent.js --workspace <dizin>
 | `/clear` | sohbeti temizle (dosya kaydı da sıfırlanır) |
 | `/exit` | çıkış |
 
-CLI, masaüstü uygulamasıyla **aynı oturum deposunu** (`.sci-agent-sessions/`) paylaşır: uygulamada bıraktığın sohbeti terminalde sürdürebilirsin. Akışlı yanıtlar, alt-ajan olayları (`▶ ■ ↳`) ve eq-layer yönlendirmesi terminalde de aktiftir; onay isteyen araçlar terminalde `e/h` sorar.
+CLI oturumları `.sci-agent-sessions/` dizininde saklar; mevcut oturum dosyaları kullanılmaya devam eder. Akışlı yanıtlar, alt-ajan olayları (`▶ ■ ↳`) ve eq-layer yönlendirmesi terminalde de aktiftir; onay isteyen araçlar terminalde `e/h` sorar.
 
 ### Örnek veriler
 
-Grafikler görünümünde denemek için `examples/` altında üç hazır CSV var (yol yaz veya "load example" düğmesini kullan):
+CLI üzerinden `csv_stats` ve diğer bilimsel araçlarla denemek için `examples/` altında üç hazır CSV var:
 
 | Dosya | İçerik | Beklenen eğri |
 |---|---|---|
 | `examples/veri.csv` | 3 aylık sıcaklık/nem/basınç serisi | Çok serili çizgi |
 | `examples/kinetics.csv` | Birinci mertebe tepkime: konsantrasyon + ln[C] (k = 0.035/dk) | Üstel bozunum + ln'de düz çizgi |
 | `examples/titration.csv` | Zayıf asit titrasyonu (0.010 M asetik asit, eşdeğerlik 12.5 mL) | Eşdeğerlikte dik sıçramalı S eğrisi |
-
-| Kinetics | Titration |
-|---|---|
-| ![Kinetics eğrisi](docs/screenshots/ornek-kinetics.png) | ![Titration eğrisi](docs/screenshots/ornek-titration.png) |
 
 ## Araçlar
 
@@ -170,7 +146,7 @@ Grafikler görünümünde denemek için `examples/` altında üç hazır CSV var
 | `polyglot_cli` | evet | polyglot-python CLI: kendi dilinde Python — TR dahil 8 dil transpiler (run/translate/check/locales) |
 | `eq_route` | hayır | eq-layer routing: mesaj için niyet/duygu/repair analizi ve yönlendirme önerisi |
 
-Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI ve masaüstü aynı altı gruba ayırır (`packages/core/src/tools/grouping.js`):
+Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI altı gruba ayırır (`packages/core/src/tools/grouping.js`):
 
 - **File & code** — core file and shell operations: read, write, edit, list, search, run.
 - **AI agents** — parallel sub-agents via `task`, each with its own context.
@@ -181,7 +157,7 @@ Kayıtlı toplam **42 araç** (7 çekirdek + 35 eklenti aracı); CLI ve masaüst
 
 **Bilimsel eklentiler** (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) modele hesap yapma, literatür ve doğrulama gücü kazandırır: model işleri uydurmak yerine bu araçlarla yapar.
 
-**Deterministik kanıt kapısı (v0.10.7):** "uydurmaya yasak" yalnızca prompt düzeyinde değil. Bir koşuda **hiç araç çalışmadan** sayısal/istatistik/ölçüm/literatür iddiası içeren bir final yanıt gelirse ajan döngüsü (`packages/core/src/agent.js`) iddiayı yakalar, `warning` olayı yayınlar ve modeli tek turda aracıyla doğrulamaya zorlar; ikinci turda da araç çağrılmazsa sonuç `unverified: true` + `unverifiedClaims` ile işaretlenir ve CLI/masaüstü uyarıyı kırmızı gösterir. `runAgentLoop({ grounding: false })` ile kapatılabilir.
+**Deterministik kanıt kapısı (v0.10.7):** "uydurmaya yasak" yalnızca prompt düzeyinde değil. Bir koşuda **hiç araç çalışmadan** sayısal/istatistik/ölçüm/literatür iddiası içeren bir final yanıt gelirse ajan döngüsü (`packages/core/src/agent.js`) iddiayı yakalar, `warning` olayı yayınlar ve modeli tek turda aracıyla doğrulamaya zorlar; ikinci turda da araç çağrılmazsa sonuç `unverified: true` + `unverifiedClaims` ile işaretlenir ve CLI uyarıyı kırmızı gösterir. `runAgentLoop({ grounding: false })` ile kapatılabilir.
 
 **Kullanıcının açık depolarından entegrasyon** (12 depo bağlı):
 - [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) → `sci-furox` köprü araçları (pip)
@@ -206,7 +182,6 @@ SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın s
 
 - **Kaynak biçimi:** `github:kullanici/depo[/alt/yol]` (genel depolarda çalışır, anahtar gerekmez)
 - **Varsayılan yüklü (9 beceri):** [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) + [eq-layer](https://github.com/Furox-Art/eq-layer) + [polyglot-code-guard](https://github.com/Furox-Art/polyglot-code-guard) + [plan-auditor](https://github.com/Furox-Art/plan-auditor) + [nomosguard](https://github.com/Furox-Art/evidence-ledger-policy-gate) + [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) + [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system) + [axiomize](https://github.com/Furox-Art/axiomize) + [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0)
-- **Uygulama:** Ajanlar görünümü → Beceriler kartından ekle/kaldır
 - **CLI:** `/skills` (listele) · `/skills add github:kullanici/depo` (ekle; `sci-agent.config.json` dosyasına kalıcı yazılır)
 - Yeni beceri eklemek için tek gereken: deponun kökünde (veya belirttiğin alt yolda) geçerli frontmatter'lı bir `SKILL.md`
 
@@ -214,12 +189,10 @@ SciAgent, GitHub depolarındaki ajan becerilerini (SKILL.md) yükleyip ajanın s
 
 Özel bilimsel modeliniz hazır olduğunda yapılacaklar kod değişikliği gerektirmez:
 
-1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`) — ya da arayüzdeki Ayarlar paneli.
-2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve arayüz aynı kalır.
+1. **Modeli bağla:** `sci-agent.config.json` içinde `baseUrl`, `name` (ve gerekirse `apiKey`).
+2. **Model-özellikli eklenti ekle:** `packages/core/src/plugins.js` içindeki `BUILTINS` kaydına yeni bir eklenti tanımla: `tools` (modele özgü araçlar) ve `systemPrompt` (modele özgü davranış). Eklentiyi config'deki `plugins` listesine yaz; çekirdek döngü ve CLI aynı kalır.
 
 Varsayılan sekiz eklenti (`sci-tools`, `sci-extra`, `sci-data`, `sci-chem`, `sci-furox`, `sci-quantum`, `sci-lit`, `sci-audit`) bu kancanın çalışan örnekleridir: 35 bilimsel/kanıt aracı + bilimsel davranış ve akıl yürütme istemleri.
-
-**Masaüstü paketleme (Electron):** `packages/desktop` içinde `npm run dist` ile Windows NSIS installer üretilir (`electron-builder`, config: `packages/desktop/electron-builder.yml`). Çıktı: `packages/desktop/release/SciAgent-<sürüm>-win-x64.exe`. İlk kullanımda kökte bir kez `npm install` gerekir; imza yoktur (Windows SmartScreen uyarı verebilir). Paket içinde `SCI_AGENT_WORKSPACE` env ile workspace seçilir.
 
 ## Verify it yourself
 
@@ -235,7 +208,7 @@ node -e "import('./packages/core/src/index.js').then(async m => { const r = awai
 # Varsayılan beceri kaynakları (beklenen: 9 github: kaynağı)
 node -e "import('./packages/core/src/index.js').then(m => console.log(m.DEFAULT_CONFIG.skills.sources))"
 
-# Test süiti (beklenen: 180 geçer, 0 başarısız, 0 atlanan)
+# CLI ve çekirdek test süiti
 node --test "test/**/*.test.js"
 ```
 
@@ -243,8 +216,7 @@ node --test "test/**/*.test.js"
 
 - [ ] Özel bilimsel model hookup'ı: model kullanıcı tarafından sağlanacak — sağlayıcı bağlama ve gerçek uç noktayla uçtan uca deneme
 - [ ] Daha fazla literatür köprüsü
-- [ ] İmzalama ve otomatik güncelleme (installer hazır: `npm run dist`); tek komut kurulum scriptleri: `scripts/setup.ps1` / `scripts/setup.sh`
-- [ ] WSL ve masaüstü paketleme cilası
+- [ ] CLI kurulumunu iyileştirme (mevcut kurulum betikleri: `scripts/setup.ps1` / `scripts/setup.sh`)
 
 ## Lisans
 
@@ -252,4 +224,4 @@ node --test "test/**/*.test.js"
 
 ## Durum
 
-v0.10.7 — v0.10.6'nın üzerine: Linux/macOS Python betik çözümlemesi (`bin/`, tireli modül adları), alt süreç sızıntısı ve askıda kalma düzeltmeleri, deterministik kanıt kapısı (araçsız sayısal/literatür iddiası → uyarı + doğrulama turu, `unverified` işareti), README/config senkronu ve iki yeni varsayılan beceri (axiomize, scientific-computing-system-2.0). 180 test geçti (atlama yok). Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
+v0.10.7 — v0.10.6'nın üzerine: Linux/macOS Python betik çözümlemesi (`bin/`, tireli modül adları), alt süreç sızıntısı ve askıda kalma düzeltmeleri, deterministik kanıt kapısı (araçsız sayısal/literatür iddiası → uyarı + doğrulama turu, `unverified` işareti), README/config senkronu ve iki yeni varsayılan beceri (axiomize, scientific-computing-system-2.0). Proje yalnızca CLI ve çekirdek motor ile dağıtılır. Gerçek model uç noktasıyla uçtan uca deneme, model bağlandığında yapılmalı.
