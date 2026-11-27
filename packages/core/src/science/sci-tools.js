@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { readSafeText } from '../tools/fs-tools.js';
+import { parseCsv, parseNumericCell } from './csv-parser.js';
 import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { resolvePython } from './pybridge.js';
 
@@ -65,7 +66,7 @@ export const python_eval = {
 export const csv_stats = {
   name: 'csv_stats',
   description:
-    'Computes basic statistics for the numeric columns of a CSV file (n, mean, standard deviation, min, max). Simple CSV: quoted fields are not supported.',
+    'Computes basic statistics for the numeric columns of a CSV file (n, mean, standard deviation, min, max). Supports quoted fields, escaped quotes and multiline records.',
   parameters: {
     type: 'object',
     properties: {
@@ -82,10 +83,7 @@ export const csv_stats = {
   async execute({ path: p, columns }, { workspaceRoot }) {
     const text = await readSafeText(workspaceRoot,p);
     if (text.includes('\0')) throw new Error(`binary file cannot be read: ${p}`);
-    const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
-    if (lines.length < 2) throw new Error('CSV must contain at least a header + 1 row');
-    const header = lines[0].split(',').map((h) => h.trim());
-    const rows = lines.slice(1).map((l) => l.split(','));
+    const { header, rows } = parseCsv(text);
     const wanted = Array.isArray(columns) && columns.length ? columns : header;
     const out = [];
     for (const name of wanted) {
@@ -94,7 +92,7 @@ export const csv_stats = {
         out.push(`${name}: column not found`);
         continue;
       }
-      const nums = rows.map((r) => Number(r[i])).filter((v) => Number.isFinite(v));
+      const nums = rows.map((r) => parseNumericCell(r[i])).filter((v) => v !== null);
       if (!nums.length) {
         out.push(`${name}: no numeric data`);
         continue;

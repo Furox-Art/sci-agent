@@ -88,9 +88,8 @@ export function extraReplay({tool,args,output}){
     const actual=output.startsWith(args.op==='multiply'?'product:\n':'inverse matrix:\n')?readMatrix(output,expected.length,expected[0].length):null;
     const comparisons=expected.flatMap((r,i)=>r.flatMap((v,j)=>{
       const display=scalar(actual?.values[i][j],v,10,'matrix['+i+','+j+']');
-      // The original JSON matrix field has a documented 12-digit formatter and
-      // sub-1e-12 cleaning. Check both renderings rather than trusting one.
-      const literal=scalar(actual?.other[i][j],Math.abs(v)<1e-12?0:v,12,'literal['+i+','+j+']');
+      // Check both renderings without zeroing small nonzero values.
+      const literal=scalar(actual?.other[i][j],v,12,'literal['+i+','+j+']');
       return [display,literal];
     }));
     return {algorithm,comparisons};

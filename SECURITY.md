@@ -18,6 +18,8 @@ guarantee is made.
 
 - Only open trusted project directories. Review the full project configuration,
   installed dependencies, skill text and any requested tool action before use.
+- Programmatic tool calls requiring approval are denied by default unless an
+  explicit approval callback returns true or the tool is explicitly auto-approved.
 - Approved shell and Python code runs with your own local privileges unless
   the optional Linux Bubblewrap execution mode is active. Approval is not
   isolation. The API's embedding application must supply its own approval policy.

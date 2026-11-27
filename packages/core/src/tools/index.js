@@ -18,7 +18,7 @@ export class ToolRegistry {
   constructor({ tools = defaultTools, workspaceRoot, approve, autoApprove = [], cfg } = {}) {
     this.tools = tools;
     this.workspaceRoot = workspaceRoot;
-    this.approve = approve ?? (async () => true);
+    this.approve = approve ?? (async () => false);
     this.autoApprove = autoApprove;
     this.cfg = cfg;
   }
@@ -54,7 +54,7 @@ export class ToolRegistry {
       } catch {
         ok = false;
       }
-      if (!ok) return { ok: false, output: 'User denied the approval; action not performed.' };
+      if (ok !== true) return { ok: false, output: 'User denied the approval; action not performed.' };
     }
     try {
       const ctx = { ...extraCtx, workspaceRoot: this.workspaceRoot, cfg: this.cfg, approve: this.approve, registry: this };

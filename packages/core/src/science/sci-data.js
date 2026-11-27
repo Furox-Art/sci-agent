@@ -1,27 +1,21 @@
 import { readSafeText } from '../tools/fs-tools.js';
+import { parseCsv, parseNumericCell as parseCell } from './csv-parser.js';
 
 /** Scientific data analysis tools: descriptive statistics + small matrix ops (Node built-ins only). */
 
 const MAX_MATRIX = 10;
-const EPS = 1e-12; // singularity threshold for pivots
+// Use exact zero pivots, not an absolute threshold; near-singular matrices remain numerically sensitive.
 
 // 6 significant digits; -0 normalized to 0.
 const f6 = (v) => (v === 0 ? 0 : v).toPrecision(6);
 // 10 significant digits (matrix output).
 const f10 = (v) => (v === 0 ? 0 : v).toPrecision(10);
-// Remove float noise for the [[..],[..]] literal.
-const clean = (v) => {
-  const c = Number(v.toPrecision(12));
-  return Math.abs(c) < EPS ? 0 : c;
+// Preserve small nonzero values; normalize negative zero.
+const clean = (v) => Number(v.toPrecision(12)) || 0;
+const finiteResult = (v) => {
+  if (!Number.isFinite(v)) throw new Error('Non-finite matrix result (overflow)');
+  return v;
 };
-
-// Parse a CSV cell: empty or non-numeric -> null.
-function parseCell(cell) {
-  const t = String(cell ?? '').trim();
-  if (t === '') return null;
-  const v = Number(t);
-  return Number.isFinite(v) ? v : null;
-}
 
 // Descriptive stats line for one numeric series (sample sd, n-1).
 function describe(name, nums) {
@@ -37,7 +31,7 @@ function describe(name, nums) {
   return { mean, line };
 }
 
-// Read a simple CSV and extract up to 2 requested columns (simple split(','), no quoting).
+// Read CSV records and extract up to two requested columns.
 async function readCsvColumns(workspaceRoot, p, columns) {
   if (!Array.isArray(columns) || columns.length === 0) {
     throw new Error('columns required: give 1 or 2 column names');
@@ -45,10 +39,7 @@ async function readCsvColumns(workspaceRoot, p, columns) {
   if (columns.length > 2) throw new Error('at most 2 columns allowed');
   const text = (await readSafeText(workspaceRoot,p)).replace(/^\uFEFF/, '');
   if (text.includes('\0')) throw new Error(`binary file cannot be read: ${p}`);
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
-  if (lines.length < 2) throw new Error('CSV must contain at least a header + 1 row');
-  const header = lines[0].split(',').map((h) => h.trim());
-  const rows = lines.slice(1).map((l) => l.split(','));
+  const { header, rows } = parseCsv(text);
   const idx = columns.map((c) => {
     const i = header.indexOf(String(c).trim());
     if (i === -1) throw new Error(`column not found: ${c}`);
@@ -68,7 +59,7 @@ async function readCsvColumns(workspaceRoot, p, columns) {
 export const stats_calc = {
   name: 'stats_calc',
   description:
-    'Computes descriptive statistics and linear analysis. If numbers is given, that list is used directly; otherwise the CSV at path is read from the workspace (simple CSV: cells split on commas, quoted fields not supported). With a single column: n, mean, median, sample standard deviation (n-1), variance, min, max; with two columns: also Pearson correlation r and least-squares linear regression (slope a, intercept b, r²). Non-numeric cells are skipped in that column; errors if there is not enough data (n≥2; n≥3 for regression).',
+    'Computes descriptive statistics and linear analysis. If numbers is given, that list is used directly; otherwise the CSV at path is read from the workspace (CSV with quoted fields, escaped quotes and multiline records). With a single column: n, mean, median, sample standard deviation (n-1), variance, min, max; with two columns: also Pearson correlation r and least-squares linear regression (slope a, intercept b, r²). Non-numeric cells are skipped in that column; errors if there is not enough data (n≥2; n≥3 for regression).',
   parameters: {
     type: 'object',
     properties: {
@@ -160,12 +151,13 @@ function determinant(m) {
     for (let k = i + 1; k < n; k++) {
       if (Math.abs(a[k][i]) > Math.abs(a[p][i])) p = k;
     }
-    if (Math.abs(a[p][i]) < EPS) return 0;
+    if (a[p][i] === 0) return 0;
     if (p !== i) {
       [a[i], a[p]] = [a[p], a[i]];
       det = -det;
     }
-    det *= a[i][i];
+    det = finiteResult(det * a[i][i]);
+    if (det === 0) throw new Error('Determinant underflow: nonzero pivot product is not representable');
     for (let k = i + 1; k < n; k++) {
       const f = a[k][i] / a[i][i];
       for (let j = i; j < n; j++) a[k][j] -= f * a[i][j];
@@ -183,7 +175,7 @@ function invert(m) {
     for (let k = i + 1; k < n; k++) {
       if (Math.abs(a[k][i]) > Math.abs(a[p][i])) p = k;
     }
-    if (Math.abs(a[p][i]) < EPS) throw new Error('matrix is singular');
+    if (a[p][i] === 0) throw new Error('matrix is singular');
     if (p !== i) [a[i], a[p]] = [a[p], a[i]];
     const piv = a[i][i];
     for (let j = 0; j < 2 * n; j++) a[i][j] /= piv;
@@ -195,7 +187,7 @@ function invert(m) {
       }
     }
   }
-  return a.map((row) => row.slice(n));
+  return a.map((row) => row.slice(n).map(finiteResult));
 }
 
 const matrixLines = (m) => m.map((row) => `[${row.map(f10).join(', ')}]`).join('\n');
@@ -241,7 +233,7 @@ export const matrix_ops = {
         throw new Error(`dimension mismatch: (${A.length}x${A[0].length}) · (${B.length}x${B[0].length})`);
       }
       const C = A.map((row) =>
-        Array.from({ length: B[0].length }, (_, j) => row.reduce((s, v, i) => s + v * B[i][j], 0)),
+        Array.from({ length: B[0].length }, (_, j) => finiteResult(row.reduce((s, v, i) => s + v * B[i][j], 0))),
       );
       return `product:\n${matrixLines(C)}\nmatrix = ${matrixLiteral(C)}`;
     }
