@@ -6,9 +6,21 @@
 
 A model-agnostic scientific research and coding agent for the terminal. Sci-Agent combines a tool-driven agent loop with hypothesis tracking, evidence-linked claims, scientific computation, literature retrieval, independent numerical replay and persistent research records.
 
+[![npm version](https://img.shields.io/npm/v/sci-agent.svg)](https://www.npmjs.com/package/sci-agent)
+[![npm downloads](https://img.shields.io/npm/dm/sci-agent.svg)](https://www.npmjs.com/package/sci-agent)
 [![tests](https://github.com/Furox-Art/Sci-Agent/actions/workflows/test.yml/badge.svg)](https://github.com/Furox-Art/Sci-Agent/actions/workflows/test.yml)
+[![license](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 
 **CLI only.** No desktop application, hosted service or separate Sci-Agent subscription is required. Model access, optional scientific packages and local computing resources are supplied by the user.
+
+## Packages
+
+| Registry | Install command | Status |
+|---|---|---|
+| npm | `npm install -g sci-agent` | [sci-agent@0.10.7](https://www.npmjs.com/package/sci-agent) — published and verified from the public registry |
+| Python launcher | included in [`python/`](python/) | Wheel/sdist are built and tested locally; PyPI publication is pending project ownership |
+
+The npm package bundles its runtime dependencies, so `sci-agent` works without a separate `npm install` after installation.
 
 ## Quick start
 
