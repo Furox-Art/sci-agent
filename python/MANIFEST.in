@@ -1,4 +1,0 @@
-include README.md
-include LICENSE-MIT
-include LICENSE-APACHE
-recursive-include src/sci_agent/_bundle *.tgz

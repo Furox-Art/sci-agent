@@ -13,14 +13,16 @@ A model-agnostic scientific research and coding agent for the terminal. Sci-Agen
 
 **CLI only.** No desktop application, hosted service or separate Sci-Agent subscription is required. Model access, optional scientific packages and local computing resources are supplied by the user.
 
-## Packages
+## Package
 
-| Registry | Install command | Status |
-|---|---|---|
-| npm | `npm install -g sci-agent` | [sci-agent@0.10.7](https://www.npmjs.com/package/sci-agent) — published and verified from the public registry |
-| Python launcher | included in [`python/`](python/) | Wheel/sdist are built and tested locally; PyPI publication is pending project ownership |
+Install from npm - version **0.10.8**:
 
-The npm package bundles its runtime dependencies, so `sci-agent` works without a separate `npm install` after installation.
+```bash
+npm install -g sci-agent
+sci-agent --version
+```
+
+See [sci-agent on npm](https://www.npmjs.com/package/sci-agent). The package bundles its runtime dependencies, so no separate `npm install` is needed after installation.
 
 ## Quick start
 

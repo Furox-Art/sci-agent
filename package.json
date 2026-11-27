@@ -1,6 +1,6 @@
 {
   "name": "sci-agent",
-  "version": "0.10.7",
+  "version": "0.10.8",
   "description": "Sci-Agent - model-agnostic scientific research and coding agent for the terminal, with evidence-linked claims, scientific tools, local models and optional execution isolation",
   "type": "module",
   "license": "(MIT OR Apache-2.0)",

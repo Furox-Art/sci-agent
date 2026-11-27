@@ -2,7 +2,10 @@
 
 All notable changes to Sci-Agent. Versions follow the root `package.json`.
 
-## Unreleased
+## 0.10.8 - 2026-11-27
+
+### Changed
+- Final package identity: GitHub repository `Furox-Art/Sci-Agent` and npm package `sci-agent`. The npm tarball bundles its runtime dependencies and publishes with a single `sci-agent` command. User-facing branding uses **Sci-Agent**; lowercase `sci-agent` remains the registry identifier and command.
 
 ### Added
 - English repository documentation, package descriptions, CLI messages and developer comments; English-only built-in aliases and sample data names. The previous Turkish aliases and dataset name are no longer supported.

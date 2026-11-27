@@ -1,13 +1,9 @@
 #!/usr/bin/env node
 /**
- * Build the publishable npm tarball and (optionally) the PyPI wheel/sdist.
+ * Build the publishable npm tarball.
  *
  * Usage:
- *   node scripts/build-packages.mjs            # npm tarball + PyPI bundle only
- *   node scripts/build-packages.mjs --build    # also run `python -m build`
- *
- * The PyPI wheel bundles the exact npm tarball, so the two registries always
- * ship the same runtime source and version.
+ *   node scripts/build-packages.mjs
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -27,7 +23,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const distNpm = path.join(root, 'dist-npm');
 const stage = path.join(distNpm, 'package');
-const bundleDir = path.join(root, 'python', 'src', 'sci_agent', '_bundle');
 
 const skip = /[\\/](node_modules|\.git|test|dist)([\\/]|$)/;
 function copyTree(from, to) {
@@ -81,8 +76,8 @@ const manifest = {
 };
 writeFileSync(path.join(stage, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
-// Install the bundled runtime dependencies so both registries ship a package
-// that runs with `node` alone, without a follow-up `npm install`.
+// Install the bundled runtime dependencies so the package runs with `node`
+// alone, without a follow-up `npm install`.
 const npmBin = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
 execFileSync(
   process.execPath,
@@ -107,22 +102,4 @@ if (existsSync(npmCli)) {
 const tarball = readdirSync(distNpm).find((file) => file.endsWith('.tgz'));
 if (!tarball) throw new Error('npm pack did not produce a tarball');
 
-mkdirSync(bundleDir, { recursive: true });
-for (const file of readdirSync(bundleDir)) {
-  if (file.endsWith('.tgz')) rmSync(path.join(bundleDir, file));
-}
-copyFileSync(path.join(distNpm, tarball), path.join(bundleDir, `sci-agent-${pkg.version}.tgz`));
-copyFileSync(path.join(root, 'LICENSE-MIT'), path.join(root, 'python', 'LICENSE-MIT'));
-copyFileSync(path.join(root, 'LICENSE-APACHE'), path.join(root, 'python', 'LICENSE-APACHE'));
-
 console.log(`npm tarball: ${path.join(distNpm, tarball)}`);
-console.log(`PyPI bundle: ${path.join(bundleDir, `sci-agent-${pkg.version}.tgz`)}`);
-
-if (process.argv.includes('--build')) {
-  const python = process.env.SCI_AGENT_BUILD_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
-  execFileSync(python, ['-m', 'build'], {
-    cwd: path.join(root, 'python'),
-    stdio: 'inherit',
-  });
-  console.log(`PyPI dist: ${path.join(root, 'python', 'dist')}`);
-}
