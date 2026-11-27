@@ -15,7 +15,7 @@ A model-agnostic scientific research and coding agent for the terminal. Sci-Agen
 
 ## Package
 
-Install from npm - version **0.10.9**:
+Install from npm - version **0.10.10**:
 
 ```bash
 npm install -g sci-agent
@@ -158,7 +158,7 @@ Inference is restricted to the documented OpenAI models and Responses endpoints.
 
 ### GitHub Copilot
 
-The optional [official SDK](https://github.com/microsoft/copilot-sdk) (`@microsoft/copilot-sdk` 2.0.3) uses a signed-in user of the official Copilot CLI. Install and authenticate using the [official instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli).
+The optional [official SDK](https://github.com/microsoft/copilot-sdk) (`@microsoft/copilot-sdk` 2.0.3) uses a signed-in user of the official Copilot CLI. It is **not** installed by default because it is large; install it yourself with `npm install -g @microsoft/copilot-sdk@2.0.3` only if you use Copilot. Then authenticate using the [official instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli).
 
 ```bash
 sci-agent auth copilot login

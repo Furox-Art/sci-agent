@@ -2,6 +2,11 @@
 
 All notable changes to Sci-Agent. Versions follow the root `package.json`.
 
+## 0.10.10 - 2026-11-27
+
+### Changed
+- Removed the large optional `@microsoft/copilot-sdk` dependency from the default npm install. It can be installed manually when Copilot integration is needed, reducing a default install by roughly 210 MB.
+
 ## 0.10.9 - 2026-11-27
 
 ### Changed
