@@ -28,7 +28,7 @@ async function makeRegistry() {
 
 // --- Structure tests: run in every environment (no Python/network needed) ---
 
-test('araç şekli: on araç tanımlı, onaysız ve paralel çalışabilir', () => {
+test('ten tools have schemas and support parallel execution without approval', () => {
   for (const t of TOOLS) {
     assert.equal(typeof t.name, 'string');
     assert.ok(t.name.length > 0);
@@ -45,7 +45,7 @@ test('araç şekli: on araç tanımlı, onaysız ve paralel çalışabilir', () 
   );
 });
 
-test('şemalar: geçerli JSON Schema ve JSON-aşılabilir', () => {
+test('schemas are valid and JSON-serializable', () => {
   for (const t of TOOLS) {
     assert.equal(t.parameters.type, 'object');
     assert.equal(typeof t.parameters.properties, 'object');
@@ -98,7 +98,7 @@ test('şemalar: geçerli JSON Schema ve JSON-aşılabilir', () => {
   }
 });
 
-test('ToolRegistry entegrasyonu: şemalar listeleniyor', async () => {
+test('ToolRegistry exposes tool schemas', async () => {
   const registry = await makeRegistry();
   const names = registry.schemas().map((s) => s.name);
   for (const t of TOOLS) assert.ok(names.includes(t.name), `${t.name} kayıtlı olmalı`);
@@ -106,7 +106,7 @@ test('ToolRegistry entegrasyonu: şemalar listeleniyor', async () => {
   assert.ok(list.every((l) => l.needsApproval === false));
 });
 
-test('doğrulama yolu: eksik zorunlu argüman ok:false + Error döner', async () => {
+test('missing required arguments return ok:false and an error', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_audit', {});
   assert.equal(r1.ok, false);
@@ -122,7 +122,7 @@ test('doğrulama yolu: eksik zorunlu argüman ok:false + Error döner', async ()
   assert.ok(r3.output.startsWith('Error'));
 });
 
-test('geçersiz değerler: throw değil, nazik İngilizce hata metni (ok:true)', async () => {
+test('invalid values return a readable English error instead of throwing (ok:true)', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_audit', {
     pmcid: 'PMC1234567',
@@ -147,7 +147,7 @@ test('geçersiz değerler: throw değil, nazik İngilizce hata metni (ok:true)',
   assert.ok(r3.output.startsWith('Error:'), `unexpected output: ${r3.output}`);
 });
 
-test('yeni araçlar doğrulama: boş/yanlış tip argümanlar nazik hata metni (ok:true)', async () => {
+test('new tools return readable errors for missing or incorrectly typed arguments (ok:true)', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_bib', { papers: [] });
   assert.equal(r1.ok, true);
@@ -175,7 +175,7 @@ test('yeni araçlar doğrulama: boş/yanlış tip argümanlar nazik hata metni (
   assert.ok(r6.output.startsWith('Error:'), 'çok kısa kind reddedilmeli');
 });
 
-test('lit_quote_text uzunluk limitleri: sınır aşımı nazik hata metni (ok:true)', async () => {
+test('lit_quote_text reports input length limit violations (ok:true)', async () => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_quote_text', {
     quote: 'a'.repeat(1001),
@@ -216,10 +216,10 @@ function runToolInChild(driverFile, name, args, env) {
   });
 }
 
-test('Python başlatılamadığında çevrimdışı araç bile ağ hatası değil dürüst mesaj döner (simüle)', async () => {
-  // Var olan ama çalıştırılamayan "yorumlayıcı" (lit_bib tamamen çevrimdışı bir
-  // araçtır): spawn başarısız olur -> 'Failed to start Python process' sınıfı ->
-  // ağ metni yerine Python-start mesajı beklenir.
+test('offline tools distinguish Python startup failures from network failures (simulated)', async () => {
+  // An existing but non-executable interpreter (lit_bib is an offline
+  // tool) triggers a Python startup failure,
+  // which must be reported instead of a network error.
   const fake = path.join(os.tmpdir(), `sci-fake-python-extra-${process.pid}.txt`);
   await fs.writeFile(fake, 'this is not a Python interpreter');
   try {
@@ -242,10 +242,10 @@ test('Python başlatılamadığında çevrimdışı araç bile ağ hatası deği
   }
 });
 
-test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython null, simüle)', () => {
-  // PATH ve Python kurulum dizinleri strip'lenmiş ortam: SCI_AGENT_PYTHON yok,
-  // 'python'/'python3' bare adları başarısız -> 'Python interpreter not found' yolu
-  // (lit_quote_text de çevrimdışı bir araçtır).
+test('missing interpreter returns a dedicated message (simulated)', () => {
+  // Strip PATH and Python installation directories and omit SCI_AGENT_PYTHON.
+  // Bare python/python3 commands fail, producing the missing-interpreter error
+  // (lit_quote_text is also an offline tool).
   const out = runToolInChild('sci-lit-extra.js', 'lit_quote_text', {
     quote: 'randomization was performed',
     source_text: 'Patients were enrolled; randomization was performed by computer.',
@@ -271,8 +271,8 @@ test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython 
   );
 });
 
-test('lit_ledger yol çözümleme: workspaceRoot altındaki göreli yol kullanılır', async (t) => {
-  // Bridge çağrısı gerektirir; paket yoksa skip. Ağ gerekmez (yalnızca yerel dosya).
+test('lit_ledger resolves relative paths under workspaceRoot', async (t) => {
+  // Requires the bridge package; skip if missing. No network access needed.
   const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sci-ledger-ws-'));
   const registry = new ToolRegistry({ tools: TOOLS, workspaceRoot });
   const r = await registry.invoke('lit_ledger', { path: 'missing-ledger.jsonl' });
@@ -283,7 +283,7 @@ test('lit_ledger yol çözümleme: workspaceRoot altındaki göreli yol kullanı
     t.skip('literature-evidence-mcp kurulu değil; ledger testi atlandı');
     return;
   }
-  // Paket varsa: dosya yok -> VALID_EMPTY (deterministik, ağa bağımlı değil).
+  // With the package installed, a missing file returns VALID_EMPTY deterministically.
   if (!r.output.startsWith('Error:')) {
     assert.ok(/VALID_EMPTY/.test(r.output), `VALID_EMPTY beklenirdi: ${r.output}`);
     assert.ok(r.output.includes('missing-ledger.jsonl'), 'çözümlenen yol çıktıda görünmeli');
@@ -292,7 +292,7 @@ test('lit_ledger yol çözümleme: workspaceRoot altındaki göreli yol kullanı
 
 // --- Offline deterministic tests: need the package but no network ---
 
-test('lit_quote_text literal eşleşme: çevrimdışı deterministik sonuç', async (t) => {
+test('lit_quote_text deterministic offline literal matching', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_quote_text', {
     quote: 'randomization was performed',
@@ -317,7 +317,7 @@ test('lit_quote_text literal eşleşme: çevrimdışı deterministik sonuç', as
   assert.ok(/NOT_VERIFIED/.test(miss.output), `NOT_VERIFIED beklenirdi: ${miss.output}`);
 });
 
-test('lit_bib bibtex çıktısı: çevrimdışı deterministik biçimlendirme', async (t) => {
+test('lit_bib deterministic offline BibTeX formatting', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_bib', {
     papers: [
@@ -344,7 +344,7 @@ test('lit_bib bibtex çıktısı: çevrimdışı deterministik biçimlendirme', 
   assert.ok(r.output.includes('journal = {Nature Methods}'), 'dergi adı çıktıda görünmeli');
 });
 
-test('lit_evidence ekleme + lit_ledger doğrulama: hash zinciri tmp defterde VALID', async (t) => {
+test('lit_evidence append and lit_ledger verify a temporary hash chain', async (t) => {
   const ledgerPath = path.join(os.tmpdir(), `sci-evtest-${Date.now()}-${process.pid}.jsonl`);
   const oldEnv = process.env.EVIDENCE_LEDGER_PATH;
   process.env.EVIDENCE_LEDGER_PATH = ledgerPath;
@@ -362,7 +362,7 @@ test('lit_evidence ekleme + lit_ledger doğrulama: hash zinciri tmp defterde VAL
     assert.ok(r.output.includes('Entry number: 1'), `ilk girdi beklenirdi: ${r.output}`);
     assert.ok(r.output.includes('lit_ledger'), 'lit_ledger işaret edilmeli');
 
-    // Aynı zinciri bağımsız lit_ledger çağrısıyla doğrula (mutlak yol).
+    // Verify the same chain with an independent lit_ledger call and an absolute path.
     const v = await registry.invoke('lit_ledger', { path: ledgerPath });
     assert.ok(/VALID/.test(v.output), `VALID zincir beklenirdi: ${v.output}`);
     assert.ok(v.output.includes('Entries verified: 1'), `1 girdi beklenirdi: ${v.output}`);
@@ -376,7 +376,7 @@ test('lit_evidence ekleme + lit_ledger doğrulama: hash zinciri tmp defterde VAL
 
 // --- Live tests: only meaningful with the package + network; type-based asserts ---
 
-test('canlı denetim: audit özeti ya da nazik hata metni döner', async (t) => {
+test('live audit returns a summary or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_audit', {
     pmcid: 'PMC4136957',
@@ -394,7 +394,7 @@ test('canlı denetim: audit özeti ya da nazik hata metni döner', async (t) => 
   assert.ok(process.pid > 0); // süreç köprü çağrısından sonra ayakta kalmalı
 });
 
-test('canlı eleme: PRISMA tarzı liste ya da nazik hata metni döner', async (t) => {
+test('live screening returns a PRISMA-style list or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_screen', {
     query: 'CRISPR off-target effects',
@@ -409,13 +409,13 @@ test('canlı eleme: PRISMA tarzı liste ya da nazik hata metni döner', async (t
     return;
   }
   if (!r.output.startsWith('Error:')) {
-    // Başarılıysa PRISMA akış satırı mutlaka olmalı (ağ sonucundan bağımsız yapı).
+    // Successful results must include the PRISMA flow line.
     assert.ok(/Flow: identified/.test(r.output), `akış satırı beklenirdi: ${r.output.slice(0, 400)}`);
   }
   assert.ok(process.pid > 0);
 });
 
-test('canlı defter: doğrulama özeti ya da nazik hata metni döner', async (t) => {
+test('live ledger returns a verification summary or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_ledger', {});
   assert.equal(typeof r.ok, 'boolean');
@@ -426,7 +426,7 @@ test('canlı defter: doğrulama özeti ya da nazik hata metni döner', async (t)
     return;
   }
   if (!r.output.startsWith('Error:')) {
-    // Başarılıysa paketin bilinen durum etiketlerinden biri olmalı.
+    // Successful results must contain a recognized status label.
     assert.ok(
       /VALID|VALID_EMPTY|TAMPER_DETECTED|TAMPER_OR_CORRUPTION_DETECTED/.test(r.output),
       `ledger durumu beklenirdi: ${r.output.slice(0, 400)}`,

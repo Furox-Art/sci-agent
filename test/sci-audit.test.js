@@ -27,7 +27,7 @@ function makeRegistry(root) {
   return new ToolRegistry({ tools: [plan_audit], workspaceRoot: root, approve: async () => true });
 }
 
-test('plan_audit araç şekli ve açıklaması', () => {
+test('plan_audit schema and description', () => {
   assert.equal(plan_audit.name, 'plan_audit');
   assert.equal(plan_audit.needsApproval, true);
   assert.equal(plan_audit.parallel, true);
@@ -38,7 +38,7 @@ test('plan_audit araç şekli ve açıklaması', () => {
   assert.equal(plan_audit.parameters.properties.args.type, 'array');
   assert.equal(plan_audit.parameters.properties.args.items.type, 'string');
   assert.equal(plan_audit.parameters.properties.timeoutMs.type, 'number');
-  // açıklama --help'ten doğrulanmış gerçek alt komutları listelemeli (uydurma yok)
+  // The description must list actual subcommands verified with --help.
   const subcommands = [
     'supervisor',
     'task',
@@ -57,7 +57,7 @@ test('plan_audit araç şekli ve açıklaması', () => {
   }
 });
 
-test('plan_audit --help usage çıktısı verir', { skip: hasPlanAuditor ? false : 'plan-auditor kurulu değil' }, async () => {
+test('plan_audit --help returns usage', { skip: hasPlanAuditor ? false : 'plan-auditor is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-audit-'));
   const r = makeRegistry(root);
   const s = await r.invoke('plan_audit', { args: ['--help'] });
@@ -65,12 +65,12 @@ test('plan_audit --help usage çıktısı verir', { skip: hasPlanAuditor ? false
   assert.equal(typeof s.output, 'string');
   assert.ok(s.output.trim().length >= 20, 'çıktı 20+ karakter olmalı');
   assert.match(s.output.toLowerCase(), /usage/);
-  // help çıktısı gerçek alt komutları da içermeli
+  // Help output must include the actual subcommands.
   assert.match(s.output, /supervisor/);
   assert.match(s.output, /doctor/);
 });
 
-test('plan_audit boş args ile süreç patlamadan string döner', { skip: hasPlanAuditor ? false : 'plan-auditor kurulu değil' }, async () => {
+test('plan_audit returns text for empty arguments without crashing', { skip: hasPlanAuditor ? false : 'plan-auditor is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-audit-'));
   const r = makeRegistry(root);
   const s = await r.invoke('plan_audit', { args: [] });
@@ -79,12 +79,12 @@ test('plan_audit boş args ile süreç patlamadan string döner', { skip: hasPla
   assert.match(s.output, /usage|Hata/);
 });
 
-test('plan_audit returns a string and Error/usage on unknown subcommand', { skip: hasPlanAuditor ? false : 'plan-auditor kurulu değil' }, async () => {
+test('plan_audit returns a string and Error/usage on unknown subcommand', { skip: hasPlanAuditor ? false : 'plan-auditor is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-audit-'));
   const r = makeRegistry(root);
   const s = await r.invoke('plan_audit', { args: ['bu-komut-yok'] });
-  // CLI bu durumda sıfırdan farklı çıkış koduyla biter (doğrulandı: 2); araç yine de
-  // ok:true|false fark etmeksizin dize döndürmeli ve hatayı/usage'ı içermeli.
+  // The CLI exits nonzero here (observed code: 2); the tool must still
+  // return a string containing an error or usage message regardless of ok status.
   assert.equal(typeof s.output, 'string');
   assert.match(s.output, /Error|usage/i);
   assert.match(s.output, /exit code: (?!0\b)/, 'exit code must be reported as non-zero');

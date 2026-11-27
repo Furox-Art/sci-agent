@@ -41,3 +41,5 @@ evidence-ledger.jsonl
 *.bak
 .DS_Store
 Thumbs.db
+
+sciagent-chat-*.md

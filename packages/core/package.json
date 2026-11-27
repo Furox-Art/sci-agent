@@ -1,7 +1,7 @@
 {
   "name": "@sci/core",
   "version": "0.10.7",
-  "description": "SciAgent çekirdeği: model sağlayıcı arayüzü, araç sistemi, ajan döngüsü",
+  "description": "SciAgent core: model provider interface, tool system and agent loop",
   "type": "module",
   "main": "src/index.js",
   "exports": {

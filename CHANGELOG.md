@@ -5,6 +5,7 @@ All notable changes to SciAgent. Versions follow the root `package.json`.
 ## Unreleased
 
 ### Added
+- English repository documentation, package descriptions, CLI messages and developer comments; multilingual input support and legacy data compatibility are preserved.
 - Dedicated local model catalog and provider selection for Ollama, LM Studio, llama.cpp, vLLM and custom loopback endpoints; optional user-requested Ollama startup, configurable inference timeout and scientific-tool integration.
 - Public-release preparation: symlink/hardlink/special-file guards, expanded local ignore rules, configuration prototype-key rejection, pinned least-privilege CI and security/privacy/third-party documentation. Account acceptance and historical image cleanup remain maintainer checks.
 - Renamed the scientific Python stack tool to `scientific_compute` (no change to its execution behavior or library support).

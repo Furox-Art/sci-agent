@@ -6,10 +6,10 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { DEFAULT_CONFIG, createRegistry, getPlugin, listPlugins, createProvider } from '@sci/core';
 
-// PATH'ten bağımsız Python algılama (pybridge ile aynı çözücü)
+// Detect Python independently of PATH using the same resolver as pybridge.
 import { resolvePython } from '../packages/core/src/science/pybridge.js';
 
-test('sci-tools eklentisi kayıtlı ve araçları yükleniyor', () => {
+test('sci-tools is registered and its tools load', () => {
   assert.ok(listPlugins().some((p) => p.name === 'sci-tools'));
   assert.ok(getPlugin('sci-tools').systemPrompt.includes('python_eval'));
   const cfg = structuredClone(DEFAULT_CONFIG);
@@ -37,7 +37,7 @@ const pyExe = resolvePython();
 const pyCheck = pyExe ? spawnSync(pyExe, ['-I', '-c', 'print(1)'], { timeout: 15000 }) : { status: -1 };
 const hasPython = pyCheck.status === 0;
 
-test('python_eval çıktı döndürür', { skip: hasPython ? false : 'Sistemde Python yok' }, async () => {
+test('python_eval returns output', { skip: hasPython ? false : 'Python is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const r = createRegistry({
     cfg: { agent: { workspaceRoot: root }, plugins: ['sci-tools'], policies: DEFAULT_CONFIG.policies },

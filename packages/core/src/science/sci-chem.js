@@ -1,17 +1,17 @@
 /**
- * Kimya bilimsel aracı: molar kütle (mol kütlesi) hesaplama.
+ * Chemistry tool: molar mass calculation.
  *
- * Dış bağımlılık yoktur; gömülü element tablosu ve saf JavaScript ayrıştırıcı
- * kullanır (yalnız Node built-in'leri, Node ESM).
+ * Uses a built-in element table and a pure JavaScript parser
+ * (Node.js built-ins and ESM only; no external dependencies).
  *
- * Atom kütleleri: IUPAC CIAAW standart atom kütleleri, ~5 anlamlı basamak
- * (kısaltılmış/abridged değerler). Standart aralığı olan (köşeli parantezle
- * verilen) elementlerde kullanılan geleneksel değer; radyoaktif elementlerde
- * (yalnız kütle numarası bilinen) en uzun ömürlü izotopun kütle numarası
- * kullanılır. Tablo atom numarası (Z) sırasıyla dizilidir.
+ * Atomic masses: IUPAC CIAAW standard atomic weights, approximately five significant digits
+ * (abridged values). Elements with standard intervals use
+ * conventional values; for radioactive elements without standard atomic weights,
+ * the mass number of a long-lived isotope is
+ * used. The table is ordered by atomic number (Z).
  */
 
-/** Sembol → standart atom kütlesi (g/mol). 118 element, Z sırasıyla. */
+/** Symbol → atomic weight (g/mol). 118 elements in atomic-number order. */
 export const ATOMIC_MASSES = {
   H: 1.008, He: 4.0026, Li: 6.94, Be: 9.0122, B: 10.81, C: 12.011, N: 14.007, O: 15.999,
   F: 18.998, Ne: 20.18, Na: 22.99, Mg: 24.305, Al: 26.982, Si: 28.085, P: 30.974, S: 32.06,
@@ -30,15 +30,15 @@ export const ATOMIC_MASSES = {
   Nh: 286, Fl: 289, Mc: 290, Lv: 293, Ts: 294, Og: 294,
 };
 
-/** Hidrat/ayırıcı nokta karakterleri: '·', '*' veya '.' */
+/** Hydrate separator characters: '·', '*' or '.' */
 const HYDRATE_SEP = /[·*.]/;
 
-/** En fazla 6 anlamlı basamak, sondaki sıfırlar temizlenmiş sayı metni. */
+/** Format with at most six significant digits, trimming trailing zeros. */
 const fmt = (x) => String(Number(x.toPrecision(6)));
 
 /**
- * src[i..] içindeki sayısal alt simgeyi/katsayıyı okur; rakam yoksa 1 döner.
- * off: hata mesajlarındaki konum için, tam formül içindeki başlangıç kayması.
+ * Read a numeric subscript/coefficient from src[i..]; default to 1.
+ * off: starting offset within the full formula for error positions.
  */
 function readCount(src, i, off) {
   let j = i;
@@ -53,9 +53,9 @@ function readCount(src, i, off) {
 }
 
 /**
- * src[i..] üzerinde bir formül parçasını ayrıştırır; ')' karakterinde veya
- * dizge sonunda durur. openIdx: bu parçayı açan '(' konumu (0 tabanlı,
- * src içi; en üst seviyede -1).
+ * Parse a formula segment starting at src[i..]; stop at ')' or
+ * the end of the string. openIdx is the zero-based opening '(' position
+ * within src, or -1 at the top level).
  */
 function parseSegment(src, i, openIdx, off) {
   const counts = new Map();
@@ -106,10 +106,10 @@ function parseSegment(src, i, openIdx, off) {
 }
 
 /**
- * Formülü element → toplam adet haritasına ayrıştırır.
- * Hidrat ayırıcısı (·, *, .) formülü parçalara böler; her parça
- * "[katsayı]segment" biçiminde olabilir. İlk parçanın başındaki katsayı
- * hidratın tamamına çarpılır (ör. 2CuSO4·5H2O = 2 CuSO4 + 10 H2O).
+ * Parse a formula into an element-to-total-count map.
+ * Hydrate separators (·, *, .) split the formula into segments; each segment
+ * can be prefixed by a coefficient. The first leading coefficient
+ * multiplies the entire hydrate (e.g. 2CuSO4·5H2O = 2 CuSO4 + 10 H2O).
  */
 function parseFormula(formula) {
   const cleaned = formula.replace(/\s+/g, '');
@@ -118,7 +118,7 @@ function parseFormula(formula) {
   let off = 0;
   for (const raw of cleaned.split(HYDRATE_SEP)) {
     parts.push({ raw, off });
-    off += raw.length + 1; // +1: ayırıcı karakter
+    off += raw.length + 1; // +1: separator character
   }
   const parsed = parts.map(({ raw, off: pOff }) => {
     const head = readCount(raw, 0, pOff);

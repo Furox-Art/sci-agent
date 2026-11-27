@@ -4,10 +4,10 @@ import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { buildSteering } from '../eq/eq-layer.js';
 
 /**
- * Kullanıcının açık bilimsel paketleri için köprü araçları:
- *   - axiomize (pip: axiomize)                → modelleme, birim/boyut doğrulama, belirsizlik, SBML/CellML/Modelica
- *   - cds2 (pip: scientific-computing-system-2.0) → lineer cebir, ODE/PDE, kadratür, Monte Carlo, istatistik, sinyal, kuantum simülasyonu
- * Araçlar kurulu Python yorumlayıcısını PATH'ten bağımsız bulur (pybridge).
+ * Bridges to open scientific packages:
+ *   - axiomize (pip: axiomize)                → modeling, unit/dimension validation, uncertainty, SBML/CellML/Modelica
+ *   - cds2 (pip: scientific-computing-system-2.0) → linear algebra, ODE/PDE, quadrature, Monte Carlo, statistics, signals, quantum simulation
+ * Tools locate the installed Python interpreter independently of PATH (pybridge).
  */
 
 const OUT_CAP = 50_000;

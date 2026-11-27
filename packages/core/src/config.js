@@ -6,7 +6,7 @@ export const DEFAULT_CONFIG = {
     provider: 'openai-compatible', // 'openai-compatible' | 'mock'
     baseUrl: 'http://localhost:11434/v1',
     apiKey: '',
-    name: 'bilimsel-model',
+    name: 'scientific-model',
     temperature: 0.2,
     stream: true,
   },
@@ -31,7 +31,7 @@ export const DEFAULT_CONFIG = {
 function deepMerge(base, over) {
   for (const [k, v] of Object.entries(over ?? {})) {
     if (['__proto__','constructor','prototype'].includes(k)) throw new Error('Unsafe configuration key');
-    // Diziler birleştirilmez, birebir değiştirilir (ör. beceri kaynak listesi)
+    // Replace arrays rather than merging them (e.g. skill sources).
     if (v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])) {
       deepMerge(base[k], v);
     } else {

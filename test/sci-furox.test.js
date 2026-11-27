@@ -25,7 +25,7 @@ function makeRegistry(root) {
   });
 }
 
-test('scientific_compute yığını bildirir ve hesap yapar', { skip: hasPython ? false : 'Python yok' }, async () => {
+test('scientific_compute reports installed packages and computes a result', { skip: hasPython ? false : 'Python is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const r = makeRegistry(root);
   const s = await r.invoke('scientific_compute', { code: 'print(round(6*7, 3)); print(__import__("numpy").__version__.split(".")[0])' });
@@ -34,7 +34,7 @@ test('scientific_compute yığını bildirir ve hesap yapar', { skip: hasPython 
   assert.match(s.output, /42/);
 });
 
-test('axiomize_cli capabilities listeler', { skip: hasAxiomize ? false : 'axiomize kurulu değil' }, async () => {
+test('axiomize_cli lists capabilities', { skip: hasAxiomize ? false : 'axiomize is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const r = makeRegistry(root);
   const s = await r.invoke('axiomize_cli', { args: ['capabilities'] });
@@ -42,14 +42,14 @@ test('axiomize_cli capabilities listeler', { skip: hasAxiomize ? false : 'axiomi
   assert.ok(s.output.trim().length > 20);
 });
 
-test('cds2_cli info/info alt komutu çalışır', { skip: hasCds2 ? false : 'cds2 kurulu değil' }, async () => {
+test('cds2_cli info subcommand works', { skip: hasCds2 ? false : 'cds2 is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const r = makeRegistry(root);
   const s = await r.invoke('cds2_cli', { args: ['info'] });
   assert.ok(s.ok || /usage|info/i.test(s.output), s.output.slice(0, 400));
 });
 
-test('python_eval artık PATH\u2019ten bağımsız çözücü kullanır', { skip: hasPython ? false : 'Python yok' }, async () => {
+test('python_eval resolves Python independently of PATH', { skip: hasPython ? false : 'Python is not installed' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const r = makeRegistry(root);
   const s = await r.invoke('python_eval', { code: 'print("ok-pybridge")' });

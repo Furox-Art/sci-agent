@@ -17,10 +17,10 @@ if (argv.includes('--version') || argv.includes('-v')) {
   process.exit(0);
 }
 if (argv.includes('--help') || argv.includes('-h')) {
-  console.log(`SciAgent v${version} — bilimsel kodlama ajanı
+  console.log(`SciAgent v${version} — scientific coding agent
 
-Kullanım:
-  sci-agent                                  # etkileşimli terminal
+Usage:
+  sci-agent                                  # interactive terminal
   sci-agent --provider-menu                 # select account provider
   sci-agent --claude                        # native Claude Code terminal session
   sci-agent --gemini                        # official Antigravity ACP terminal session
@@ -30,15 +30,15 @@ Kullanım:
   sci-agent auth copilot | openrouter <command>
   sci-agent --chatgpt                        # Continue with ChatGPT (local interactive)
   sci-agent auth login | status | switch | models | logout | usage
-  sci-agent --prompt "görev"                 # tek seferlik görev
+  sci-agent --prompt "task"                 # one-shot task
   sci-agent --local ollama|lmstudio|llamacpp|vllm|custom
   sci-agent --local ollama --local-start --local-model <model>
   sci-agent local models|status --local <runtime>
   sci-agent --sandbox                        # opt-in local process sandbox (Linux/WSL2)
-  sci-agent --workspace <dizin>              # çalışma alanını belirle
+  sci-agent --workspace <directory>              # set the workspace
   sci-agent --version | --help
 
-REPL içindeki komutlar için /help yaz.`);
+Type /help for commands inside the REPL.`);
   process.exit(0);
 }
 

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { MockProvider, runAgentLoop } from '@sci/core';
 import { buildSteering } from '../packages/core/src/eq/eq-layer.js';
 
-// runAgentLoop için minimal sahte kayıt: yalnızca schemas() kullanılır (araç çağrısı yok).
+// Minimal mock registry for runAgentLoop: only schemas() is used.
 const fakeRegistry = { schemas: () => [] };
 
-test('runAgentLoop: systemExtra kopyadaki sistem mesajına eklenir, orijinal messages değişmez', async () => {
+test('runAgentLoop appends systemExtra to copied context without changing history', async () => {
   const provider = new MockProvider([{ content: 'tamam' }]);
   const messages = [
     { role: 'system', content: 'sistem istemi' },
@@ -14,18 +14,18 @@ test('runAgentLoop: systemExtra kopyadaki sistem mesajına eklenir, orijinal mes
   ];
   await runAgentLoop({ provider, registry: fakeRegistry, messages, maxSteps: 3, grounding: false, systemExtra: 'STEER-TEST-123' });
 
-  // Provider'a giden liste bir kopya: sistem mesajı suffix taşır.
+  // The provider receives a copied context with the system-message suffix.
   const sent = provider.calls[0].messages;
   assert.notEqual(sent, messages);
   assert.equal(sent[0].content, 'sistem istemi\n\nSTEER-TEST-123');
   assert.equal(sent[1].content, 'selam');
 
-  // Orijinal kalıcı geçmişte suffix sızması yok.
+  // The suffix does not leak into persistent history.
   assert.equal(messages[0].content, 'sistem istemi');
   assert.ok(!JSON.stringify(messages).includes('STEER-TEST-123'));
 });
 
-test('runAgentLoop: systemExtra verilmezse davranış değişmez', async () => {
+test('runAgentLoop behavior is unchanged without systemExtra', async () => {
   const provider = new MockProvider([{ content: 'tamam' }]);
   const messages = [
     { role: 'system', content: 'sistem istemi' },
@@ -38,7 +38,7 @@ test('runAgentLoop: systemExtra verilmezse davranış değişmez', async () => {
   assert.equal(provider.calls[0].messages[0].content, 'sistem istemi');
 });
 
-test('buildSteering: SCI_AGENT_EQ_DISABLE=1 ile null döner', async () => {
+test('buildSteering returns null when disabled', async () => {
   const prev = process.env.SCI_AGENT_EQ_DISABLE;
   process.env.SCI_AGENT_EQ_DISABLE = '1';
   try {
@@ -52,7 +52,7 @@ test('buildSteering: SCI_AGENT_EQ_DISABLE=1 ile null döner', async () => {
   }
 });
 
-test('buildSteering: kurulu pakette gerçek çağrı string|null döner, throw etmez', async () => {
+test('buildSteering returns string or null without throwing', async () => {
   const r = await buildSteering({
     messages: [
       { role: 'user', content: 'Randevum üç kez değiştirildi, artık sinirleniyorum.' },
@@ -67,7 +67,7 @@ test('buildSteering: kurulu pakette gerçek çağrı string|null döner, throw e
   assert.ok(r.source.length > 0);
 });
 
-test('buildSteering: tool mesajları filtrelenir, kullanıcı mesajı kalmazsa null döner', async () => {
+test('buildSteering filters tool messages and returns null without user messages', async () => {
   const r = await buildSteering({
     messages: [
       { role: 'system', content: 'sistem' },

@@ -1,4 +1,4 @@
-// Araç kategorileri: CLI gruplaması.
+// Tool categories for CLI grouping.
 
 const SCIENTIFIC = new Set([
   'python_eval',

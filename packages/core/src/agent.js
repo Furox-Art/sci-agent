@@ -3,19 +3,19 @@ import { saveResearch } from './science/research-memory.js';
 import { routeTools } from './science/tool-routing.js';
 import { ResearchState } from './science/research-state.js';
 /**
- * Ajan döngüsü: modeli çağırır, araç çağrılarını çalıştırır, sonuçları modele geri verir.
- * onEvent ile akış olayları yayınlanır: reasoning | text | tool_call | tool_result | error
- * systemExtra verilirse bu turun model çağrılarında sistem mesajına eklenir
- * (kalıcı messages dizisi değişmez; örn. eq-layer yönlendirmesi için kullanılır).
+ * Agent loop: calls the model, executes tool calls, and returns their results.
+ * Streaming events are emitted through onEvent: reasoning | text | tool_call | tool_result | error
+ * When provided, systemExtra is appended to the system prompt for the current turn
+ * (the persistent messages array is unchanged; for example, eq-layer steering).
  *
- * Sağlamlık: araç/kayıt hataları döngüyü çökertmez (modele temiz hata gözlemi döner),
- * abort sinyali düzenli biçimde durdurulur ve nedeni bildirilir; bozuk araç çağrıları
- * (eksik/bilinmeyen ad, geçersiz JSON) gözlemlenir, 3 ardışık bozuk çağrıda döngü durur.
- * Paralel araç batch'leri sınırlı eşzamanlılıkla yürütülür (DEFAULT_MAX_CONCURRENT = 4;
- * runAgentLoop'un isteğe bağlı maxConcurrent seçeneğiyle geçilebilir).
+ * Robustness: tool and registry errors return clean observations to the model,
+ * abort signals stop execution cleanly with a reason; malformed tool calls
+ * (missing or unknown name, invalid JSON) are observed; three consecutive malformed calls stop the loop.
+ * Parallel tool batches use bounded concurrency (DEFAULT_MAX_CONCURRENT = 4;
+ * overridable with the optional runAgentLoop maxConcurrent setting).
  */
 
-// Argümanları güvenle dizgeleştirir; döngüsel yapı gibi sorunlu değerlerde '{}' döner.
+// Safely serialize arguments; return '{}' for problematic values such as circular structures.
 const stringifyArgs = (args) => {
   try {
     return JSON.stringify(args ?? {});
@@ -106,7 +106,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
   // Effective tool-concurrency limit for this run: caller-provided `maxConcurrent` when
   // it is a positive integer, otherwise DEFAULT_MAX_CONCURRENT (4).
   const concurrency = Number.isInteger(maxConcurrent) && maxConcurrent >= 1 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
-  // Ardışık bozuk araç çağrısı sayacı: 3'e ulaşınca döngü sonlanır (sonsuz döngü koruması).
+  // Stop the loop after three consecutive malformed tool calls.
   let malformedStreak = 0;
   // Run-local evidence graph and one repair attempt.
   const research = new ResearchState();
@@ -151,7 +151,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
   let groundingNudge = false;
   const rejectedDrafts = new Set();
   const cleanDrafts = () => { for (let i = messages.length - 1; i >= 0; i--) if (rejectedDrafts.has(messages[i])) messages.splice(i, 1); };
-  // Abort: nedeni olay olarak bildir ve düzenli sonuçla dön (hata fırlatma).
+  // Abort: emit the reason and return a structured result rather than throwing.
   const abortRun = (steps) => {
     cleanDrafts();
     onEvent({ type: 'error', text: 'Run aborted before completion.', reason: 'aborted' });
@@ -160,8 +160,8 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
   for (let step = 0; step < maxSteps; step++) {
     if (signal?.aborted) return abortRun(step);
     onEvent({ type: 'step', step: step + 1, maxSteps });
-    // systemExtra yalnızca model çağrılarına eklenir; kalıcı geçmiş kopya üzerinden korunur.
-    // Kanıt kapısı uyarısı da sistem istemine eklenir (kalıcı messages dizisine yazılmaz).
+    // Append systemExtra only to the copied model-call context; preserve history.
+    // The evidence gate warning is also appended to the temporary system prompt.
     const effectiveSystemExtra = [systemExtra, grounding && GROUNDING_RULE, groundingNudge && 'Previous answer had unsupported claims; repair or withdraw them.', requireIndependentReview && 'Independent reviewer AND verifier must support each exact claim; use task with role and target.'].filter(Boolean).join('\n\n');
     const chatMessages =
       effectiveSystemExtra
@@ -188,7 +188,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
         },
       });
     } catch (e) {
-      // Abort hatası döngüyü çökertmez: nedeni bildirip çık; diğer sağlayıcı hataları aynen yayılır.
+      // Handle cancellation cleanly; propagate other provider failures unchanged.
       if (signal?.aborted || e?.name === 'AbortError' || /abort/i.test(String(e?.message ?? ''))) return abortRun(step);
       cleanDrafts();
       throw e;
@@ -251,8 +251,8 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     }
 
     if (!grounding && !lessonEnabled) publishText();
-    // Bozuk çağrı: adı eksik/bilinmiyor veya argümanlar geçersiz JSON. Çalıştırılmaz;
-    // o çağrı için temiz hata gözlemi modele döner ve döngü sürer.
+    // Malformed calls have missing/unknown names or invalid JSON. Do not execute them;
+    // return a clean error observation to the model and continue.
     const isMalformed = (tc) => {
       if (!tc || typeof tc !== 'object') return true;
       if (typeof tc.name !== 'string' || !tc.name.trim()) return true;
@@ -261,15 +261,15 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       if (args == null) return false;
       if (typeof args !== 'object' || Array.isArray(args)) return true;
       const keys = Object.keys(args);
-      return keys.length === 1 && keys[0] === '_raw'; // sağlayıcının JSON ayrıştırma hatası işareti
+      return keys.length === 1 && keys[0] === '_raw'; // provider JSON parse-error sentinel
     };
     const malformedMessage = (tc) => {
       if (typeof tc?.name !== 'string' || !tc.name.trim()) return 'Malformed tool call: missing or empty tool name.';
       if (!registry.get(tc.name)) return `Malformed tool call: unknown tool "${tc.name}".`;
       return 'Malformed tool call: tool arguments are not valid JSON.';
     };
-    // Her yardımcı, modele gidecek araç yanıtını (output dizgesi) döndürür; messages'a
-    // yazma çağrı yerine yapılır (sıralı akışta hemen, havuzda asistan sırasına göre).
+    // Each helper returns the tool response string for the model; appending to messages
+    // is handled by the caller (immediately in serial mode, assistant order in pool mode).
     const runMalformed = (tc) => {
       onEvent({ type: 'tool_call', id: tc?.id, name: tc?.name, args: tc?.arguments });
       const output = JSON.stringify({ error: malformedMessage(tc) });
@@ -278,8 +278,8 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
     };
     const runOne = async (tc) => {
       onEvent({ type: 'tool_call', id: tc.id, name: tc.name, args: tc.arguments });
-      // Kayıt çoğu araç hatasını {ok:false} ile döndürür; invoke'un kendisi fırlarsa veya
-      // geçersiz sonuç dönerse de döngü ölmesin: temiz hata gözlemi modele geri beslenir.
+      // The registry returns most tool failures as {ok:false}; if invoke throws or
+      // returns an invalid result, feed a clean error observation back to the model.
       let result;
       const evidenceId = `E${++sequence}`;
       try {
@@ -294,8 +294,8 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       onEvent({ type: 'tool_result', id: tc.id, name: tc.name, ok: result.ok, output: result.output, ...(id ? { evidenceId: id } : {}) });
       return id ? `${result.output}\n[Evidence ID: ${id}]` : result.output;
     };
-    // Abort arada tetiklendiyse kalan çağrılar çalıştırılmaz; geçmiş tutarlı kalsın diye
-    // her biri için 'aborted' gözlemi yazılır.
+    // Skip remaining calls after cancellation; to preserve history consistency,
+    // record an 'aborted' observation for each.
     const runAborted = (tc) => {
       const output = JSON.stringify({ error: 'Aborted before execution.' });
       onEvent({ type: 'tool_call', id: tc?.id, name: tc?.name, args: tc?.arguments });
@@ -303,7 +303,7 @@ export async function runAgentLoop({ provider, registry, messages, onEvent = () 
       return output;
     };
 
-    // Tüm çağrılar paralel-güvenli araçlara aitse aynı adımda sınırlı eşzamanlılıkla yürüt.
+    // Execute a bounded parallel batch only if all calls are parallel-safe.
     const parallel = toolCalls.length > 1 && toolCalls.every((tc) => registry.get(tc?.name)?.parallel);
     let malformedThisStep = 0;
     if (parallel) {

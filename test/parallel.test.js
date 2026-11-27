@@ -11,7 +11,7 @@ function gateTool(name, registry) {
     needsApproval: false,
     async execute() {
       registry.started.add(name);
-      // İki araç da başlamadan hiçbiri bitmez: sıralı yürütme zaman aşımına düşer.
+      // Neither tool finishes until both start; serial execution would time out.
       if (registry.started.size >= 2) registry.release();
       await Promise.race([
         registry.gate,
@@ -33,7 +33,7 @@ function makeGate() {
   return registry;
 }
 
-test('aynı adımdaki paralel araçlar eşzamanlı yürütülür', async () => {
+test('parallel-safe tools execute concurrently in one step', async () => {
   const gate = makeGate();
   const tools = [gateTool('a', gate), gateTool('b', gate)];
   const registry = new ToolRegistry({ tools, workspaceRoot: '.' });
@@ -51,7 +51,7 @@ test('aynı adımdaki paralel araçlar eşzamanlı yürütülür', async () => {
   for (const m of toolMsgs) assert.match(m.content, /tamam/);
 });
 
-test('task aracı alt ajanı çalıştırır ve özetini döndürür', async () => {
+test('task runs a sub-agent and returns its summary', async () => {
   const provider = new MockProvider([
     { toolCalls: [{ name: 'task', arguments: { prompt: 'alt görev A' } }] },
     'alt ajanın özeti',
@@ -64,14 +64,14 @@ test('task aracı alt ajanı çalıştırır ve özetini döndürür', async () 
   assert.equal(res.done, true);
   assert.equal(messages.at(-1).content, 'ana ajan bitti');
   const toolMsg = messages.find((m) => m.role === 'tool');
-  assert.match(toolMsg.content, /Alt ajan bitti/);
+  assert.match(toolMsg.content, /Sub-agent finished/);
   assert.match(toolMsg.content, /alt ajanın özeti/);
   assert.equal(events.filter((e) => e.type === 'task_start').length, 1);
   assert.equal(events.filter((e) => e.type === 'task_end').length, 1);
   assert.ok(events.some((e) => e.type === 'sub_event' && e.ev?.type === 'text'));
 });
 
-test('birden çok task çağrısı paralel yürütülür', async () => {
+test('multiple task calls execute concurrently', async () => {
   const provider = new MockProvider([
     {
       toolCalls: [
@@ -97,7 +97,7 @@ test('birden çok task çağrısı paralel yürütülür', async () => {
   assert.equal(events.filter((e) => e.type === 'task_end').length, 2);
 });
 
-test('alt ajan task aracını göremez (iç içe derinlik sınırlı)', async () => {
+test('sub-agents cannot recursively invoke task', async () => {
   const provider = new MockProvider([
     { toolCalls: [{ name: 'task', arguments: { prompt: 'iç görev' } }] },
     'ok',

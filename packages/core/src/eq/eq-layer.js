@@ -1,21 +1,21 @@
 /**
- * eq-layer otomatik yönlendirme katmanı.
+ * Automatic eq-layer steering layer.
  *
- * Her kullanıcı turunda model çağrılmadan ÖNCE kurulu eq-layer Python paketi
- * (pip: eq-layer) çalıştırılır; kullanıcının niyeti/duygu durumu/repair ihtiyacı
- * çıkarılır ve seçilen yanıt politikasına ait system_instruction metni, o turun
- * sistem istemine eklenecek yönlendirme (steering) olarak döndürülür. Kalıcı
- * sohbet geçmişi burada değiştirilmez.
+ * Before each user turn invokes the model, the installed eq-layer Python package
+ * (pip: eq-layer) runs to assess intent, emotional context and repair needs.
+ * The selected response policy supplies system_instruction text for
+ * steering in the current system prompt. Persistent
+ * conversation history is not modified here.
  *
- * Yol önceliği (en hafif güvenilir yol seçilir):
- *   1. 'portable' — kurulu pakete doğrudan Python API çağrısı
- *      (python -X utf8 -I -c … ; JSON girdi stdin'den, JSON çıktı stdout'tan;
- *      bağımlılık gerektirmeyen heuristic yol tercih edilir),
- *   2. 'cli'      — eq-layer.exe konsol betiği (Python Scripts dizini veya PATH).
+ * Path priority (prefer the lightest reliable method):
+ *   1. 'portable' — call the installed Python API directly
+ *      (python -X utf8 -I -c …; JSON input on stdin, output on stdout;
+ *      prefer the dependency-light heuristic path),
+ *   2. 'cli' — eq-layer console script (Python Scripts directory or PATH).
  *
- * Kullanılabilirlik bir kez tespit edilip modül değişkeninde cache'lenir;
- * SCI_AGENT_EQ_DISABLE=1 ise her çağrı null döner. Her hata sessizce null'a
- * düşer; süreç başına ~20 sn timeout uygulanır. Uygulama asla bloklanmaz.
+ * Availability is detected once and cached in a module variable;
+ * SCI_AGENT_EQ_DISABLE=1 returns null on every call. Failures return null
+ * silently; each subprocess has an approximately 20-second timeout.
  */
 
 import { spawn } from 'node:child_process';
@@ -26,13 +26,13 @@ import { resolvePython, findPythonScript } from '../science/pybridge.js';
 const TIMEOUT_MS = 20_000;
 const MAX_STEERING_CHARS = 4000;
 
-// eq-layer CLI sözleşmesi: route alt komutu stdin'den [{role, content}, ...] okur,
-// stdout'a tek satırlık JSON yazar (system_instruction alanı yönlendirme metnidir).
-// 'heuristic' mod öğrenilmiş ML bileşenlerini yüklemez: portable/hafif yol.
+// eq-layer CLI contract: route reads [{role, content}, ...] from stdin,
+// and emits one JSON line on stdout (system_instruction is the steering text).
+// 'heuristic' mode avoids loading learned ML components; a portable, lightweight path.
 const PY_ROUTE_SCRIPT =
   "import sys; from eq_layer.cli import main; sys.exit(main(['route', '--intent-mode', 'heuristic']))";
 
-/** 'portable' | 'cli' | null — bir kez tespit edilir, sonraki çağrılar cache'i kullanır. */
+/** 'portable' | 'cli' | null — detected once and reused from cache. */
 let transport;
 let warned = false;
 
@@ -43,9 +43,9 @@ function warn(message) {
 }
 
 /**
- * Mesajları eq-layer girdi sözleşmesine göre süzer: yalnızca user/assistant/system
- * rolleri ve boş olmayan metin içerikler kalır; en az bir kullanıcı mesajı yoksa
- * eq-layer'a gitmenin anlamı yoktur.
+ * Filter messages for the eq-layer contract: only user/assistant/system
+ * roles and non-empty text are retained; if there is no user message,
+ * skip eq-layer.
  */
 function normalizeMessages(messages) {
   if (!Array.isArray(messages)) return null;
@@ -60,7 +60,7 @@ function normalizeMessages(messages) {
   return out.some((m) => m.role === 'user') ? out : null;
 }
 
-/** Tek bir alt süreç çalıştırır; hata/timeout durumunda null döner (asla throw etmez). */
+/** Run one subprocess; return null on failure or timeout instead of throwing. */
 function runProcess(cmd, args, input) {
   return new Promise((resolve) => {
     let child;
@@ -101,14 +101,14 @@ function runProcess(cmd, args, input) {
   });
 }
 
-/** CLI çıktısını ayrıştırır; yönlendirme metni (kısa başlık + system_instruction) üretir. */
+/** Parse CLI output into a short heading and system_instruction steering text. */
 function parseRouteOutput(stdout) {
   if (!stdout || !stdout.trim()) return null;
   let parsed;
   try {
     parsed = JSON.parse(stdout.trim());
   } catch {
-    // Uyarılar stdout'a karıştıysa son satır hâlâ JSON olabilir.
+    // If warnings appear on stdout, the final line may still contain JSON.
     const last = stdout.trim().split(/\r?\n/).pop().trim();
     try {
       parsed = JSON.parse(last);
@@ -122,12 +122,12 @@ function parseRouteOutput(stdout) {
   const register = parsed?.policy?.register;
   const header = policy
     ? `[eq-layer] politika: ${policy}${register ? ` (${register})` : ''}`
-    : '[eq-layer] yönlendirme:';
+    : '[eq-layer] steering:';
   const full = `${header}\n${instruction}`;
   return full.length > MAX_STEERING_CHARS ? `${full.slice(0, MAX_STEERING_CHARS)}…` : full;
 }
 
-/** Yol 1: kurulu pakete doğrudan Python API çağrısı (portable, öğrenimsiz hafif yol). */
+/** Path 1: direct call to the installed Python API (portable lightweight heuristic). */
 async function tryPortable(inputJson) {
   const py = resolvePython();
   if (!py) return null;
@@ -135,7 +135,7 @@ async function tryPortable(inputJson) {
   return parseRouteOutput(stdout);
 }
 
-/** PATH üzerinde ve Python Scripts/bin dizininde eq-layer konsol betiğini arar. */
+/** Find the eq-layer console script on PATH or in Python Scripts/bin. */
 function findEqLayerExe() {
   const py = resolvePython();
   if (py && path.isAbsolute(py)) {
@@ -151,7 +151,7 @@ function findEqLayerExe() {
   return candidates.find((c) => existsSync(c)) ?? null;
 }
 
-/** Yol 2: eq-layer.exe konsol betiği. */
+/** Path 2: eq-layer console script. */
 async function tryCli(inputJson) {
   const exe = findEqLayerExe();
   if (!exe) return null;
@@ -160,12 +160,12 @@ async function tryCli(inputJson) {
 }
 
 /**
- * eq-layer routing sonucunu üretir.
+ * Produce the eq-layer routing result.
  * @param {{ messages?: Array<{role: string, content: string}>, workspaceRoot?: string }} opts
- *   messages: [{role, content}, ...] — son ~6 mesaj yeterlidir (süzülüp sözleşmeye uyarlanır).
- *   workspaceRoot: API uyumluluğu için kabul edilir; eq-layer route'u çalışma alanına bağlı değildir.
+ *   messages: [{role, content}, ...] — the last ~6 messages are sufficient (filtered to match the contract).
+ *   workspaceRoot: accepted for API compatibility; eq-layer routing is independent of the workspace.
  * @returns {Promise<{steering: string, source: string} | null>}
- *   Paket yoksa, devre dışıysa veya herhangi bir adım hata verirse null.
+ *   Return null if the package is missing, disabled, or any step fails.
  */
 export async function buildSteering({ messages, workspaceRoot } = {}) {
   if (process.env.SCI_AGENT_EQ_DISABLE === '1') return null;
@@ -185,7 +185,7 @@ export async function buildSteering({ messages, workspaceRoot } = {}) {
     }
     if (t === null) return null;
     const steering = t === 'portable' ? await tryPortable(inputJson) : await tryCli(inputJson);
-    if (!steering) return null; // cache'lenmiş yol bu turda çalışmadı → sessiz null
+    if (!steering) return null; // cached route failed this turn; return null silently
     return { steering, source: t };
   } catch (e) {
     warn(`beklenmeyen hata: ${e?.message ?? e}`);

@@ -15,7 +15,7 @@ export { ResearchState } from './science/research-state.js';
 export { runAgentLoop, buildSystemPrompt, findUngroundedClaims, scanClaims } from './agent.js';
 export { getPlugin, listPlugins } from './plugins.js';
 
-/** Yapılandırmaya göre uygun sağlayıcıyı oluşturur. */
+/** Create the provider selected by configuration. */
 export function createProvider(modelCfg = {}) {
   if (['chatgpt-plan','copilot-plan','openrouter-account','local-model'].includes(modelCfg.provider)) throw new Error('Account provider requires an explicitly authorized local connection; use sci-agent --provider-menu');
   if (modelCfg.provider === 'mock') {
@@ -33,8 +33,8 @@ export function createProvider(modelCfg = {}) {
 }
 
 /**
- * Yapılandırmaya göre araç kaydı oluşturur: varsayılan araçlar + etkin eklentilerin
- * araçları. disableTools ile bazı araçlar çıkarılır (ör. alt ajanlarda task).
+ * Build the configured registry from default tools and enabled plugin
+ * tools. disableTools excludes selected tools (e.g. task in sub-agents).
  */
 export function createRegistry({ cfg, approve, disableTools = [] } = {}) {
   let tools = [...defaultTools];

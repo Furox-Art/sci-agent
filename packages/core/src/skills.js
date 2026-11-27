@@ -1,5 +1,5 @@
-// GitHub'daki ajan becerilerini (SKILL.md) yükler ve sistem istemine ekler.
-// Kaynak biçimi: "github:kullanici/depo[/alt/yol]"
+// Load agent skills (SKILL.md) from GitHub and append them to the system prompt.
+// Source format: "github:owner/repository[/subdirectory]"
 
 export function parseSkillMd(text, source) {
   const m = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -31,7 +31,7 @@ export async function fetchSkill(source, fetchImpl = fetch) {
   return parsed;
 }
 
-/** Yüklü becerileri sistem istemi metnine dönüştürür (bağlam koruması için gövde kırpılır). */
+/** Convert loaded skills to prompt text, truncating bodies to preserve context. */
 export function skillsSystemText(skills, cap = 6000) {
   if (!skills?.length) return '';
   return skills

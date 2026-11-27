@@ -10,9 +10,9 @@ export const defaultTools = [read_file, write_file, edit_file, list_dir, search_
 const MAX_OUTPUT = 16_000;
 
 /**
- * Araç kaydı: şemaları sağlar, onay politikasını uygular, araçları çalıştırır.
- * approve: async (araçAdı, argümanlar) => boolean
- * invoke'a verilen extraCtx, araç execute bağlamıyla birleştirilir (ör. provider, onEvent).
+ * Tool registry: provides schemas, enforces approval policy and executes tools.
+ * approve: async (toolName, arguments) => boolean
+ * Extra context supplied to invoke is merged into the tool execution context (e.g. provider, onEvent).
  */
 export class ToolRegistry {
   constructor({ tools = defaultTools, workspaceRoot, approve, autoApprove = [], cfg } = {}) {

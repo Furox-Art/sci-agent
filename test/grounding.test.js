@@ -5,10 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { ToolRegistry, MockProvider, runAgentLoop, findUngroundedClaims } from '@sci/core';
 
-// Deterministik kanıt kapısı ("uydurmaya yasak"): bir koşuda hiç araç çalışmadan
-// sayısal/literatür iddiası içeren final yanıt, doğrulanmamış olarak işaretlenir.
+// Deterministic evidence gate: unsupported numeric or literature claims
+// are marked unverified when no tools have executed.
 
-test('findUngroundedClaims: istatistik, ölçüm ve literatür iddialarını yakalar', () => {
+test('findUngroundedClaims detects statistical, measurement and literature claims', () => {
   const kinds = (t) => findUngroundedClaims(t).map((c) => c.kind);
   assert.ok(kinds('The effect was significant (p = 0.03).').includes('statistics'));
   assert.ok(kinds('n = 48 katılımcı vardı').includes('statistics'));
@@ -18,14 +18,14 @@ test('findUngroundedClaims: istatistik, ölçüm ve literatür iddialarını yak
   assert.ok(kinds('See doi:10.1038/s41586-020-2649-2 for details.').includes('literature'));
 });
 
-test('findUngroundedClaims: iddia içermeyen düz metinde boş döner', () => {
+test('findUngroundedClaims returns no matches for claim-free text', () => {
   assert.deepEqual(findUngroundedClaims('Merhaba, bugün nasılsın?'), []);
   assert.deepEqual(findUngroundedClaims('Dosyayı okudum ve özeti aşağıya yazdım.'), []);
   assert.deepEqual(findUngroundedClaims(''), []);
   assert.deepEqual(findUngroundedClaims(undefined), []);
 });
 
-test('kanıt kapısı: araç çalışmadan sayısal iddia -> uyarı + doğrulama isteği', async () => {
+test('evidence gate requests verification for unsupported numeric claims', async () => {
   const provider = new MockProvider([{ content: 'Ortalama 12.4 mg/L ve p = 0.01.' }, { content: 'Araçla doğruladım.' }]);
   const messages = [
     { role: 'system', content: 'test' },
@@ -47,12 +47,12 @@ test('kanıt kapısı: araç çalışmadan sayısal iddia -> uyarı + doğrulama
   assert.equal(warnings.length, 1);
   assert.equal(warnings[0].reason, 'ungrounded_claims');
   assert.ok(warnings[0].claims.length >= 1);
-  // Uyarı yalnızca o turun sistem istemine eklenir; kalıcı geçmiş kirlenmez.
+  // The warning is confined to the current system prompt, preserving persistent history.
   assert.match(provider.calls[1].messages[0].content, /Grounding check/);
   assert.ok(!JSON.stringify(messages).includes('Grounding check'));
 });
 
-test('kanıt kapısı: uyarıdan sonra da araç yoksa yanıt doğrulanmamış işaretlenir', async () => {
+test('evidence gate marks the response unverified after an unsuccessful retry', async () => {
   const provider = new MockProvider([{ content: 'p = 0.04, n = 30.' }, { content: 'p = 0.04, n = 30.' }]);
   const messages = [
     { role: 'system', content: 'test' },
@@ -90,7 +90,7 @@ test('unrelated write is not evidence', async () => {
   assert.equal(events.filter(e => e.type === 'text_delta' || e.type === 'text').length, 0);
 });
 
-test('kanıt kapısı: grounding:false ile kapatılabilir', async () => {
+test('evidence gate can be disabled with grounding:false', async () => {
   const provider = new MockProvider([{ content: 'Ortalama 12.4 mg/L.' }]);
   const events = [];
   const res = await runAgentLoop({

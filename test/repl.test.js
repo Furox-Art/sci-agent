@@ -206,7 +206,7 @@ test('/skills add with no argument prints usage instead of calling the model (pi
   const out = String(r.stdout).replace(/\x1b\[[0-9;]*m/g, '').replace(/^sci> /gm, '');
   assert.match(out, /^Usage: \/skills add github:user\/repo\[\/sub\/path\]$/m);
   // The bare command must not leak into the agent loop (no mock model response follows).
-  assert.doesNotMatch(out, /Mock sağlayıcı/);
+  assert.doesNotMatch(out, /Mock provider/);
   assert.doesNotMatch(out, /✓ Skill added/);
   // Nothing was persisted to the config.
   const cfgAfter = JSON.parse(await fs.readFile(path.join(root, 'sci-agent.config.json'), 'utf8'));

@@ -12,7 +12,7 @@ function sseBody(lines) {
   });
 }
 
-test('akışlı yanıt: deltalar yayınlanır ve araç çağrıları birleşir', async () => {
+test('streaming response emits deltas and assembles tool calls', async () => {
   const sse = [
     'data: {"choices":[{"delta":{"content":"selam "}}]}',
     'data: {"choices":[{"delta":{"content":"dünya"}}]}',
@@ -35,7 +35,7 @@ test('akışlı yanıt: deltalar yayınlanır ve araç çağrıları birleşir',
   assert.deepEqual(deltas.filter((d) => d.type === 'text_delta').map((d) => d.text), ['selam ', 'dünya']);
 });
 
-test('akış desteklenmezse akışsız moda geri düşer', async () => {
+test('unsupported streaming falls back to nonstreaming mode', async () => {
   let calls = 0;
   const fakeFetch = async (url, opts) => {
     calls++;
@@ -53,10 +53,10 @@ test('akış desteklenmezse akışsız moda geri düşer', async () => {
   assert.equal(calls, 2);
   assert.equal(out.content, 'tamam');
   assert.equal(out.streamed, false);
-  assert.equal(deltas.find((d) => d.type === 'info')?.text.includes('akışsız'), true);
+  assert.equal(deltas.find((d) => d.type === 'info')?.text.includes('without streaming'), true);
 });
 
-test('sağlayıcı configdeki name alanını model olarak kabul eder', async () => {
+test('provider accepts the configured name field as model', async () => {
   const fakeFetch = async (url, opts) => {
     const body = JSON.parse(opts.body);
     return {
@@ -69,7 +69,7 @@ test('sağlayıcı configdeki name alanını model olarak kabul eder', async () 
   assert.equal(out.content, 'model=bilimsel-model');
 });
 
-test('ajan döngüsü akışta text_delta yayınlar, tam metni tekrarlamaz', async () => {
+test('agent loop emits text deltas without repeating the full streamed text', async () => {
   const provider = new MockProvider([{ content: 'merhaba dünya' }]);
   const events = [];
   const registry = new ToolRegistry({ workspaceRoot: '.' });

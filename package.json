@@ -2,7 +2,7 @@
   "name": "sci-agent",
   "version": "0.10.7",
   "private": true,
-  "description": "Model-bağımsız bilimsel kodlama ajanı: çekirdek motor + CLI",
+  "description": "Model-agnostic scientific research and coding agent: core engine and CLI",
   "type": "module",
   "license": "(MIT OR Apache-2.0)",
   "engines": {

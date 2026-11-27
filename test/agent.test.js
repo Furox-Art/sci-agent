@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { ToolRegistry, MockProvider, OpenAICompatProvider, runAgentLoop } from '@sci/core';
 
-test('ajan döngüsü: araç çağırır ve yanıtlar', async () => {
+test('agent loop calls tools and responds', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const provider = new MockProvider([
     { toolCalls: [{ name: 'write_file', arguments: { path: 'rapor.txt', content: 'veri' } }] },
@@ -23,12 +23,12 @@ test('ajan döngüsü: araç çağırır ve yanıtlar', async () => {
   assert.equal(messages.at(-1).content, 'rapor yazıldı');
   assert.equal(messages.at(-2).role, 'tool');
   assert.equal(events.find((e) => e.type === 'tool_call')?.name, 'write_file');
-  // Adım olayları: her tur için sıralı step olayı yayınlanır
+  // Step events are emitted sequentially for each turn.
   const stepEvents = events.filter((e) => e.type === 'step').map((e) => e.step);
   assert.deepEqual(stepEvents, [1, 2]);
 });
 
-test('adım sınırında durur', async () => {
+test('stops at the step limit', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const script = Array.from({ length: 5 }, () => ({ toolCalls: [{ name: 'list_dir', arguments: { path: '.' } }] }));
   const provider = new MockProvider(script);
@@ -38,7 +38,7 @@ test('adım sınırında durur', async () => {
   assert.equal(res.steps, 2);
 });
 
-test('OpenAI sağlayıcı istek biçimi ve ayrıştırma', async () => {
+test('OpenAI provider request format and parsing', async () => {
   let captured;
   const fakeFetch = async (url, opts) => {
     captured = { url, body: JSON.parse(opts.body) };
@@ -66,7 +66,7 @@ test('OpenAI sağlayıcı istek biçimi ve ayrıştırma', async () => {
   assert.equal(out.content, 'selam');
 });
 
-test('araç execute hatası döngüyü durdurmaz, gözlem olarak geri beslenir', async () => {
+test('tool execution errors return observations without stopping the loop', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const boom = {
     name: 'boom',
@@ -92,12 +92,12 @@ test('araç execute hatası döngüyü durdurmaz, gözlem olarak geri beslenir',
   assert.equal(messages.at(-1).content, 'hata tolere edildi');
 });
 
-test('registry.invoke fırlarsa döngü ölmez, JSON hata gözlemi modele döner', async () => {
+test('registry exceptions produce JSON error observations without stopping the loop', async () => {
   const provider = new MockProvider([
     { toolCalls: [{ name: 'boom', arguments: {} }] },
     { content: 'devam etti' },
   ]);
-  // invoke'un kendisi fırlatan sahte kayıt: ajan döngüsü bunu temiz gözleme çevirmeli.
+  // A throwing mock registry should produce a clean observation.
   const registry = {
     schemas: () => [{ name: 'boom', description: 'd', parameters: { type: 'object' } }],
     get: (n) => (n === 'boom' ? { name: 'boom' } : null),
@@ -115,7 +115,7 @@ test('registry.invoke fırlarsa döngü ölmez, JSON hata gözlemi modele döner
   assert.equal(messages.at(-1).content, 'devam etti');
 });
 
-test('abort: model çağrısı sırasında neden bildirilir ve düzenli sonuç döner', async () => {
+test('abort during a model call reports the reason and returns a structured result', async () => {
   const provider = {
     chat: async () => {
       const e = new Error('The operation was aborted');
@@ -141,7 +141,7 @@ test('abort: model çağrısı sırasında neden bildirilir ve düzenli sonuç d
   assert.equal(err.reason, 'aborted');
 });
 
-test('abort: araç ortasında tetiklenirse kalan çağrılar çalıştırılmaz ve gözlemlenir', async () => {
+test('abort during tool execution skips remaining calls and records observations', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const ac = new AbortController();
   const stopper = {
@@ -171,7 +171,7 @@ test('abort: araç ortasında tetiklenirse kalan çağrılar çalıştırılmaz 
   assert.ok(events.some((e) => e.type === 'error' && /abort/i.test(e.text)));
 });
 
-test('bozuk araç çağrıları temiz gözlemle karşılanır ve döngü sürer', async () => {
+test('malformed tool calls produce clean observations and the loop continues', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const registry = new ToolRegistry({ workspaceRoot: root });
   const provider = new MockProvider([
@@ -192,7 +192,7 @@ test('bozuk araç çağrıları temiz gözlemle karşılanır ve döngü sürer'
   assert.match(toolMsgs[0].content, /unknown tool/);
   assert.match(toolMsgs[1].content, /not valid JSON/);
   assert.equal(messages.at(-1).content, 'toparlandı');
-  // Assistant mesajı bozuk çağrıları da kaydeder: araç çağrısı/yanıt eşleşmesi (protokol) tutarlı kalır.
+  // Preserve malformed calls in assistant history for protocol-consistent response matching.
   const assistant = messages.find((m) => m.role === 'assistant');
   assert.equal(assistant.tool_calls.length, 2);
   const trs = events.filter((e) => e.type === 'tool_result');
@@ -200,7 +200,7 @@ test('bozuk araç çağrıları temiz gözlemle karşılanır ve döngü sürer'
   assert.equal(trs.every((e) => e.ok === false), true);
 });
 
-test('üç ardışık bozuk araç çağrısında döngü durur', async () => {
+test('three consecutive malformed tool calls stop the loop', async () => {
   const provider = new MockProvider([
     { toolCalls: [{ name: 'yok1', arguments: {} }] },
     { toolCalls: [{ name: 'yok2', arguments: {} }] },
@@ -222,7 +222,7 @@ test('üç ardışık bozuk araç çağrısında döngü durur', async () => {
   assert.ok(events.some((e) => e.type === 'error' && /malformed/i.test(e.text)));
 });
 
-test('bozuk çağrı sayacı geçerli bir adımda sıfırlanır', async () => {
+test('a valid step resets the malformed-call counter', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const registry = new ToolRegistry({ workspaceRoot: root });
   const provider = new MockProvider([
@@ -233,13 +233,13 @@ test('bozuk çağrı sayacı geçerli bir adımda sıfırlanır', async () => {
     { content: 'betik bitti turu' },
   ]);
   const res = await runAgentLoop({ provider, registry, messages: [{ role: 'user', content: 'x' }], maxSteps: 10 });
-  // Sayaç sıfırlanmasaydı toplam 3 bozuk çağrıda dururdu; sıfırlama sayesinde tur tamamlandı.
+  // Resetting the counter allows the turn to finish instead of stopping at three total malformed calls.
   assert.equal(res.done, true);
   assert.equal(provider.calls.length, 5);
 });
 
-// Eşzamanlılık ölçen sahte paralel araç: aktif yürütme sayısını izler, aynı anda en
-// yüksek kaç çağrının çalıştığını (peak) kaydeder; her çağrı kısa gecikmeyle döner.
+// Mock parallel tool measures active executions and
+// records peak concurrency; each call completes after a short delay.
 const concurrencyTool = (state) => ({
   name: 'slow_paralel',
   description: 'eşzamanlılık ölçen araç',
@@ -257,19 +257,19 @@ const concurrencyTool = (state) => ({
 
 const concurrencyCalls = (n) => Array.from({ length: n }, (_, i) => ({ id: `c${i}`, name: 'slow_paralel', arguments: { i } }));
 
-test('paralel havuz: aynı anda en fazla maxConcurrent araç çalışır', async () => {
+test('parallel pool respects maxConcurrent', async () => {
   const state = { active: 0, peak: 0 };
   const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
   const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'havuz bitti' }]);
   const messages = [{ role: 'user', content: 'x' }];
   const res = await runAgentLoop({ provider, registry, messages, onEvent: () => {}, maxConcurrent: 4, maxSteps: 5 });
   assert.equal(res.done, true);
-  // 10 çağrının hiçbiri 4 eşzamanlı sınırı aşamaz; sınır tam dolulukla kullanılır.
+  // Ten calls respect and fully utilize the concurrency limit of four.
   assert.equal(state.peak, 4);
   assert.equal(state.active, 0); // döngü bittiğinde sızan yürütme kalmaz
 });
 
-test('paralel havuz: sonuçlar doğru tool_call kimlikleriyle ve asistan sırasıyla eşleşir', async () => {
+test('parallel results preserve tool-call IDs and assistant order', async () => {
   const state = { active: 0, peak: 0 };
   const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
   const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'eşleşme tamam' }]);
@@ -281,19 +281,19 @@ test('paralel havuz: sonuçlar doğru tool_call kimlikleriyle ve asistan sıras�
   assert.equal(assistant.tool_calls.length, 10);
   const toolMsgs = messages.filter((m) => m.role === 'tool');
   assert.equal(toolMsgs.length, 10);
-  // Her araç yanıtı, asistan mesajındaki tool_call sırasına ve kimliğine göre birebir eşleşir.
+  // Each response matches its assistant tool-call ID and order.
   toolMsgs.forEach((m, idx) => {
     assert.equal(m.tool_call_id, assistant.tool_calls[idx].id);
     assert.equal(m.content, `sonuc-${idx}`);
   });
-  // tool_result olayları tamamlanma sırasında gelebilir; kimlikler birebir eşleşmeli.
+  // Tool-result events may arrive in completion order; their IDs must match.
   const trs = events.filter((e) => e.type === 'tool_result');
   assert.equal(trs.length, 10);
   assert.ok(trs.every((e) => e.ok === true));
   assert.deepEqual(trs.map((e) => e.id).sort(), assistant.tool_calls.map((tc) => tc.id).sort());
 });
 
-test('paralel havuz: maxConcurrent verilmezse varsayılan sınır 4 uygulanır', async () => {
+test('parallel pool defaults to four concurrent calls', async () => {
   const state = { active: 0, peak: 0 };
   const registry = new ToolRegistry({ tools: [concurrencyTool(state)], workspaceRoot: '.' });
   const provider = new MockProvider([{ toolCalls: concurrencyCalls(10) }, { content: 'varsayılan bitti' }]);
@@ -304,7 +304,7 @@ test('paralel havuz: maxConcurrent verilmezse varsayılan sınır 4 uygulanır',
   assert.equal(state.active, 0);
 });
 
-test('paralel havuzda abort: başlamayan çağrılar çalıştırılmaz ve gözlemlenir', async () => {
+test('parallel cancellation skips and records unstarted calls', async () => {
   const ac = new AbortController();
   const pabort = {
     name: 'pabort',

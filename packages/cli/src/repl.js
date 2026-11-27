@@ -498,7 +498,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
           }
         }
         const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-        const out = path.join(cfg.agent.workspaceRoot, `sciagent-sohbet-${stamp}.md`);
+        const out = path.join(cfg.agent.workspaceRoot, `sciagent-chat-${stamp}.md`);
         writeFileSync(out, lines.join('\n'));
         console.log(dim(`Saved: ${out}`));
       } else if (input === '/test') {

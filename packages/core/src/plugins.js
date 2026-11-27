@@ -19,9 +19,9 @@ import {
 import { plan_audit } from './science/sci-audit.js';
 
 /**
- * Eklenti kancası: özel bilimsel model geldiğinde yeni bir eklenti tanımlanarak
- * modele özgü araçlar ve sistem istemi eklemeleri yüklenir (kod değişikliği gerekmez).
- * Her eklenti, modelin bilimsel işlerdeki yeteneğini araç desteğiyle artırır.
+ * Plugin hook: define an additional plugin for a custom scientific model
+ * to load model-specific tools and system-prompt extensions without changing the agent loop.
+ * Each plugin augments the model with scientific capabilities.
  */
 const BUILTINS = {
   'sci-tools': {

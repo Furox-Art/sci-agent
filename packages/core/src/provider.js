@@ -9,12 +9,12 @@ function parseArgs(raw) {
 }
 
 /**
- * OpenAI uyumlu /chat/completions uç noktasına bağlanan sağlayıcı.
- * vLLM, Ollama, HF TGI, LM Studio vb. tüm OpenAI uyumlu sunucularla çalışır.
- * Varsayılan olarak akışlı (stream) ister; sunucu akışı reddederse bir kez akışsız dener.
+ * Provider for OpenAI-compatible /chat/completions endpoints.
+ * Supports OpenAI-compatible servers such as vLLM, Ollama, HF TGI and LM Studio.
+ * Requests streaming by default; retries once without streaming if rejected.
  */
 export class OpenAICompatProvider {
-  // Yapılandırmada model adı `name` alanında taşınır; `model` takma adı da kabul edilir.
+  // Configuration uses the name field; model is also accepted as an alias.
   constructor({ baseUrl, apiKey = '', model, name, temperature = 0.2, stream = true, fetchImpl = fetch } = {}) {
     if (!baseUrl) throw new Error('model.baseUrl required');
     if (!model && !name) throw new Error('model.name required');
@@ -37,7 +37,7 @@ export class OpenAICompatProvider {
         return await this.#request(messages, tools, signal, true, emit);
       } catch (e) {
         if (!e.fallback) throw e;
-        emit('info', `Akış başarısız (${String(e.message).slice(0, 120)}); akışsız moda geçildi.`);
+        emit('info', `Streaming failed (${String(e.message).slice(0, 120)}); retrying without streaming.`);
       }
     }
     return await this.#request(messages, tools, signal, false, emit);
@@ -65,17 +65,17 @@ export class OpenAICompatProvider {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       const err = new Error(`Model server returned ${res.status}: ${text.slice(0, 500)}`);
-      err.fallback = stream; // akış denemesiyse akışsız tekrar denenebilir
+      err.fallback = stream; // a streaming attempt may be retried without streaming
       throw err;
     }
 
     if (!stream) {
       const data = await res.json();
       const msg = data?.choices?.[0]?.message;
-      if (!msg) throw new Error(`Beklenmeyen yanıt biçimi: ${JSON.stringify(data).slice(0, 300)}`);
+      if (!msg) throw new Error(`Unexpected response format: ${JSON.stringify(data).slice(0, 300)}`);
       return {
         content: msg.content ?? '',
-        reasoning: msg.reasoning_content ?? null, // DeepSeek-R1 vb. akıl yürütme alanı
+        reasoning: msg.reasoning_content ?? null, // reasoning field used by models such as DeepSeek-R1
         toolCalls: (msg.tool_calls ?? []).map((tc, i) => ({
           id: tc.id ?? `call_${i}`,
           name: tc.function?.name,
@@ -85,7 +85,7 @@ export class OpenAICompatProvider {
       };
     }
 
-    // SSE akışı: parçaları topla, deltaları yayınla.
+    // SSE stream: accumulate chunks and emit deltas.
     let content = '';
     let reasoning = '';
     let emitted = false;
@@ -146,11 +146,11 @@ const DEFAULT_MOCK_SCRIPT = [
   { toolCalls: [{ name: 'list_dir', arguments: { path: '.' } }] },
   {
     content:
-      '(Mock sağlayıcı) Çalışma alanını listeledim. Gerçek bilimsel model bağlandığında yanıtlar ondan gelecek.',
+      '(Mock provider) Listed the workspace. Connect a real scientific model for model-generated responses.',
   },
 ];
 
-/** Test ve arayüz önizlemesi için betikli sahte sağlayıcı; içeriği kelimeler halinde akıtır. */
+/** Scripted mock provider for tests and interface previews; streams text by word. */
 export class MockProvider {
   constructor(script) {
     this.script = Array.isArray(script) && script.length ? [...script] : [...DEFAULT_MOCK_SCRIPT];
@@ -160,7 +160,7 @@ export class MockProvider {
   async chat({ messages, tools, onChunk } = {}) {
     this.calls.push({ messages, tools });
     const next = this.script.shift();
-    if (!next) return this.#finish('(Mock sağlayıcı) Betik bitti.', [], onChunk);
+    if (!next) return this.#finish('(Mock provider) Script completed.', [], onChunk);
     if (typeof next === 'string') return this.#finish(next, [], onChunk);
     const toolCalls = (next.toolCalls ?? []).map((tc, i) => ({
       id: tc.id ?? `mock_${i}`,

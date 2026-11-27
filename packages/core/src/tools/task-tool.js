@@ -71,6 +71,6 @@ export const task = {
     }
     if (lastText) onEvent?.({ type: 'sub_event', prompt, ev: { type: 'text', text: lastText } });
     if (!res.done || res.unverified) throw new Error('Researcher did not finish with a grounded result');
-    return `Alt ajan bitti (${res.steps} adım).\nÖzet:\n${lastText || '(metin yok)'}`;
+    return `Sub-agent finished (${res.steps} steps).\nSummary:\n${lastText || '(no text)'}`;
   },
 };

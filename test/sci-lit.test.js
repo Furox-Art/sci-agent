@@ -23,7 +23,7 @@ async function makeDoiRegistry() {
 
 // --- Structure tests: run in every environment (no Python/network needed) ---
 
-test('araç şekli: altı araç tanımlı, onaysız ve paralel çalışabilir', () => {
+test('six tools have schemas and support parallel execution without approval', () => {
   for (const t of TOOLS) {
     assert.equal(typeof t.name, 'string');
     assert.ok(t.name.length > 0);
@@ -40,7 +40,7 @@ test('araç şekli: altı araç tanımlı, onaysız ve paralel çalışabilir', 
   );
 });
 
-test('şemalar: geçerli JSON Schema ve JSON-aşılabilir', () => {
+test('schemas are valid and JSON-serializable', () => {
   for (const t of TOOLS) {
     assert.equal(t.parameters.type, 'object');
     assert.equal(typeof t.parameters.properties, 'object');
@@ -65,7 +65,7 @@ test('şemalar: geçerli JSON Schema ve JSON-aşılabilir', () => {
   assert.equal(lit_data_code.parameters.properties.doi.type, 'string');
 });
 
-test('ToolRegistry entegrasyonu: şemalar listeleniyor', async () => {
+test('ToolRegistry exposes tool schemas', async () => {
   const registry = await makeRegistry();
   const names = registry.schemas().map((s) => s.name);
   for (const t of TOOLS) assert.ok(names.includes(t.name), `${t.name} kayıtlı olmalı`);
@@ -73,7 +73,7 @@ test('ToolRegistry entegrasyonu: şemalar listeleniyor', async () => {
   assert.ok(list.every((l) => l.needsApproval === false));
 });
 
-test('doğrulama yolu: eksik argüman throw etmez, returns a string starting with Error', async () => {
+test('missing arguments return an error string without throwing', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_verify', {});
   assert.equal(typeof r1.ok, 'boolean');
@@ -107,7 +107,7 @@ test('doğrulama yolu: eksik argüman throw etmez, returns a string starting wit
   assert.ok(r6.output.startsWith('Error'), `unexpected output: ${r6.output}`);
 });
 
-test('geçersiz değerler: throw değil, nazik İngilizce hata metni (ok:true)', async () => {
+test('invalid values return a readable English error instead of throwing (ok:true)', async () => {
   const registry = await makeRegistry();
   const r1 = await registry.invoke('lit_fulltext', { pmcid: 'not-a-pmcid' });
   assert.equal(r1.ok, true, 'geçersiz PMCID throw etmemeli');
@@ -140,10 +140,10 @@ function runToolInChild(driverFile, name, args, env) {
   });
 }
 
-test('Python başlatılamadığında ağ hatası değil, dürüst ayrılmış mesaj döner (simüle)', async () => {
-  // Var olan ama çalıştırılamayan bir "yorumlayıcı": resolvePython onu döndürür
-  // (absolute + existsSync yeterli) ama spawn başarısız olur -> 'Failed to start
-  // Python process' sınıfı -> ağ metni yerine Python-start mesajı beklenir.
+test('Python startup failures are distinguished from network failures (simulated)', async () => {
+  // An existing but non-executable interpreter is returned by resolvePython
+  // (absolute path and existsSync suffice), but spawn fails with a Python
+  // startup error rather than a network error.
   const fake = path.join(os.tmpdir(), `sci-fake-python-${process.pid}.txt`);
   await fs.writeFile(fake, 'this is not a Python interpreter');
   try {
@@ -166,10 +166,10 @@ test('Python başlatılamadığında ağ hatası değil, dürüst ayrılmış me
   }
 });
 
-test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython null, simüle)', () => {
-  // PATH ve Python kurulum dizinleri strip'lenmiş ortam: SCI_AGENT_PYTHON yok,
-  // LOCALAPPDATA/ProgramFiles taraması yok, 'python'/'python3' bare adları
-  // başarısız -> runBridge'in 'Python interpreter not found' yolu.
+test('missing interpreter returns a dedicated message (simulated)', () => {
+  // Strip PATH and Python installation directories and omit SCI_AGENT_PYTHON.
+  // No LOCALAPPDATA/ProgramFiles scan; bare python/python3 commands
+  // fail and trigger the missing-interpreter branch.
   const out = runToolInChild('sci-lit.js', 'lit_search', { query: 'CRISPR off-target effects' }, {
     PATH: '',
     Path: '',
@@ -191,11 +191,11 @@ test('Yorumlayıcı hiç bulunamazsa da ayrılmış mesaj döner (resolvePython 
   );
 });
 
-test('Süreç başlayıp sonra başarısız olursa ağ metni korunur (sınıf ayrımı sınırı)', () => {
-  // Çalışan ama Python sürücüsünü anlamayan sahte yorumlayıcı (node.exe):
-  // süreç BAŞLAR, python bayraklarını anlamaz ve anlamsız çıkış yapar ->
-  // 'unexpected Python output' sınıfı -> ağ metni KORUNMALI (Python-start
-  // sınıfına kaymamalı; gerçek ağ hataları da bu sınıfta kalır).
+test('a failure after process startup preserves the network error classification', () => {
+  // A working executable that cannot interpret the Python driver (node.exe):
+  // the process starts but rejects Python flags and produces unusable output.
+  // Unexpected Python output must preserve network-error classification
+  // rather than being misclassified as a Python startup failure.
   const out = runToolInChild('sci-lit.js', 'lit_search', { query: 'CRISPR off-target effects' }, {
     ...process.env,
     SCI_AGENT_PYTHON: process.execPath,
@@ -213,7 +213,7 @@ test('Süreç başlayıp sonra başarısız olursa ağ metni korunur (sınıf ay
 
 // --- Live tests: only meaningful with the package + network; type-based asserts ---
 
-test('canlı arama: ağ sonucundan bağımsız olarak string döner ve süreç ayakta kalır', async (t) => {
+test('live search returns text without crashing regardless of network result', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_search', { query: 'CRISPR off-target effects', max_results: 2 });
   assert.equal(typeof r.ok, 'boolean');
@@ -227,7 +227,7 @@ test('canlı arama: ağ sonucundan bağımsız olarak string döner ve süreç a
   assert.ok(process.pid > 0);
 });
 
-test('canlı doğrulama (doi): retraksiyon özeti ya da nazik hata metni döner', async (t) => {
+test('live DOI verification returns retraction summary or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_verify', { doi: '10.1038/nature12373' });
   assert.equal(typeof r.ok, 'boolean');
@@ -240,7 +240,7 @@ test('canlı doğrulama (doi): retraksiyon özeti ya da nazik hata metni döner'
   assert.ok(process.pid > 0);
 });
 
-test('canlı doğrulama (title): başlıktan DOI adayı çıkarıp string döner', async (t) => {
+test('live title verification extracts a DOI candidate and returns text', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_verify', { title: 'Characterizing CRISPR off-target effects' });
   assert.equal(typeof r.ok, 'boolean');
@@ -253,7 +253,7 @@ test('canlı doğrulama (title): başlıktan DOI adayı çıkarıp string döner
   assert.ok(process.pid > 0);
 });
 
-test('canlı tam metin: özet + metin ya da nazik hata metni döner', async (t) => {
+test('live full text returns summary and text or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_fulltext', { pmcid: 'PMC4136957', max_chars: 3000 });
   assert.equal(typeof r.ok, 'boolean');
@@ -270,7 +270,7 @@ test('canlı tam metin: özet + metin ya da nazik hata metni döner', async (t) 
   assert.ok(process.pid > 0);
 });
 
-test('canlı atıf grafiği: düğüm listesi ya da nazik hata metni döner', async (t) => {
+test('live citation graph returns nodes or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_cite_graph', {
     seed_doi: '10.1038/nature12373',
@@ -292,7 +292,7 @@ test('canlı atıf grafiği: düğüm listesi ya da nazik hata metni döner', as
   assert.ok(process.pid > 0);
 });
 
-test('canlı veri/kod bağlantıları: link listesi ya da nazik hata metni döner', async (t) => {
+test('live data and code lookup returns links or readable error', async (t) => {
   const registry = await makeRegistry();
   const r = await registry.invoke('lit_data_code', { doi: '10.1038/nature12373' });
   assert.equal(typeof r.ok, 'boolean');

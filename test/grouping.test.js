@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { groupTools, toolGroup } from '@sci/core';
 
-test('toolGroup kategorileri doğru eşler', () => {
+test('toolGroup maps categories correctly', () => {
   assert.equal(toolGroup('task'), 'AI agents');
   assert.equal(toolGroup('lit_search'), 'Literature (evidence chain)');
   assert.equal(toolGroup('plan_audit'), 'Plan verification');
@@ -18,7 +18,7 @@ test('toolGroup kategorileri doğru eşler', () => {
   assert.equal(toolGroup('eq_route'), 'Scientific package bridges');
 });
 
-test('groupTools araçları gruplara ayırır', () => {
+test('groupTools groups tools', () => {
   const tools = [
     { name: 'read_file' },
     { name: 'task' },

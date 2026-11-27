@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process';
 import { resolvePython, findPythonScript } from './pybridge.js';
 
 /**
- * plan-auditor (pip: plan-auditor) köprü aracı:
- * AI ajanlarının planlarını deterministik doğrular — mühürlü planlar,
- * SHA-256 kanıt zinciri, STRIPS/PDDL erişilebilirlik, fail-closed tamamlanma kapısı.
- * Araç, kurulu Python yorumlayıcısını PATH'ten bağımsız bulur (pybridge) ve
- * plan-auditor konsol betiğini (Scripts/plan-auditor.exe) çalıştırır.
+ * Bridge to plan-auditor (pip: plan-auditor):
+ * Deterministic verification of agent plans: sealed plans,
+ * SHA-256 evidence chain, STRIPS/PDDL reachability, and a fail-closed completion gate.
+ * The bridge locates an installed Python interpreter independently of PATH (pybridge)
+ * and executes the plan-auditor console script.
  */
 
 const OUT_CAP = 50_000;
