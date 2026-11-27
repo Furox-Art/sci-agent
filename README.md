@@ -26,7 +26,7 @@ See [sci-agent on npm](https://www.npmjs.com/package/sci-agent). Runtime depende
 
 ## Releasing
 
-To publish a new version, update `package.json`, commit it, and create a GitHub release tagged `v<version>` (for example `v0.10.9`). The `publish-npm.yml` workflow verifies that the tag matches the package version, runs the test suite, builds the tarball and publishes it to npm with provenance via OIDC trusted publishing. No npm token is stored in the repository.
+To publish a new version, update `package.json`, commit it, and create a GitHub release tagged `v<version>` (for example `v0.10.9`). The `publish-npm.yml` workflow verifies that the tag matches the package version, runs the test suite, builds the tarball and publishes it to npm with provenance via OIDC trusted publishing. No npm token is stored in the repository. Only a published GitHub Release triggers publication; already-published versions are detected using registry metadata. CI tests the checked-out source and installs the locally built tarball for its package smoke test, never downloading Sci-Agent from the npm registry.
 
 ## Quick start
 

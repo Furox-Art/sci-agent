@@ -3,47 +3,103 @@ name: Publish to npm
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
+
+concurrency:
+  group: npm-publish-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      already_published: ${{ steps.version.outputs.already_published }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install npm 11.15+ for OIDC trusted publishing
-        run: npm install -g npm@11.15.0
-
-      - name: Verify release tag matches package version
-        if: github.event_name == 'release'
+      - name: Verify release tag and check registry metadata (no tarball download)
+        id: version
+        shell: bash
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "Release tag $TAG_VERSION does not match package.json version $PKG_VERSION" >&2
+          if [[ "$PKG_VERSION" != "$TAG_VERSION" || "$(node -p "require('./package.json').name")" != sci-agent ]]; then
+            echo "Release tag or package identity mismatch" >&2
             exit 1
           fi
+          if [[ ! "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid package version" >&2
+            exit 1
+          fi
+          STATUS=$(curl --silent --show-error --retry 2 --max-time 30 --output /dev/null --write-out '%{http_code}' "https://registry.npmjs.org/sci-agent/$PKG_VERSION")
+          case "$STATUS" in
+            200) echo "already_published=true" >> "$GITHUB_OUTPUT"; echo "Version already exists; no duplicate publish." ;;
+            404) echo "already_published=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "npm registry metadata check failed: HTTP $STATUS" >&2; exit 1 ;;
+          esac
 
-      - name: Install dependencies
-        run: npm ci
+  tests:
+    needs: version
+    if: needs.version.outputs.already_published == 'false'
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
 
-      # Tests are enforced by the dedicated test.yml workflow, which installs
-      # the Python scientific stack and Bubblewrap needed for zero skips.
+  publish:
+    needs: [version, tests]
+    if: needs.version.outputs.already_published == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - name: Build npm tarball
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies from checked-out source
+        run: npm ci --no-audit --no-fund
+
+      - name: Build npm tarball locally
         run: node scripts/build-packages.mjs
+
+      - name: Test local tarball without downloading Sci-Agent from npm
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TMP_DIR=$(mktemp -d)
+          trap 'rm -rf "$TMP_DIR"' EXIT
+          npm install --prefix "$TMP_DIR" --ignore-scripts --no-audit --no-fund "$PWD/dist-npm/sci-agent-$VERSION.tgz"
+          test "$("$TMP_DIR/node_modules/.bin/sci-agent" --version)" = "Sci-Agent v$VERSION"
+
+      - name: Install npm 11.15+ for OIDC trusted publishing
+        run: npm install -g npm@11.15.0
 
       - name: Publish to npm with provenance
         working-directory: dist-npm/package
-        run: npm publish --provenance --access public
+        env:
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          DIST_TAG=latest
+          if [[ "$IS_PRERELEASE" == true ]]; then DIST_TAG=next; fi
+          npm publish --provenance --access public --tag "$DIST_TAG"

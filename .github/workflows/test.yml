@@ -3,6 +3,7 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -12,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         node: ['22', '24']
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -24,7 +25,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install sandbox prerequisites
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap util-linux
+        run: bash scripts/ci-sandbox.sh
       - name: Install Python test dependencies
         run: python -m pip install -r requirements-test.txt && python -m pip check
       - run: npm ci --no-audit --no-fund
