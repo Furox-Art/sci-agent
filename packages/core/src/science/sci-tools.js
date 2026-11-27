@@ -1,6 +1,5 @@
-import { promises as fs } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { resolveSafe } from '../tools/fs-tools.js';
+import { readSafeText } from '../tools/fs-tools.js';
 import { sandboxEnabled, sandboxOutput } from '../sandbox/local.js';
 import { resolvePython } from './pybridge.js';
 
@@ -81,8 +80,7 @@ export const csv_stats = {
   },
   needsApproval: false,
   async execute({ path: p, columns }, { workspaceRoot }) {
-    const abs = resolveSafe(workspaceRoot, p);
-    const text = await fs.readFile(abs, 'utf8');
+    const text = await readSafeText(workspaceRoot,p);
     if (text.includes('\0')) throw new Error(`binary file cannot be read: ${p}`);
     const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
     if (lines.length < 2) throw new Error('CSV must contain at least a header + 1 row');

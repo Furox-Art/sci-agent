@@ -32,7 +32,7 @@ npm install
 
 ## ChatGPT aboneliğiyle giriş (isteğe bağlı, yerel CLI)
 
-Kendi ChatGPT hesabınızı SciAgent ile bağlayarak, hesabınız ve uygulama uygun olduğu takdirde ChatGPT planınızın izin verdiği AI isteklerini yapabilirsiniz. API anahtarınız gerekmez. Bu özellik OpenAI'nin [resmî Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) akışını kullanır. SciAgent özel depodur; kişisel yerel kullanımın dışındaki dağıtımların uygunluğu ve gerekli OpenAI onayı kullanıcı/geliştirici tarafından doğrulanmalıdır. [Kullanım şartları](https://openai.com/policies/sign-in-with-chatgpt-terms/). Bu entegrasyon OpenAI'nin onayladığı veya sponsor olduğu iddiasında değildir.
+Kendi ChatGPT hesabınızı SciAgent ile bağlayarak, hesabınız ve uygulama uygun olduğu takdirde ChatGPT planınızın izin verdiği AI isteklerini yapabilirsiniz. API anahtarınız gerekmez. Bu özellik OpenAI'nin [resmî Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) akışını kullanır. Açık kaynak ve kişisel yerel kullanım uygunluğu sağlayıcı şartlarına bağlıdır; ücretli veya uzaktan barındırılan dağıtımlar için gerekli erişim ve onay ayrıca doğrulanmalıdır. Gerçek abonelikle kabul testi tamamlanmadığından bu bağlantı deneysel kabul edilmelidir. [Kullanım şartları](https://openai.com/policies/sign-in-with-chatgpt-terms/). Bu entegrasyon OpenAI'nin onayladığı veya sponsor olduğu iddiasında değildir.
 
 ```bash
 npm ci
@@ -474,6 +474,10 @@ node --test "test/**/*.test.js"
 - [ ] Özel bilimsel model hookup'ı: model kullanıcı tarafından sağlanacak — sağlayıcı bağlama ve gerçek uç noktayla uçtan uca deneme
 - [ ] Daha fazla literatür köprüsü
 - [ ] CLI kurulumunu iyileştirme (mevcut kurulum betikleri: `scripts/setup.ps1` / `scripts/setup.sh`)
+
+## Güvenlik, gizlilik ve yayın durumu
+
+SciAgent yerel, deneysel bir araştırma aracıdır. Güvenlik sınırları ve hata bildirimi için [SECURITY.md](SECURITY.md), veri işleme ve saklama için [PRIVACY.md](PRIVACY.md), üçüncü taraf lisansları için [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) dosyalarına bakın. Yayın öncesi tamamlanması gereken gerçek hesap testleri ve dağıtım koşulları [yayın kontrol listesinde](docs/public-release-checklist.md) belirtilmiştir.
 
 ## Lisans
 

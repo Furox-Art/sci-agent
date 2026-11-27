@@ -1,5 +1,4 @@
-import { promises as fs } from 'node:fs';
-import { resolveSafe } from '../tools/fs-tools.js';
+import { readSafeText } from '../tools/fs-tools.js';
 
 /** Scientific data analysis tools: descriptive statistics + small matrix ops (Node built-ins only). */
 
@@ -44,8 +43,7 @@ async function readCsvColumns(workspaceRoot, p, columns) {
     throw new Error('columns required: give 1 or 2 column names');
   }
   if (columns.length > 2) throw new Error('at most 2 columns allowed');
-  const abs = resolveSafe(workspaceRoot, p);
-  const text = (await fs.readFile(abs, 'utf8')).replace(/^\uFEFF/, '');
+  const text = (await readSafeText(workspaceRoot,p)).replace(/^\uFEFF/, '');
   if (text.includes('\0')) throw new Error(`binary file cannot be read: ${p}`);
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
   if (lines.length < 2) throw new Error('CSV must contain at least a header + 1 row');

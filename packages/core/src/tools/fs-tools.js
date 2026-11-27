@@ -1,20 +1,53 @@
-import { promises as fs } from 'node:fs';
+import { promises as fs, realpathSync, lstatSync, constants } from 'node:fs';
 import path from 'node:path';
 
-/** Yolu çalışma alanı köküne göre çözer; alan dışına çıkışı engeller. */
+// Reject symbolic links, special files and hardlinked regular files along a
+// workspace path. This is a local path guard, not a race-proof OS sandbox.
 export function resolveSafe(root, p) {
-  const abs = path.resolve(root, String(p ?? '.'));
-  const rel = path.relative(root, abs);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`Access outside the workspace is blocked: ${p}`);
+  const requested=path.resolve(root);
+  const abs=path.resolve(requested,String(p??'.'));
+  const rel=path.relative(requested,abs);
+  if(rel==='..'||rel.startsWith('..'+path.sep)||path.isAbsolute(rel))throw new Error('Access outside the workspace is blocked');
+  const base=realpathSync(requested);
+  if(!lstatSync(base).isDirectory())throw new Error('Workspace must be a directory');
+  let current=base,missing=false;
+  for(const part of rel.split(path.sep).filter(Boolean)){
+    if(process.platform==='win32'&&(/[:. ]$/.test(part)||part.includes(':')||/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part)))throw new Error('Unsafe Windows path');
+    current=path.join(current,part);
+    if(missing)continue;
+    let st;
+    try{st=lstatSync(current);}catch(e){if(e.code==='ENOENT'){missing=true;continue;}throw e;}
+    if(st.isSymbolicLink()||(!st.isDirectory()&&!st.isFile())||(st.isFile()&&st.nlink!==1))throw new Error('Symbolic links, hard links and special files are blocked');
   }
-  return abs;
+  return current;
+}
+
+function assertRegular(st){
+  if(!st.isFile()||st.nlink!==1)throw new Error('Only regular non-hardlinked files are allowed');
+}
+const nofollow=(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0);
+async function openRegular(abs,flags=constants.O_RDONLY){
+  const fh=await fs.open(abs,flags|nofollow,0o600);
+  try{assertRegular(await fh.stat());return fh;}
+  catch(e){await fh.close();throw e;}
+}
+export async function readSafeText(root,p){
+  const abs=resolveSafe(root,p);
+  const fh=await openRegular(abs);
+  try{return await fh.readFile('utf8');}finally{await fh.close();}
+}
+async function writeRegular(root,p,text){
+  let abs=resolveSafe(root,p);
+  await fs.mkdir(path.dirname(abs),{recursive:true});
+  abs=resolveSafe(root,p);
+  const fh=await openRegular(abs,constants.O_WRONLY|constants.O_CREAT);
+  try{await fh.truncate(0);await fh.writeFile(text,'utf8');}finally{await fh.close();}
 }
 
 const READ_LIMIT_DEFAULT = 200_000;
 
 async function isBinary(abs) {
-  const fh = await fs.open(abs, 'r');
+  const fh = await openRegular(abs);
   try {
     const buf = Buffer.alloc(1024);
     const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
@@ -38,11 +71,11 @@ export const read_file = {
   needsApproval: false,
   async execute({ path: p, maxBytes = READ_LIMIT_DEFAULT }, { workspaceRoot }) {
     const abs = resolveSafe(workspaceRoot, p);
-    const st = await fs.stat(abs);
+    const st = await fs.lstat(abs);
     if (st.isDirectory()) throw new Error(`This is a directory: ${p}`);
     if (await isBinary(abs)) return `(binary file, content not shown: ${p})`;
-    const limit = Math.min(Number(maxBytes) || READ_LIMIT_DEFAULT, 1_000_000);
-    const fh = await fs.open(abs, 'r');
+    const limit = Math.max(1,Math.min(Math.floor(Number(maxBytes)||READ_LIMIT_DEFAULT),1_000_000));
+    const fh = await openRegular(abs);
     try {
       const buf = Buffer.alloc(limit);
       const { bytesRead } = await fh.read(buf, 0, limit, 0);
@@ -68,9 +101,7 @@ export const write_file = {
   },
   needsApproval: true,
   async execute({ path: p, content = '' }, { workspaceRoot }) {
-    const abs = resolveSafe(workspaceRoot, p);
-    await fs.mkdir(path.dirname(abs), { recursive: true });
-    await fs.writeFile(abs, content, 'utf8');
+    await writeRegular(workspaceRoot,p,content);
     return `${p} written (${Buffer.byteLength(content, 'utf8')} bytes)`;
   },
 };
@@ -94,14 +125,14 @@ export const edit_file = {
     if (!oldText) throw new Error('oldText cannot be empty');
     const abs = resolveSafe(workspaceRoot, p);
     if (await isBinary(abs)) throw new Error(`binary file cannot be edited: ${p}`);
-    const src = await fs.readFile(abs, 'utf8');
+    const src = await readSafeText(workspaceRoot,p);
     const count = src.split(oldText).length - 1;
     if (count === 0) throw new Error('old text not found in file');
     if (count > 1 && !replaceAll) {
       throw new Error(`old text appears ${count} times; provide a more specific (longer) snippet or use replaceAll`);
     }
     const out = replaceAll ? src.replaceAll(oldText, newText) : src.replace(oldText, newText);
-    await fs.writeFile(abs, out, 'utf8');
+    await writeRegular(workspaceRoot,p,out);
     return `${p} updated (${replaceAll ? count : 1} changes)`;
   },
 };
@@ -122,12 +153,13 @@ export const list_dir = {
     if (!entries.length) return '(empty directory)';
     const lines = [];
     for (const e of entries.slice(0, 500)) {
+      if(e.isSymbolicLink()){lines.push(e.name+' (link; not followed)');continue;}
       if (e.isDirectory()) {
         lines.push(`${e.name}/`);
       } else {
         let size = '';
         try {
-          size = ` (${(await fs.stat(path.join(abs, e.name))).size} bytes)`;
+          size = ` (${(await fs.lstat(path.join(abs, e.name))).size} bytes)`;
         } catch {}
         lines.push(`${e.name}${size}`);
       }
@@ -170,7 +202,7 @@ export const search_files = {
       }
       for (const e of entries) {
         if (hits.length >= 50) return;
-        if (SKIP.has(e.name)) continue;
+        if (SKIP.has(e.name)||e.isSymbolicLink()||(!e.isDirectory()&&!e.isFile())) continue;
         const full = path.join(dir, e.name);
         if (e.isDirectory()) {
           await walk(full, depth + 1);
@@ -183,9 +215,10 @@ export const search_files = {
         }
         if (!content) continue;
         try {
-          const st = await fs.stat(full);
+          const checked=resolveSafe(workspaceRoot,path.relative(realpathSync(workspaceRoot),full));
+          const st = await fs.lstat(checked);
           if (st.size > 1_000_000) continue;
-          const text = await fs.readFile(full, 'utf8');
+          const text = await readSafeText(workspaceRoot,path.relative(realpathSync(workspaceRoot),full));
           const lines = text.split(/\r?\n/);
           let shown = 0;
           for (let i = 0; i < lines.length && shown < 5 && hits.length < 50; i++) {

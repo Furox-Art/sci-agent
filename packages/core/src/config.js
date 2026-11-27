@@ -30,6 +30,7 @@ export const DEFAULT_CONFIG = {
 
 function deepMerge(base, over) {
   for (const [k, v] of Object.entries(over ?? {})) {
+    if (['__proto__','constructor','prototype'].includes(k)) throw new Error('Unsafe configuration key');
     // Diziler birleştirilmez, birebir değiştirilir (ör. beceri kaynak listesi)
     if (v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])) {
       deepMerge(base[k], v);
