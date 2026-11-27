@@ -483,14 +483,20 @@ Skills use the `github:owner/repository[/subdirectory]` format and a `SKILL.md` 
 
 ## Verification and roadmap
 
+Full regression tests require Linux with working Bubblewrap and Python 3.12. Install Bubblewrap and util-linux using the system package manager. Use a dedicated Python environment for test dependencies:
+
 ```bash
+python3.12 -m venv .venv-test
+.venv-test/bin/python -m pip install -r requirements-test.txt
+.venv-test/bin/python -m pip check
+export SCI_AGENT_PYTHON="$PWD/.venv-test/bin/python"
 npm ci
 npm test
 npm audit --omit=dev
 node -e "import('./packages/core/src/index.js').then(m => console.log(m.createRegistry({cfg:m.DEFAULT_CONFIG}).tools.length))"
 ```
 
-The local regression suite recorded 235 tests: 215 passed, zero failed and 20 skipped because optional dependencies were unavailable. These are software checks, not comparative scientific-performance benchmarks. GitHub-hosted CI passed on Node.js 22 and 24 with Python 3.12 after public release, including the production-dependency security audit.
+The strict test command and CI reject any skipped, failed, cancelled or TODO test. Missing dependencies or unavailable isolation cannot produce a passing test run. These are software checks, not comparative scientific-performance benchmarks.
 
 Planned work includes live model acceptance tests, comprehensive research orchestration, general Python experiment replay, broader sandbox support and comparative agent benchmarks.
 

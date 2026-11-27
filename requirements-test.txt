@@ -1,0 +1,10 @@
+# Python 3.12 integration-test dependencies, separate from npm runtime.
+numpy==2.5.5
+scipy==1.18.1
+pandas==3.1.1
+axiomize==1.15.0
+scientific-computing-system-2.0==5.5.1
+plan-auditor==2.6.5
+literature-evidence-mcp==0.5.1
+rank-bm25==0.2.2
+pypdf==7.2.0
