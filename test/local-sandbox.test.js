@@ -30,7 +30,7 @@ test('sandbox is disabled by default; only unisolated arbitrary CLI bridges are 
  cfg.agent.sandbox.enabled=true;
  const isolated=createRegistry({cfg});
  for(const n of ['axiomize_cli','plan_audit','polyguard_cli','eq_route'])assert.equal(isolated.get(n),null);
- for(const n of ['run_command','python_eval','furox_compute','stats_calc','lit_search'])assert.ok(isolated.get(n));
+ for(const n of ['run_command','python_eval','scientific_compute','stats_calc','lit_search'])assert.ok(isolated.get(n));
 });
 test('sandbox validates code and refuses a home-directory mount and escaping working directory',async t=>{
  const {root,parent}=await fixture(t);if(!await actual(t,root))return;
@@ -86,7 +86,7 @@ test('registry applies sandbox to approved shell and Python, and reports failure
  assert.equal(shell.ok,true);assert.match(shell.output,/sandbox: bubblewrap/);assert.match(shell.output,/\/workspace/);
  const py=await r.invoke('python_eval',{code:'print(sum(range(5)))'});
  assert.equal(py.ok,true);assert.match(py.output,/10/);
- const f=await r.invoke('furox_compute',{code:'print("isolated furox")'});
+ const f=await r.invoke('scientific_compute',{code:'print("isolated scientific computation")'});
  assert.equal(f.ok,true);assert.match(f.output,/sandbox: bubblewrap/);
  const fail=await r.invoke('run_command',{command:'exit 9'});
  assert.equal(fail.ok,false);

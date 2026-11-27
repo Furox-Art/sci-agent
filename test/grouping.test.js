@@ -6,7 +6,7 @@ test('toolGroup kategorileri doğru eşler', () => {
   assert.equal(toolGroup('task'), 'AI agents');
   assert.equal(toolGroup('lit_search'), 'Literature (evidence chain)');
   assert.equal(toolGroup('plan_audit'), 'Plan verification');
-  assert.equal(toolGroup('furox_compute'), 'Scientific package bridges');
+  assert.equal(toolGroup('scientific_compute'), 'Scientific package bridges');
   assert.equal(toolGroup('molar_mass'), 'Scientific computation');
   assert.equal(toolGroup('read_file'), 'File & code');
   assert.equal(toolGroup('cds1_cli'), 'Scientific package bridges');

@@ -250,7 +250,7 @@ export async function startRepl(argv = [], { chatgpt, connection = chatgpt } = {
           console.log(dim(`eq-layer: steering applied (${steer.source})`));
         }
       } catch {}
-      if(sandboxEnabled(cfg))systemExtra=[systemExtra,'Local process sandbox is enabled for run_command, python_eval and furox_compute. Project is mounted read-only at /workspace; use /tmp for temporary output. Network is isolated. Use approved file tools for persistent changes. External CLI bridges are disabled. Other trusted tools and the model provider run outside this subprocess sandbox.'].filter(Boolean).join('\n');
+      if(sandboxEnabled(cfg))systemExtra=[systemExtra,'Local process sandbox is enabled for run_command, python_eval and scientific_compute. Project is mounted read-only at /workspace; use /tmp for temporary output. Network is isolated. Use approved file tools for persistent changes. External CLI bridges are disabled. Other trusted tools and the model provider run outside this subprocess sandbox.'].filter(Boolean).join('\n');
       const provider = providerForTurn();
       const result = await runAgentLoop({ provider, registry, messages, maxSteps: cfg.agent.maxSteps, onEvent: printEvent, systemExtra });
       latestResearch = result.research;

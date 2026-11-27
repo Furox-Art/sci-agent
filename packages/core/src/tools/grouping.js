@@ -11,7 +11,7 @@ const SCIENTIFIC = new Set([
   'molar_mass',
 ]);
 const BRIDGES = new Set([
-  'furox_compute',
+  'scientific_compute',
   'axiomize_cli',
   'cds2_cli',
   'cds1_cli',

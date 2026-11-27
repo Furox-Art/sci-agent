@@ -25,10 +25,10 @@ function makeRegistry(root) {
   });
 }
 
-test('furox_compute yığını bildirir ve hesap yapar', { skip: hasPython ? false : 'Python yok' }, async () => {
+test('scientific_compute yığını bildirir ve hesap yapar', { skip: hasPython ? false : 'Python yok' }, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sciagent-'));
   const r = makeRegistry(root);
-  const s = await r.invoke('furox_compute', { code: 'print(round(6*7, 3)); print(__import__("numpy").__version__.split(".")[0])' });
+  const s = await r.invoke('scientific_compute', { code: 'print(round(6*7, 3)); print(__import__("numpy").__version__.split(".")[0])' });
   assert.ok(s.ok, s.output);
   assert.match(s.output, /LOADED PACKAGES: /);
   assert.match(s.output, /42/);

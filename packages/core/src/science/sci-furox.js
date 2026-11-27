@@ -60,8 +60,8 @@ const PRELUDE = [
   'print("LOADED PACKAGES:", ",".join(loaded) if loaded else "(none)")',
 ].join('\n');
 
-export const furox_compute = {
-  name: 'furox_compute',
+export const scientific_compute = {
+  name: 'scientific_compute',
   description:
     'Runs code with the installed scientific Python stack (numpy, scipy, pandas, cds2, axiomize — installed packages are auto-imported); the preferred tool for numerical scientific computations. Requires approval.',
   parameters: {
@@ -202,7 +202,7 @@ export const eq_route = {
 };
 
 export const sciFuroxTools = [
-  furox_compute,
+  scientific_compute,
   axiomize_cli,
   cds2_cli,
   cds1_cli,
